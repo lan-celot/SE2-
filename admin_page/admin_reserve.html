@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+  	<meta charset="utf-8">
+  	<meta name="viewport" content="initial-scale=1, width=device-width">
+  	
+	<link rel="stylesheet"  href="styles/reserve.css" />
+	<link rel="stylesheet"  href="styles/global.css" />
+  	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public Sans:wght@400;500;600;700&display=swap" />
+  	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" />
+  	
+  	
+  	
+</head>
+<body>
+  	
+  	<div class="admin-reservation-management-">
+    		<div class="search">
+      			<div class="action">
+        				<div class="notification">
+          					<img class="bell-icon" alt="" src="bell.svg">
+          					
+          					<div class="dot">
+            						<div class="background">
+            						</div>
+            						<div class="div">4</div>
+          					</div>
+        				</div>
+        				<div class="animoji" id="animojiContainer">
+          					<div class="bg-color">
+          					</div>
+          					<img class="image-14-icon" alt="" src="image 14.png">
+          					
+        				</div>
+      			</div>
+      			<div class="search-by-reservation-id">
+        				<div class="text">Search by...</div>
+        				<img class="mingcutesearch-line-icon" alt="" src="mingcute:search-line.svg">
+        				
+      			</div>
+      			<div class="nav-buttons">
+        				<div class="nav-item">
+          					<div class="text1">All</div>
+        				</div>
+        				<div class="nav-item1" id="navItemContainer1">
+          					<div class="text2">Confirmed</div>
+        				</div>
+        				<div class="nav-item2" id="navItemContainer2">
+          					<div class="text2">Repairing</div>
+        				</div>
+        				<div class="nav-item3" id="navItemContainer3">
+          					<div class="text2">Completed</div>
+        				</div>
+        				<div class="nav-item4" id="navItemContainer4">
+          					<div class="text2">Cancelled</div>
+        				</div>
+      			</div>
+      			<div class="records">
+        				<div class="table-header-row-parent">
+          					<div class="table-header-row">
+            						<div class="reservation-id">
+              							<b class="reservation-date">RESERVATION id</b>
+              							<img class="reservation-id-child" alt="" src="Vector 14.svg">
+              							
+              							<img class="reservation-id-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="created">
+              							<b class="reservation-date">Reservation Date</b>
+              							<img class="created-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="customer">
+              							<b class="reservation-date">customer NAME</b>
+              							<img class="customer-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="customer-id">
+              							<b class="reservation-date">CUSTOMER ID</b>
+              							<img class="customer-id-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="customer">
+              							<b class="reservation-date">CAR MODEL</b>
+              							<img class="car-model-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="status">
+              							<b class="reservation-date">Status</b>
+              							<img class="status-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="action1">
+              							<b class="reservation-date">ACTION</b>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00100">#r00100</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">11-12-24 3:00 pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">Andrea salazar</div>
+            						</div>
+            						<div class="table-cell3">
+              							<div class="pm">#c00100</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records1">
+            						<div class="table-cell5">
+              							<div class="pm">#r00099</div>
+            						</div>
+            						<div class="table-cell6">
+              							<div class="pm">11-12-24 2:00 pm</div>
+            						</div>
+            						<div class="table-cell7">
+              							<div class="pm">blaine ramos</div>
+            						</div>
+            						<div class="table-cell8">
+              							<div class="pm">#c00099</div>
+            						</div>
+            						<div class="table-cell9">
+              							<div class="pm">ford raptor</div>
+            						</div>
+            						<div class="table-cell10">
+              							<div class="badge">
+                								<div class="confirmed">Confirmed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon1" alt="" src="Completion Date.svg" id="completionDate">
+            						
+          					</div>
+          					<div class="actual-records2">
+            						<div class="table-cell11">
+              							<div class="r00100">#r00098</div>
+            						</div>
+            						<div class="table-cell12">
+              							<div class="pm">11-12-24 1:00 pm</div>
+            						</div>
+            						<div class="table-cell13">
+              							<div class="pm">leo macaya</div>
+            						</div>
+            						<div class="table-cell14">
+              							<div class="pm">#c00098</div>
+            						</div>
+            						<div class="table-cell15">
+              							<div class="pm">toyota vios</div>
+            						</div>
+            						<div class="table-cell16">
+              							<div class="badge">
+                								<div class="confirmed">Confirmed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon2" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records3">
+            						<div class="table-cell17">
+              							<div class="r00100">#r00097</div>
+            						</div>
+            						<div class="table-cell18">
+              							<div class="pm">11-12-24 12:00 pm</div>
+            						</div>
+            						<div class="table-cell19">
+              							<div class="pm">russ de guzman</div>
+            						</div>
+            						<div class="table-cell20">
+              							<div class="pm">#c00097</div>
+            						</div>
+            						<div class="table-cell21">
+              							<div class="pm">ford ranger</div>
+            						</div>
+            						<div class="table-cell22">
+              							<div class="badge">
+                								<div class="confirmed">Confirmed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon3" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records4">
+            						<div class="table-cell11">
+              							<div class="r00100">#r00096</div>
+            						</div>
+            						<div class="table-cell12">
+              							<div class="pm">11-12-24 11:00 am</div>
+            						</div>
+            						<div class="table-cell13">
+              							<div class="pm">averill buenvenida</div>
+            						</div>
+            						<div class="table-cell14">
+              							<div class="pm">#c00096</div>
+            						</div>
+            						<div class="table-cell15">
+              							<div class="pm">honda crv</div>
+            						</div>
+            						<div class="table-cell16">
+              							<div class="badge">
+                								<div class="confirmed">Confirmed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon2" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records5">
+            						<div class="table-cell29">
+              							<div class="r00100">#r00095</div>
+            						</div>
+            						<div class="table-cell30">
+              							<div class="pm">11-12-24 10:00 am</div>
+            						</div>
+            						<div class="table-cell31">
+              							<div class="pm">liam vitug</div>
+            						</div>
+            						<div class="table-cell32">
+              							<div class="pm">#c00006</div>
+            						</div>
+            						<div class="table-cell33">
+              							<div class="pm">porsche gt3rs</div>
+            						</div>
+            						<div class="table-cell34">
+              							<div class="badge">
+                								<div class="confirmed">Confirmed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon5" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records6">
+            						<div class="table-cell29">
+              							<div class="r00100">#r00094</div>
+            						</div>
+            						<div class="table-cell30">
+              							<div class="pm">11-08-24 12:00 pm</div>
+            						</div>
+            						<div class="table-cell31">
+              							<div class="pm">ian de jesus</div>
+            						</div>
+            						<div class="table-cell32">
+              							<div class="pm">#c00007</div>
+            						</div>
+            						<div class="table-cell33">
+              							<div class="pm">mitsubishi mirage</div>
+            						</div>
+            						<div class="table-cell40">
+              							<div class="badge5">
+                								<div class="confirmed">Repairing</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon5" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records7">
+            						<div class="table-cell11">
+              							<div class="r00100">#r00093</div>
+            						</div>
+            						<div class="table-cell12">
+              							<div class="pm">11-08-24 11:00 am</div>
+            						</div>
+            						<div class="table-cell13">
+              							<div class="pm">han bascao</div>
+            						</div>
+            						<div class="table-cell14">
+              							<div class="pm">#c00008</div>
+            						</div>
+            						<div class="table-cell15">
+              							<div class="pm">suzuki jimny</div>
+            						</div>
+            						<div class="table-cell46">
+              							<div class="badge5">
+                								<div class="confirmed">Repairing</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon2" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records8">
+            						<div class="table-cell29">
+              							<div class="r00100">#r00092</div>
+            						</div>
+            						<div class="table-cell30">
+              							<div class="pm">11-07-24 12:00 pm</div>
+            						</div>
+            						<div class="table-cell31">
+              							<div class="pm">joanne joaquin</div>
+            						</div>
+            						<div class="table-cell32">
+              							<div class="pm">#c00009</div>
+            						</div>
+            						<div class="table-cell33">
+              							<div class="pm">toyota hilux</div>
+            						</div>
+            						<div class="table-cell52">
+              							<div class="badge7">
+                								<div class="confirmed">Completed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon5" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="actual-records9">
+            						<div class="table-cell11">
+              							<div class="r00100">#r00091</div>
+            						</div>
+            						<div class="table-cell12">
+              							<div class="pm">11-05-24 3:00 pm</div>
+            						</div>
+            						<div class="table-cell13">
+              							<div class="pm">reinier dris</div>
+            						</div>
+            						<div class="table-cell14">
+              							<div class="pm">#c00011</div>
+            						</div>
+            						<div class="table-cell15">
+              							<div class="pm">mitsubishi xpander</div>
+            						</div>
+            						<div class="table-cell58">
+              							<div class="badge7">
+                								<div class="confirmed">Completed</div>
+                								<img class="material-symbolskeyboard-arro-icon" alt="" src="material-symbols:keyboard-arrow-right.png">
+                								
+              							</div>
+            						</div>
+            						<img class="completion-date-icon2" alt="" src="Completion Date.svg">
+            						
+          					</div>
+          					<div class="statussss">
+            						<div class="listbox-title">
+            						</div>
+            						<div class="listbox-main">
+              							<div class="listboxbg">
+              							</div>
+              							<div class="chevron-wrapper">
+                								<img class="chevron-icon" alt="" src="Chevron.svg">
+                								
+              							</div>
+              							<div class="placeholder-text">
+                								<div class="gender">Status</div>
+              							</div>
+            						</div>
+            						<div class="clip-list">
+            						</div>
+          					</div>
+        				</div>
+      			</div>
+      			<b class="reservation-management">Reservation Management</b>
+      			<div class="pagination">
+        				<div class="pagination-text">
+          					<img class="chevron-left-icon" alt="" src="chevron-left.svg">
+          					
+        				</div>
+        				<div class="pagination-text1">
+          					<div class="text6">1</div>
+        				</div>
+        				<div class="pagination-text2" id="paginationTextContainer2">
+          					<div class="text6">2</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text6">3</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text6">4</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text6">5</div>
+        				</div>
+        				<div class="pagination-text2" id="paginationTextContainer6">
+          					<img class="chevron-left-icon" alt="" src="chevron-right.svg">
+          					
+        				</div>
+      			</div>
+    		</div>
+    		<div class="menu"><!--Added button functionality + icons, links are usable on index.html only -->
+      			<div class="section">
+        				<div class="main-menu">MAIN MENU</div>
+      			</div>
+      			<div class="apps-pages">
+        				<div class="list-parent">
+          					<div class="list" id="listContainer">
+            						<img class="smart-home-icon" alt="" src="../public/images/smart-home.svg">
+            						
+            						<div class="dashboard">Dashboard</div>
+            						<div class="badge9">
+            						</div>
+            						<div class="chevron-down">
+            						</div>
+          					</div>
+          					<div class="list1">
+            						<div class="reservations">Reservations</div>
+            						<img class="vuesaxlinearcar-icon" alt="" src="../public/images/car.svg">
+            						
+          					</div>
+          					<div class="list" id="listContainer2">
+            						<div class="transactions">Transactions</div>
+            						<img class="vuesaxlinearreceipt-text-icon" alt="" src="../public/images/receipt-text.svg">
+            						
+          					</div>
+          					<div class="list" id="listContainer3">
+            						<div class="transactions">Sales</div>
+            						<img class="vuesaxlinearreceipt-text-icon" alt="" src="../public/images/dollar-square.svg">
+            						
+          					</div>
+        				</div>
+        				<div class="section1">
+          					<div class="user">USER</div>
+        				</div>
+        				<div class="components">
+          					<div class="list" id="listContainer">
+            						<img class="smart-home-icon" alt="" src="../public/images/user-circle.svg">
+            						
+            						<div class="dashboard">Employees</div>
+            						<div class="badge9">
+            						</div>
+            						<div class="chevron-down">
+            						</div>
+          					</div>
+          					<div class="list" id="listContainer1">
+            						<img class="smart-home-icon" alt="" src="../public/images/users.svg">
+            						
+            						<div class="dashboard">Customers</div>
+            						<div class="chevron-down">
+            						</div>
+          					</div>
+        				</div>
+      			</div>
+      			<div class="list6" id="listContainer">
+        				<b class="logout">Logout</b>
+        				<div class="badge9">
+        				</div>
+        				<div class="chevron-down">
+        				</div>
+        				<img class="vuesaxlinearlogout-icon" alt="" src="../public/images/logout.svg">
+        				
+      			</div>
+      			<div class="logo-parent" id="groupContainer">
+        				<img class="logo-icon" alt="" src="../public/images/logo.svg"><br>
+        				
+        				<div class="mar-nor">MAR & NOR AUTO REPAIR</div>
+      			</div>
+    		</div>
+    		<div class="pagination1">
+      			<div class="pagination-text7">
+        				<div class="text11">1</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">1</div>
+      			</div>
+      			<div class="pagination-text9">
+        				<div class="text11">-</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">1</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">2</div>
+      			</div>
+      			<div class="pagination-text9">
+        				<div class="text11">-</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">2</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">0</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">2</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text11">4</div>
+      			</div>
+      			<div class="pagination-text17">
+        				<div class="text21">TUE</div>
+      			</div>
+    		</div>
+  	</div>
+  	
+  	
+  	
+  	
+  	<script>
+    		var animojiContainer = document.getElementById("animojiContainer");
+    		if(animojiContainer) {
+      			animojiContainer.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var navItemContainer1 = document.getElementById("navItemContainer1");
+    		if(navItemContainer1) {
+      			navItemContainer1.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var navItemContainer2 = document.getElementById("navItemContainer2");
+    		if(navItemContainer2) {
+      			navItemContainer2.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var navItemContainer3 = document.getElementById("navItemContainer3");
+    		if(navItemContainer3) {
+      			navItemContainer3.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var navItemContainer4 = document.getElementById("navItemContainer4");
+    		if(navItemContainer4) {
+      			navItemContainer4.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var completionDate = document.getElementById("completionDate");
+    		if(completionDate) {
+      			completionDate.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var paginationTextContainer2 = document.getElementById("paginationTextContainer2");
+    		if(paginationTextContainer2) {
+      			paginationTextContainer2.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var paginationTextContainer6 = document.getElementById("paginationTextContainer6");
+    		if(paginationTextContainer6) {
+      			paginationTextContainer6.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var listContainer = document.getElementById("listContainer");
+    		if(listContainer) {
+      			listContainer.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var listContainer2 = document.getElementById("listContainer2");
+    		if(listContainer2) {
+      			listContainer2.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var listContainer3 = document.getElementById("listContainer3");
+    		if(listContainer3) {
+      			listContainer3.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var listContainer1 = document.getElementById("listContainer1");
+    		if(listContainer1) {
+      			listContainer1.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var groupContainer = document.getElementById("groupContainer");
+    		if(groupContainer) {
+      			groupContainer.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}</script></body>
+</html>

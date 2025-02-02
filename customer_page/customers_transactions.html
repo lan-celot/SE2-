@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+  	<meta charset="utf-8">
+  	<meta name="viewport" content="initial-scale=1, width=device-width">
+  	
+  	<link rel="stylesheet"  href="styles/transactions.css" />
+  	<link rel="stylesheet"  href="styles/global.css" />
+
+  	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public Sans:wght@400;500;600;700&display=swap" />
+  	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" />
+  	
+  	
+  	
+</head>
+<body>
+  	
+  	<div class="customer-transactions">
+    		<div class="menu"><!--Added button functionality + icons, links are usable on index.html only -->
+      			<div class="section">
+        				<div class="main-menu">MAIN MENU</div>
+      			</div>
+      			<div class="apps-pages">
+        				<div class="list-parent">
+          					<div class="list" id="listContainer">
+            						<img class="smart-home-icon" alt="" src="../public/images/smart-home.svg">
+            						
+            						<div class="dashboard">Dashboard</div>
+            						<div class="badge">
+            						</div>
+            						<div class="chevron-down">
+            						</div>
+          					</div>
+          					<div class="list" id="listContainer1">
+            						<div class="reservations">Reservations</div>
+            						<img class="vuesaxlinearcar-icon" alt="" src="../public/images/car.svg">
+            						
+          					</div>
+          					<div class="list2">
+            						<div class="transactions">Transactions</div>
+            						<img class="vuesaxlinearreceipt-text-icon" alt="" src="../public/images/receipt-text.svg">
+            						
+          					</div>
+          					<div class="list" id="listContainer3">
+            						<div class="book">Book</div>
+            						<div class="chevron-down">
+            						</div>
+            						<img class="vuesaxlinearcalendar-add-icon" alt="" src="../public/images/calendar-add.svg">
+            						
+          					</div>
+        				</div>
+        				<div class="section1">
+          					<div class="user">USER</div>
+        				</div>
+        				<div class="components">
+          					<div class="list4" id="listContainer">
+            						<img class="smart-home-icon" alt="" src="../public/images/user-circle.svg">
+            						
+            						<div class="dashboard">Profile</div>
+            						<div class="badge">
+            						</div>
+            						<div class="chevron-down">
+            						</div>
+          					</div>
+        				</div>
+      			</div>
+      			<div class="list5" id="listContainer">
+        				<b class="logout">Logout</b>
+        				<div class="badge">
+        				</div>
+        				<div class="chevron-down">
+        				</div>
+        				<img class="vuesaxlinearlogout-icon" alt="" src="../public/images/logout.svg">
+        				
+      			</div>
+      			<div class="logo-parent" id="groupContainer">
+        				<img class="logo-icon" alt="" src="../public/images/logo.svg"><br>
+        				
+        				<div class="mar-nor">MAR & NOR AUTO REPAIR</div>
+      			</div>
+    		</div>
+    		<div class="frame">
+      			<div class="action">
+        				<div class="notification">
+          					<img class="bell-icon" alt="" src="bell.svg">
+          					
+          					<div class="dot">
+            						<div class="background">
+            						</div>
+            						<div class="div">4</div>
+          					</div>
+        				</div>
+        				<div class="animoji">
+          					<div class="bg-color">
+          					</div>
+          					<img class="image-99-icon" alt="" src="image 99.png">
+          					
+        				</div>
+      			</div>
+      			<div class="nav-buttons">
+      			</div>
+      			<b class="transactions1">Transactions</b>
+      			<div class="frame-child">
+      			</div>
+      			<div class="search-by-reservation-id">
+        				<div class="text">Search by...</div>
+        				<img class="mingcutesearch-line-icon" alt="" src="mingcute:search-line.svg">
+        				
+      			</div>
+      			<div class="pagination">
+        				<div class="pagination-text">
+          					<img class="chevron-left-icon" alt="" src="chevron-left.svg">
+          					
+        				</div>
+        				<div class="pagination-text1">
+          					<div class="text1">1</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text1">2</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text1">3</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text1">4</div>
+        				</div>
+        				<div class="pagination-text">
+          					<div class="text1">5</div>
+        				</div>
+        				<div class="pagination-text">
+          					<img class="chevron-left-icon" alt="" src="chevron-right.svg">
+          					
+        				</div>
+      			</div>
+      			<div class="records">
+        				<div class="table-header-row-parent">
+          					<div class="table-header-row">
+            						<div class="reservation-id">
+              							<b class="completion-date">RESERVATION id</b>
+              							<img class="reservation-id-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="created">
+              							<b class="reservation-date">Reservation DATE</b>
+              							<img class="created-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="car-model">
+              							<b class="car-model1">CAR MODEL</b>
+              							<img class="reservation-id-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="car-model2">
+              							<b class="completion-date">COMPLETION DATE</b>
+              							<img class="created-child" alt="" src="Vector 14.svg">
+              							
+            						</div>
+            						<div class="status">
+              							<b class="total-price">TOTAL PRICE</b>
+              							<img class="status-child" alt="" src="Vector 14.svg" id="vectorIcon">
+              							
+            						</div>
+            						<div class="action1">
+              							<b class="completion-date1">ACTION</b>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00052</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">10-12-24 1:00 pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱</span>
+                  									<span class="span">5,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">10-12-24 6:00 pm</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00046</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">10-05-24 2:00 pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda brv</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱</span>
+                  									<span class="span">5,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">10-05-24 5:00 pm</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00020</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">08-27-24 10:00 Am</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱2</span>
+                  									<span class="span">,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">08-29-24 10:00 Am</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00015</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">07-18-24 11:00 Am</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda brv</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱3</span>
+                  									<span class="span">,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">07-19-24 11:00 Am</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00009</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">06-12-24 11:00 Am</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱1</span>
+                  									<span class="span">,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">06-13-24 11:00 Am</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00008</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">04-12-24 12:00 Pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda brv</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱</span>
+                  									<span class="span">800.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">04-14-24 12:00 Pm</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00007</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">04-01-24 12:00 Pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱</span>
+                  									<span class="span">5,400.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">04-02-24 12:00 Pm</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00006</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">03-02-24 12:00 Pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱6</span>
+                  									<span class="span">,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">03-03-24 12:00 Pm</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00005</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">02-28-24 11:00 am</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱10</span>
+                  									<span class="span">,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">02-28-24 3:00 pm</div>
+            						</div>
+          					</div>
+          					<div class="actual-records">
+            						<div class="table-cell">
+              							<div class="r00052">#r00004</div>
+            						</div>
+            						<div class="table-cell1">
+              							<div class="pm">01-05-24 1:00 Pm</div>
+            						</div>
+            						<div class="table-cell2">
+              							<div class="pm">honda civic</div>
+            						</div>
+            						<img class="completion-date-icon" alt="" src="Completion Date.svg">
+            						
+            						<div class="table-cell3">
+              							<div class="badge3">
+                								<div class="div1">
+                  									<span>₱3</span>
+                  									<span class="span">,000.00</span>
+                								</div>
+              							</div>
+            						</div>
+            						<div class="table-cell4">
+              							<div class="pm">01-05-24 7:00 Pm</div>
+            						</div>
+          					</div>
+        				</div>
+      			</div>
+    		</div>
+    		<div class="pagination1">
+      			<div class="pagination-text7">
+        				<div class="text6">1</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">1</div>
+      			</div>
+      			<div class="pagination-text9">
+        				<div class="text6">-</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">1</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">2</div>
+      			</div>
+      			<div class="pagination-text9">
+        				<div class="text6">-</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">2</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">0</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">2</div>
+      			</div>
+      			<div class="pagination-text8">
+        				<div class="text6">4</div>
+      			</div>
+      			<div class="pagination-text17">
+        				<div class="text16">TUE</div>
+      			</div>
+    		</div>
+  	</div>
+  	
+  	
+  	
+  	
+  	<script>
+    		var listContainer = document.getElementById("listContainer");
+    		if(listContainer) {
+      			listContainer.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var listContainer1 = document.getElementById("listContainer1");
+    		if(listContainer1) {
+      			listContainer1.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var listContainer3 = document.getElementById("listContainer3");
+    		if(listContainer3) {
+      			listContainer3.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var groupContainer = document.getElementById("groupContainer");
+    		if(groupContainer) {
+      			groupContainer.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}
+    		
+    		var vectorIcon = document.getElementById("vectorIcon");
+    		if(vectorIcon) {
+      			vectorIcon.addEventListener("click", function (e) {
+        				// Add your code here
+      			});
+    		}</script></body>
+</html>

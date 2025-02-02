@@ -1,0 +1,803 @@
+.bell-icon {
+    position: absolute;
+    top: 5.5px;
+    left: 0px;
+    width: 26px;
+    height: 26px;
+}
+.background {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 50%;
+    background-color: #ea5455;
+    width: 18px;
+    height: 18px;
+}
+.div {
+    position: absolute;
+    top: 1.74px;
+    left: 5.77px;
+    line-height: 14px;
+    font-weight: 600;
+    display: inline-block;
+    width: 5px;
+    height: 14px;
+}
+.dot {
+    position: absolute;
+    top: 1.76px;
+    left: 14.23px;
+    width: 18px;
+    height: 18px;
+}
+.notification {
+    position: absolute;
+    top: 0.5px;
+    left: 0px;
+    width: 27.6px;
+    height: 37px;
+}
+.bg-color {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    background-color: rgba(26, 54, 93, 0.3);
+    overflow: hidden;
+}
+.image-14-icon {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    max-width: 100%;
+    overflow: hidden;
+    max-height: 100%;
+    object-fit: cover;
+}
+.animoji {
+    position: absolute;
+    top: 0px;
+    left: 52px;
+    border-radius: 65px;
+    background-color: #ebf8ff;
+    width: 30.4px;
+    height: 32px;
+    overflow: hidden;
+    cursor: pointer;
+}
+.action {
+    position: absolute;
+    top: 17px;
+    left: 1011px;
+    background-color: #ebf8ff;
+    width: 90px;
+    height: 38px;
+    text-align: center;
+}
+.transactions {
+    position: absolute;
+    top: 17px;
+    left: 26px;
+    font-size: 24px;
+    line-height: 22px;
+    color: #1a365d;
+}
+.reservation-id-child {
+    position: absolute;
+    top: 21px;
+    left: 137px;
+    width: 9px;
+    height: 6px;
+}
+.reservation-id {
+    position: absolute;
+    top: 0px;
+    left: 3px;
+    width: 146px;
+    height: 47px;
+}
+.reservation-date-child {
+    position: absolute;
+    top: 21px;
+    left: 153px;
+    width: 9px;
+    height: 6px;
+}
+.reservation-date {
+    position: absolute;
+    top: 0px;
+    left: 164px;
+    width: 151px;
+    height: 47px;
+}
+.customer-name {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    text-transform: uppercase;
+}
+.customer-child {
+    position: absolute;
+    top: 21px;
+    left: 144px;
+    width: 9px;
+    height: 6px;
+}
+.customer {
+    position: absolute;
+    top: 0px;
+    left: 330px;
+    width: 171px;
+    height: 47px;
+}
+.customer-id-child {
+    position: absolute;
+    top: 21px;
+    left: 116px;
+    width: 9px;
+    height: 6px;
+}
+.customer-id {
+    position: absolute;
+    top: 0px;
+    left: 516px;
+    width: 129px;
+    height: 47px;
+}
+.car-model-child {
+    position: absolute;
+    top: 21px;
+    left: 108px;
+    width: 9px;
+    height: 6px;
+}
+.car-model {
+    position: absolute;
+    top: 0px;
+    left: 660px;
+    width: 171px;
+    height: 47px;
+}
+.completion-date {
+    position: absolute;
+    top: 16px;
+    left: calc(50% - 43.5px);
+    text-transform: uppercase;
+}
+.completion-child {
+    position: absolute;
+    top: 21px;
+    left: 143px;
+    width: 9px;
+    height: 6px;
+}
+.completion {
+    position: absolute;
+    top: 0px;
+    left: 846px;
+    width: 113px;
+    height: 47px;
+}
+.action1 {
+    position: absolute;
+    top: 0px;
+    left: 1016px;
+    width: 89px;
+    height: 47px;
+}
+.table-header-row {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+    color: #8b909a;
+}
+.table-cell {
+    position: absolute;
+    top: -15px;
+    left: 0px;
+    width: 146px;
+    height: 47px;
+}
+.pm {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+.table-cell1 {
+    position: absolute;
+    top: -15px;
+    left: 161px;
+    width: 151px;
+    height: 47px;
+}
+.table-cell2 {
+    position: absolute;
+    top: -15px;
+    left: 327px;
+    width: 171px;
+    height: 47px;
+}
+.table-cell3 {
+    position: absolute;
+    top: -15px;
+    left: 513px;
+    width: 129px;
+    height: 47px;
+}
+.table-cell4 {
+    position: absolute;
+    top: -15px;
+    left: 657px;
+    width: 171px;
+    height: 47px;
+}
+.table-cell5 {
+    position: absolute;
+    top: -15px;
+    left: 843px;
+    width: 115px;
+    height: 47px;
+}
+.completion-date-icon {
+    position: absolute;
+    top: -15px;
+    left: 1017px;
+    width: 89px;
+    height: 47px;
+}
+.actual-records {
+    position: absolute;
+    top: 77px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records1 {
+    position: absolute;
+    top: 154px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records2 {
+    position: absolute;
+    top: 231px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records3 {
+    position: absolute;
+    top: 308px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records4 {
+    position: absolute;
+    top: 385px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records5 {
+    position: absolute;
+    top: 462px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records6 {
+    position: absolute;
+    top: 539px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records7 {
+    position: absolute;
+    top: 616px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.table-cell48 {
+    position: absolute;
+    top: -16px;
+    left: 3px;
+    width: 146px;
+    height: 47px;
+}
+.table-cell49 {
+    position: absolute;
+    top: -16px;
+    left: 164px;
+    width: 151px;
+    height: 47px;
+}
+.table-cell50 {
+    position: absolute;
+    top: -16px;
+    left: 330px;
+    width: 171px;
+    height: 47px;
+}
+.table-cell51 {
+    position: absolute;
+    top: -16px;
+    left: 516px;
+    width: 129px;
+    height: 47px;
+}
+.table-cell52 {
+    position: absolute;
+    top: -16px;
+    left: 660px;
+    width: 171px;
+    height: 47px;
+}
+.table-cell53 {
+    position: absolute;
+    top: -16px;
+    left: 846px;
+    width: 115px;
+    height: 47px;
+}
+.completion-date-icon8 {
+    position: absolute;
+    top: -16px;
+    left: 1018px;
+    width: 89px;
+    height: 47px;
+}
+.actual-records8 {
+    position: absolute;
+    top: 693px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 1104px;
+    height: 47px;
+}
+.actual-records9 {
+    position: absolute;
+    top: 770px;
+    left: 0px;
+    width: 1104px;
+    height: 47px;
+}
+.table-header-row-parent {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 1104px;
+    height: 817px;
+}
+.records {
+    position: absolute;
+    top: 203px;
+    left: 9px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 1104px;
+    height: 810px;
+    color: #1a365d;
+}
+.text {
+    position: absolute;
+    top: 9px;
+    left: 8px;
+    line-height: 21px;
+    display: flex;
+    align-items: center;
+    width: 169px;
+    height: 21px;
+}
+.mingcutesearch-line-icon {
+    position: absolute;
+    top: 10px;
+    left: 191px;
+    width: 18px;
+    height: 18px;
+    overflow: hidden;
+}
+.search-by-reservation-id {
+    position: absolute;
+    top: 141px;
+    left: 41px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 218px;
+    height: 39px;
+    font-size: 15px;
+    color: #8b909a;
+}
+.chevron-left-icon {
+    width: 16px;
+    position: relative;
+    height: 16px;
+}
+.pagination-text {
+    align-self: stretch;
+    width: 28px;
+    border-radius: 4px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.text1 {
+    position: relative;
+    line-height: 20px;
+}
+.pagination-text1 {
+    align-self: stretch;
+    width: 28px;
+    box-shadow: 0px 2px 4px rgba(165, 163, 174, 0.3);
+    border-radius: 4px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #fff;
+}
+.pagination {
+    position: absolute;
+    top: 1038px;
+    left: 905px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 2px;
+    color: #8b909a;
+}
+.text6 {
+    position: absolute;
+    top: 9px;
+    left: calc(50% - 59px);
+    line-height: 21px;
+    display: flex;
+    align-items: center;
+    width: 134px;
+    height: 21px;
+}
+.search-by-reservation-id1 {
+    position: absolute;
+    top: 140px;
+    left: 947px;
+    border-radius: 8px;
+    background-color: #1e4e8c;
+    width: 166px;
+    height: 39px;
+    cursor: pointer;
+    font-size: 15px;
+}
+.frame {
+    position: absolute;
+    top: 0px;
+    left: 277px;
+    background-color: #ebf8ff;
+    width: 1139px;
+    height: 1086px;
+}
+.main-menu {
+    position: absolute;
+    top: 15px;
+    left: 30px;
+    line-height: 14px;
+}
+.section {
+    position: absolute;
+    top: 133px;
+    left: 0px;
+    border-radius: 6px;
+    width: 260px;
+    height: 44px;
+    font-size: 11px;
+}
+.smart-home-icon {
+    position: absolute;
+    top: 9px;
+    left: 16px;
+    width: 22px;
+    height: 22px;
+}
+.dashboard {
+    position: absolute;
+    top: 9px;
+    left: 46px;
+    line-height: 22px;
+    font-weight: 500;
+}
+.badge {
+    position: absolute;
+    top: 9px;
+    left: 168px;
+    border-radius: 20px;
+    background-color: rgba(115, 103, 240, 0.16);
+    width: 22px;
+    height: 22px;
+    display: none;
+}
+.chevron-down {
+    position: absolute;
+    top: 11px;
+    left: 198px;
+    width: 18px;
+    height: 18px;
+    display: none;
+}
+.list {
+    align-self: stretch;
+    position: relative;
+    border-radius: 6px;
+    height: 40px;
+    cursor: pointer;
+}
+.reservations {
+    position: absolute;
+    top: 9px;
+    left: 48px;
+    line-height: 22px;
+    font-weight: 500;
+}
+.vuesaxlinearcar-icon {
+    position: absolute;
+    top: 9px;
+    left: 18px;
+    width: 22px;
+    height: 22px;
+}
+.transactions1 {
+    position: absolute;
+    top: 9px;
+    left: 48px;
+    line-height: 22px;
+    font-weight: 600;
+}
+.vuesaxlinearreceipt-text-icon {
+    position: absolute;
+    top: 7px;
+    left: 17px;
+    width: 24px;
+    height: 24px;
+}
+.list2 {
+    align-self: stretch;
+    position: relative;
+    border-radius: 6px;
+    background-color: #ebf8ff;
+    height: 40px;
+    color: #1a365d;
+}
+.sales {
+    position: absolute;
+    top: 9px;
+    left: 48px;
+    line-height: 22px;
+}
+.list-parent {
+    position: absolute;
+    top: 0px;
+    left: 13px;
+    width: 233px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 8px;
+}
+.user {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    line-height: 14px;
+}
+.section1 {
+    position: absolute;
+    top: 192px;
+    left: -1px;
+    border-radius: 6px;
+    width: 260px;
+    height: 59px;
+    font-size: 11px;
+}
+.components {
+    position: absolute;
+    top: 251px;
+    left: -1px;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0px 14px;
+    box-sizing: border-box;
+    gap: 10px;
+}
+.apps-pages {
+    position: absolute;
+    top: 177px;
+    left: 0px;
+    width: 260px;
+    height: 328px;
+}
+.logout {
+    position: absolute;
+    top: 9px;
+    left: 44px;
+    line-height: 22px;
+}
+.vuesaxlinearlogout-icon {
+    position: absolute;
+    top: 9px;
+    left: 14px;
+    width: 22px;
+    height: 22px;
+}
+.list6 {
+    position: absolute;
+    top: 543px;
+    left: 13px;
+    border-radius: 6px;
+    width: 232px;
+    height: 40px;
+    cursor: pointer;
+}
+.logo-icon {
+    position: absolute;
+    top: 0px;
+    left: 84px;
+    width: 33px;
+    height: 25px;
+}
+logo-title {
+    position: absolute;
+    top: 35px;
+    left: 0px;
+    line-height: 150%;
+    font-weight: 600;
+    display: inline-block;
+    width: 401px;
+}
+.logo-parent {
+    position: absolute;
+    top: 25px;
+    left: 29px;
+    width: 401px;
+    height: 46px;
+    cursor: pointer;
+    font-size: 16px;
+    font-family: Poppins;
+}
+.menu {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: #1a365d;
+    width: 277px;
+    height: 1086px;
+    font-size: 15px;
+    color: #ebf8ff;
+}
+.text7 {
+    position: relative;
+    line-height: 20px;
+    font-weight: 500;
+}
+.pagination-text7 {
+    align-self: stretch;
+    width: 18px;
+    box-shadow: 0px 2px 4px rgba(165, 163, 174, 0.3);
+    border-radius: 2px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.pagination-text8 {
+    align-self: stretch;
+    width: 18px;
+    border-radius: 2px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.pagination-text9 {
+    align-self: stretch;
+    width: 18px;
+    border-radius: 2px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #1e4e8c;
+}
+.text17 {
+    position: relative;
+    line-height: 20px;
+    font-weight: 600;
+}
+.pagination-text17 {
+    align-self: stretch;
+    width: 43px;
+    border-radius: 2px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #1e4e8c;
+}
+.pagination1 {
+    position: absolute;
+    top: 23px;
+    left: 1024px;
+    width: 253px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 3px;
+}
+.admin-transactions {
+    width: 100%;
+    position: relative;
+    background-color: #1a365d;
+    height: 1086px;
+    overflow: hidden;
+    text-align: left;
+    font-size: 13px;
+    color: #fff;
+    font-family: 'Public Sans';
+}
+

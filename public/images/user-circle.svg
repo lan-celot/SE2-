@@ -1,0 +1,16 @@
+<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="user-circle">
+<g id="Oval">
+<circle cx="11" cy="11" r="8.25" stroke="#EBF8FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="11" cy="11" r="8.25" stroke="#EBF8FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Oval_2">
+<ellipse cx="11" cy="9.16666" rx="2.75" ry="2.75" stroke="#EBF8FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<ellipse cx="11" cy="9.16666" rx="2.75" ry="2.75" stroke="#EBF8FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="Path">
+<path d="M5.65405 17.2782C6.11994 15.7277 7.54766 14.6662 9.16672 14.6667H12.8334C14.4546 14.6661 15.8838 15.7303 16.3479 17.2837" stroke="#EBF8FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M5.65405 17.2782C6.11994 15.7277 7.54766 14.6662 9.16672 14.6667H12.8334C14.4546 14.6661 15.8838 15.7303 16.3479 17.2837" stroke="#EBF8FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+</svg>

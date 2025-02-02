@@ -1,0 +1,10 @@
+body {
+    margin: 0;
+    line-height: normal;
+}
+
+a, a:visited{
+    text-decoration: none;
+    color: white;
+}
+

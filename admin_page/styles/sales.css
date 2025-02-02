@@ -1,0 +1,858 @@
+.avatar {
+    position: absolute;
+    top: 6px;
+    left: 0px;
+    border-radius: 100px;
+    width: 26px;
+    height: 26px;
+    overflow: hidden;
+    display: none;
+}
+.moon-stars {
+    position: absolute;
+    top: 6px;
+    left: 42px;
+    width: 26px;
+    height: 26px;
+    display: none;
+}
+.layout-grid-add {
+    position: absolute;
+    top: 6px;
+    left: 84px;
+    width: 26px;
+    height: 26px;
+    display: none;
+}
+.bell-icon {
+    position: absolute;
+    top: 5.5px;
+    left: 0px;
+    width: 26px;
+    height: 26px;
+}
+.background {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 50%;
+    background-color: #ea5455;
+    width: 18px;
+    height: 18px;
+}
+.div {
+    position: absolute;
+    top: 1.74px;
+    left: 5.77px;
+    line-height: 14px;
+    font-weight: 600;
+    display: inline-block;
+    width: 5px;
+    height: 14px;
+}
+.dot {
+    position: absolute;
+    top: 1.76px;
+    left: 14.23px;
+    width: 18px;
+    height: 18px;
+}
+.notification {
+    position: absolute;
+    top: 0.5px;
+    left: 0px;
+    width: 27.6px;
+    height: 37px;
+}
+.bg-color {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    background-color: rgba(26, 54, 93, 0.3);
+    overflow: hidden;
+}
+.image-14-icon {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    max-width: 100%;
+    overflow: hidden;
+    max-height: 100%;
+    object-fit: cover;
+}
+.animoji {
+    position: absolute;
+    top: 0px;
+    left: 52px;
+    border-radius: 65px;
+    background-color: #ebf8ff;
+    width: 30.4px;
+    height: 32px;
+    overflow: hidden;
+    cursor: pointer;
+}
+.action {
+    position: absolute;
+    top: 17px;
+    left: 1011px;
+    background-color: #ebf8ff;
+    width: 90px;
+    height: 38px;
+    text-align: center;
+    color: #fff;
+}
+.text {
+    position: absolute;
+    top: 8px;
+    left: calc(50% - 19.5px);
+    line-height: 22px;
+}
+.nav-item {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 6px 0px 0px 0px;
+    background-color: #ebf8ff;
+    border-bottom: 2px solid #0f60ff;
+    box-sizing: border-box;
+    width: 99px;
+    height: 38px;
+    overflow: hidden;
+}
+.text1 {
+    position: absolute;
+    top: 8px;
+    left: calc(50% - 23.5px);
+    line-height: 22px;
+}
+.nav-item1 {
+    position: absolute;
+    top: 0px;
+    left: 99px;
+    border-radius: 6px 0px 0px 0px;
+    background-color: #ebf8ff;
+    border-bottom: 2px solid #ceedff;
+    box-sizing: border-box;
+    width: 115px;
+    height: 38px;
+    overflow: hidden;
+    cursor: pointer;
+    color: #8b909a;
+}
+.nav-buttons {
+    position: absolute;
+    top: 82px;
+    left: 26px;
+    background-color: #ebf8ff;
+    width: 214px;
+    height: 38px;
+    font-size: 15px;
+    color: #0f60ff;
+}
+.cash {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    letter-spacing: -0.02em;
+    line-height: 32px;
+    font-weight: 600;
+    display: inline-block;
+    width: 247px;
+    height: 28px;
+}
+.cash-wrapper {
+    position: absolute;
+    top: 82px;
+    left: 12px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 247px;
+    height: 38px;
+}
+.total-sales {
+    position: absolute;
+    top: 21px;
+    left: 12px;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 26px;
+    font-weight: 500;
+    color: #2a69ac;
+    display: inline-block;
+    width: 241px;
+    height: 25px;
+}
+.as-of-today {
+    position: absolute;
+    top: 123px;
+    left: 12px;
+    font-size: 13px;
+    line-height: 22px;
+    font-weight: 500;
+    color: #8b909a;
+}
+.frame {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 326px;
+    height: 166px;
+}
+.frame1 {
+    position: absolute;
+    top: 0px;
+    left: 366px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 326px;
+    height: 166px;
+}
+.total-expenses {
+    position: absolute;
+    top: 21px;
+    left: 12px;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 26px;
+    font-weight: 500;
+    color: #2a69ac;
+    display: inline-block;
+    width: 289px;
+    height: 25px;
+}
+.frame2 {
+    position: absolute;
+    top: 0px;
+    left: 732px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 326px;
+    height: 166px;
+}
+.frame-parent {
+    position: absolute;
+    top: 148px;
+    left: 26px;
+    width: 1058px;
+    height: 207px;
+    font-size: 32px;
+    color: #1a365d;
+}
+.action1 {
+    position: absolute;
+    top: 0px;
+    left: 985px;
+    background-color: #ebf8ff;
+    width: 90px;
+    height: 38px;
+}
+.sales-report {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    font-size: 24px;
+    line-height: 22px;
+    color: #1a365d;
+    text-align: left;
+}
+.header {
+    position: absolute;
+    top: 17px;
+    left: 26px;
+    width: 1075px;
+    height: 38px;
+    text-align: center;
+    color: #fff;
+}
+.sales {
+    position: absolute;
+    top: 2px;
+    left: calc(50% - 158.5px);
+    letter-spacing: -0.02em;
+    line-height: 26px;
+    font-weight: 500;
+    display: inline-block;
+    width: 318px;
+    height: 29px;
+}
+.sales-wrapper {
+    position: absolute;
+    top: 19px;
+    left: 12px;
+    width: 329px;
+    height: 31px;
+    font-size: 40px;
+}
+.daily {
+    position: absolute;
+    top: 6px;
+    left: 10px;
+    line-height: 14px;
+    font-weight: 600;
+}
+.material-symbolskeyboard-arro-icon {
+    position: absolute;
+    top: 6px;
+    left: 78.67px;
+    width: 16px;
+    height: 16px;
+    overflow: hidden;
+    object-fit: contain;
+}
+.badge {
+    position: absolute;
+    top: 10px;
+    left: 8px;
+    border-radius: 4px;
+    background-color: #ebf8ff;
+    width: 97px;
+    height: 26px;
+}
+.table-cell {
+    position: absolute;
+    top: 0px;
+    left: 19px;
+    width: 113px;
+    height: 47px;
+}
+.created {
+    position: absolute;
+    top: 61px;
+    left: -7px;
+    width: 151px;
+    height: 47px;
+    color: #8b909a;
+}
+.text3 {
+    position: relative;
+    line-height: 20px;
+    background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), #4b465c;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: right;
+}
+.text4 {
+    position: relative;
+    line-height: 20px;
+    background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), #4b465c;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.text2 {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+.chart-icon {
+    flex: 1;
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    height: 203px;
+}
+.chart1 {
+    align-self: stretch;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 20px;
+}
+.line1 {
+    align-self: stretch;
+    position: relative;
+    border-top: 1px solid #dbdade;
+    box-sizing: border-box;
+    height: 1px;
+}
+.line {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0px 0px 0px 60px;
+}
+.text9 {
+    align-self: stretch;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0px 0px 60px;
+}
+.chart {
+    position: absolute;
+    top: 132px;
+    left: 0px;
+    width: 952px;
+    height: 241px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0px 10px;
+    box-sizing: border-box;
+}
+.body {
+    position: absolute;
+    top: 0px;
+    left: 42px;
+    width: 646px;
+    height: 411px;
+    text-align: center;
+}
+.frame3 {
+    position: absolute;
+    top: 349px;
+    left: 26px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 1058px;
+    height: 442px;
+}
+.daily-sales-wrapper {
+    position: absolute;
+    top: 19px;
+    left: 12px;
+    width: 329px;
+    height: 31px;
+}
+.frame-child {
+    position: absolute;
+    top: 44px;
+    left: 18px;
+    width: 99px;
+    height: 45px;
+    overflow: hidden;
+}
+.div2 {
+    position: absolute;
+    top: 0px;
+    left: calc(50% - 52.5px);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.created1 {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 151px;
+    height: 47px;
+}
+.created-wrapper {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 477px;
+    height: 56px;
+}
+.frame-inner {
+    position: absolute;
+    top: 83px;
+    left: 0px;
+    border-bottom: 1px solid #ceedff;
+    box-sizing: border-box;
+    width: 326px;
+    height: 43px;
+    font-size: 32px;
+    color: #1a365d;
+}
+.chevron-left-icon {
+    position: absolute;
+    top: 5px;
+    left: 7px;
+    width: 14px;
+    height: 14px;
+}
+.pagination-text {
+    position: absolute;
+    top: 0px;
+    left: 2px;
+    border-radius: 4px;
+    background-color: #fff;
+    width: 28px;
+    height: 24px;
+}
+.today {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    line-height: 22px;
+    font-weight: 500;
+}
+.today-wrapper {
+    position: absolute;
+    top: 0px;
+    left: 30px;
+    width: 50px;
+    height: 24px;
+}
+.pagination-text-icon {
+    position: absolute;
+    top: -1px;
+    left: 76px;
+    border-radius: 4px;
+    width: 28px;
+    height: 24px;
+}
+.pagination-text-parent {
+    position: absolute;
+    top: 130px;
+    left: 12px;
+    width: 110px;
+    height: 24px;
+    font-size: 14px;
+    color: #8b909a;
+}
+.frame4 {
+    position: absolute;
+    top: 817px;
+    left: 26px;
+    border-radius: 8px;
+    background-color: #fff;
+    width: 326px;
+    height: 166px;
+    font-size: 40px;
+}
+.pagination-text-icon1 {
+    position: absolute;
+    top: 129px;
+    left: 123px;
+    border-radius: 4px;
+    width: 28px;
+    height: 24px;
+}
+.frame5 {
+    flex: 1;
+    position: relative;
+    border-radius: 8px;
+    background-color: #fff;
+    height: 166px;
+}
+.frame-wrapper {
+    position: absolute;
+    top: 817px;
+    left: 392px;
+    width: 326px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    font-size: 40px;
+}
+.pagination-text-icon2 {
+    position: absolute;
+    top: 130px;
+    left: 122px;
+    border-radius: 4px;
+    width: 28px;
+    height: 24px;
+}
+.frame-container {
+    position: absolute;
+    top: 817px;
+    left: 758px;
+    width: 326px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    font-size: 40px;
+}
+.search {
+    position: absolute;
+    top: 0px;
+    left: 277px;
+    background-color: #ebf8ff;
+    width: 1139px;
+    height: 1086px;
+}
+.main-menu {
+    position: absolute;
+    top: 15px;
+    left: 30px;
+    line-height: 14px;
+}
+.section {
+    position: absolute;
+    top: 133px;
+    left: 0px;
+    border-radius: 6px;
+    width: 260px;
+    height: 44px;
+    font-size: 11px;
+}
+.smart-home-icon {
+    position: absolute;
+    top: 9px;
+    left: 16px;
+    width: 22px;
+    height: 22px;
+}
+.dashboard {
+    position: absolute;
+    top: 9px;
+    left: 46px;
+    line-height: 22px;
+}
+.badge1 {
+    position: absolute;
+    top: 9px;
+    left: 168px;
+    border-radius: 20px;
+    background-color: rgba(115, 103, 240, 0.16);
+    width: 22px;
+    height: 22px;
+    display: none;
+}
+.chevron-down {
+    position: absolute;
+    top: 11px;
+    left: 198px;
+    width: 18px;
+    height: 18px;
+    display: none;
+}
+.list {
+    align-self: stretch;
+    position: relative;
+    border-radius: 6px;
+    height: 40px;
+    cursor: pointer;
+}
+.reservations {
+    position: absolute;
+    top: 9px;
+    left: 48px;
+    line-height: 22px;
+}
+.vuesaxlinearcar-icon {
+    position: absolute;
+    top: 9px;
+    left: 18px;
+    width: 22px;
+    height: 22px;
+}
+.vuesaxlinearreceipt-text-icon {
+    position: absolute;
+    top: 7px;
+    left: 17px;
+    width: 24px;
+    height: 24px;
+}
+.sales1 {
+    position: absolute;
+    top: 9px;
+    left: 48px;
+    line-height: 22px;
+    font-weight: 600;
+}
+.list3 {
+    align-self: stretch;
+    position: relative;
+    border-radius: 6px;
+    background-color: #ebf8ff;
+    height: 40px;
+    color: #1a365d;
+}
+.list-parent {
+    position: absolute;
+    top: 0px;
+    left: 13px;
+    width: 233px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 8px;
+}
+.user {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    line-height: 14px;
+}
+.section1 {
+    position: absolute;
+    top: 192px;
+    left: -1px;
+    border-radius: 6px;
+    width: 260px;
+    height: 59px;
+    font-size: 11px;
+}
+.components {
+    position: absolute;
+    top: 251px;
+    left: -1px;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0px 14px;
+    box-sizing: border-box;
+    gap: 10px;
+}
+.apps-pages {
+    position: absolute;
+    top: 177px;
+    left: 0px;
+    width: 260px;
+    height: 328px;
+}
+.logout {
+    position: absolute;
+    top: 9px;
+    left: 44px;
+    line-height: 22px;
+}
+.vuesaxlinearlogout-icon {
+    position: absolute;
+    top: 9px;
+    left: 14px;
+    width: 22px;
+    height: 22px;
+}
+.list6 {
+    position: absolute;
+    top: 543px;
+    left: 13px;
+    border-radius: 6px;
+    width: 232px;
+    height: 40px;
+    cursor: pointer;
+}
+.logo-icon {
+    position: absolute;
+    top: 0px;
+    left: 84px;
+    width: 33px;
+    height: 25px;
+}
+logo-title {
+    position: absolute;
+    top: 35px;
+    left: 0px;
+    line-height: 150%;
+    font-weight: 600;
+    display: inline-block;
+    width: 401px;
+}
+.logo-parent {
+    position: absolute;
+    top: 25px;
+    left: 29px;
+    width: 401px;
+    height: 46px;
+    font-size: 16px;
+    font-family: Poppins;
+}
+.menu {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: #1a365d;
+    width: 277px;
+    height: 1086px;
+    font-size: 15px;
+    color: #ebf8ff;
+}
+.text17 {
+    position: relative;
+    line-height: 20px;
+    font-weight: 500;
+}
+.pagination-text3 {
+    align-self: stretch;
+    width: 18px;
+    box-shadow: 0px 2px 4px rgba(165, 163, 174, 0.3);
+    border-radius: 2px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.pagination-text4 {
+    align-self: stretch;
+    width: 18px;
+    border-radius: 2px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.pagination-text5 {
+    align-self: stretch;
+    width: 18px;
+    border-radius: 2px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #1e4e8c;
+}
+.text27 {
+    position: relative;
+    line-height: 20px;
+    font-weight: 600;
+}
+.pagination-text13 {
+    align-self: stretch;
+    width: 43px;
+    border-radius: 2px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #1e4e8c;
+}
+.pagination {
+    position: absolute;
+    top: 23px;
+    left: 1024px;
+    width: 253px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 3px;
+    color: #fff;
+}
+.admin-sales {
+    width: 100%;
+    position: relative;
+    background-color: #1a365d;
+    height: 1086px;
+    overflow: hidden;
+    text-align: left;
+    font-size: 13px;
+    color: #2a69ac;
+    font-family: 'Public Sans';
+}
+

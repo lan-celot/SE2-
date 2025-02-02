@@ -1,0 +1,820 @@
+.book-your-car {
+    position: absolute;
+    top: 0px;
+    left: 9.26px;
+    font-size: 34px;
+    line-height: 46px;
+    display: inline-block;
+    color: #2a69ac;
+    width: 680px;
+}
+.frame-child {
+    position: absolute;
+    top: 128px;
+    left: 0px;
+    box-shadow: 0px 5px 16px rgba(8, 15, 52, 0.06);
+    border-radius: 34px;
+    background-color: #fff;
+    border: 1px solid #eff0f6;
+    box-sizing: border-box;
+    width: 700px;
+    height: 650px;
+}
+.group-child {
+    position: absolute;
+    top: 13.5px;
+    left: 52px;
+    border-radius: 40px;
+    background-color: #eff0f6;
+    width: 98.1px;
+    height: 6px;
+}
+.group-item {
+    position: absolute;
+    top: 13.5px;
+    left: 52px;
+    border-radius: 40px;
+    background-color: #1e4e8c;
+    width: 49px;
+    height: 6px;
+}
+.group-inner {
+    position: absolute;
+    top: 13.5px;
+    left: 220.09px;
+    border-radius: 40px;
+    background-color: #eff0f6;
+    width: 98.1px;
+    height: 6px;
+}
+.rectangle-div {
+    position: absolute;
+    top: 13.5px;
+    left: 388.18px;
+    border-radius: 40px;
+    background-color: #eff0f6;
+    width: 98.1px;
+    height: 6px;
+}
+.ellipse-div {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 50%;
+    background-color: #1e4e8c;
+    width: 34px;
+    height: 34px;
+}
+.div {
+    position: absolute;
+    top: 7.53px;
+    left: 14px;
+    line-height: 18px;
+    font-weight: 500;
+}
+.ellipse-parent {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 34px;
+    height: 34px;
+}
+.group-wrapper {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 34px;
+    height: 34px;
+    color: #fff;
+}
+.group-child1 {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 50%;
+    background-color: #eff0f6;
+    width: 34px;
+    height: 34px;
+}
+.div1 {
+    position: absolute;
+    top: 4.53px;
+    left: 13px;
+    line-height: 23px;
+}
+.group-container {
+    position: absolute;
+    top: 0px;
+    left: 168.09px;
+    width: 34px;
+    height: 34px;
+}
+.div2 {
+    position: absolute;
+    top: 4.53px;
+    left: 12px;
+    line-height: 23px;
+}
+.group-frame {
+    position: absolute;
+    top: 0px;
+    left: 336.18px;
+    width: 34px;
+    height: 34px;
+}
+.group-div {
+    position: absolute;
+    top: 0px;
+    left: 504.27px;
+    width: 34px;
+    height: 34px;
+}
+.rectangle-parent {
+    position: absolute;
+    top: 147.16px;
+    left: 76.5px;
+    width: 538.3px;
+    height: 34px;
+    text-align: left;
+    color: #6f6c90;
+}
+.first-name {
+    position: absolute;
+    top: calc(50% - 6px);
+    left: 14px;
+    line-height: 150%;
+}
+.first-name-wrapper {
+    position: absolute;
+    top: 11px;
+    left: 14px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+    width: 280px;
+    height: 60px;
+}
+.last-name {
+    position: absolute;
+    top: 24px;
+    left: 15px;
+    line-height: 150%;
+}
+.last-name-wrapper {
+    position: absolute;
+    top: 11px;
+    left: 331px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+    width: 280px;
+    height: 60px;
+}
+.date-of-birth {
+    position: absolute;
+    top: 24px;
+    left: 16px;
+    line-height: 150%;
+}
+.date-of-birth-mm-dd-yyyy-wrapper {
+    position: absolute;
+    top: 160px;
+    left: 14px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+    width: 280px;
+    height: 60px;
+}
+.phone-number-09171234567 {
+    position: absolute;
+    top: 24px;
+    left: 14px;
+    line-height: 150%;
+}
+.phone-number-09171234567-wrapper {
+    position: absolute;
+    top: 85px;
+    left: 331px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+    width: 280px;
+    height: 60px;
+}
+.zip-code-wrapper {
+    position: absolute;
+    top: 407px;
+    left: 14px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+    width: 280px;
+    height: 60px;
+}
+.street-address {
+    position: absolute;
+    top: 24px;
+    left: 17px;
+    line-height: 150%;
+}
+.street-address-wrapper {
+    position: absolute;
+    top: 263px;
+    left: 14px;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+    width: 596px;
+    height: 60px;
+}
+.listbox-title {
+    position: absolute;
+    height: 6.92%;
+    width: 90.91%;
+    top: 0%;
+    right: 4.55%;
+    bottom: 93.08%;
+    left: 4.55%;
+}
+.listboxbg {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: #fff;
+}
+.chevron-icon {
+    position: absolute;
+    height: 8.33%;
+    width: 3.57%;
+    top: 46.67%;
+    right: 7.86%;
+    bottom: 45%;
+    left: 88.57%;
+    max-width: 100%;
+    overflow: hidden;
+    max-height: 100%;
+    opacity: 0.8;
+}
+.gender1 {
+    position: absolute;
+    top: 0%;
+    left: 0%;
+}
+.placeholder-text {
+    position: absolute;
+    height: 33.33%;
+    width: 65.71%;
+    top: 33.33%;
+    right: 28.57%;
+    bottom: 33.33%;
+    left: 5.71%;
+}
+.listbox-main {
+    position: absolute;
+    height: 20.76%;
+    width: 90.91%;
+    top: 9.69%;
+    right: 4.55%;
+    bottom: 69.55%;
+    left: 4.55%;
+}
+.div4 {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+}
+.item-1 {
+    align-self: stretch;
+    position: relative;
+    background-color: #fff;
+    height: 44px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.dropdown-list {
+    position: absolute;
+    width: 90.91%;
+    top: 68px;
+    right: 4.55%;
+    left: 4.55%;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    height: 1px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    opacity: 0;
+}
+.clip-list {
+    position: absolute;
+    height: 90.31%;
+    width: 100%;
+    top: 9.69%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    overflow: hidden;
+    color: #333;
+}
+.gender {
+    position: absolute;
+    top: 57px;
+    left: 0px;
+    width: 308px;
+    height: 289px;
+    font-family: 'Public Sans';
+}
+.city {
+    position: absolute;
+    top: 307px;
+    left: 0px;
+    width: 308px;
+    height: 289px;
+    font-family: 'Public Sans';
+}
+.province {
+    position: absolute;
+    top: 307px;
+    left: 308px;
+    width: 308px;
+    height: 289px;
+    font-family: 'Public Sans';
+}
+.frame-parent {
+    position: absolute;
+    top: 285px;
+    left: 49px;
+    width: 626px;
+    height: 451px;
+    text-align: left;
+    color: #666;
+}
+.personal-details {
+    position: absolute;
+    top: 238px;
+    left: 66px;
+    font-size: 24px;
+    line-height: 35px;
+    display: inline-block;
+    text-align: left;
+    width: 202.6px;
+}
+.please-fill-the {
+    position: absolute;
+    top: 58px;
+    left: 66.05px;
+    font-size: 18px;
+    line-height: 30px;
+    display: inline-block;
+    width: 566.4px;
+    height: 70px;
+}
+.frame-item {
+    position: absolute;
+    top: 213.09px;
+    left: 45.76px;
+    border-top: 1px solid #d9dbe9;
+    box-sizing: border-box;
+    width: 597.3px;
+    height: 1px;
+}
+.button-text {
+    position: relative;
+    line-height: 20px;
+}
+.primary-btn {
+    position: absolute;
+    height: 6.13%;
+    width: 22%;
+    top: 80.1%;
+    right: 1.14%;
+    bottom: 13.77%;
+    left: 76.86%;
+    box-shadow: 0px 3px 12px rgba(74, 58, 255, 0.18);
+    border-radius: 56px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 40px 21px;
+    box-sizing: border-box;
+    cursor: pointer;
+    font-size: 18px;
+    color: #fff;
+}
+.book-your-car-with-us-parent {
+    position: absolute;
+    top: 131px;
+    left: 220px;
+    width: 700px;
+    height: 995px;
+    font-family: 'DM Sans';
+}
+.bell-icon {
+    position: absolute;
+    top: 5.5px;
+    left: 0px;
+    width: 26px;
+    height: 26px;
+}
+.background {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 50%;
+    background-color: #ea5455;
+    width: 18px;
+    height: 18px;
+}
+.div10 {
+    position: absolute;
+    top: 1.74px;
+    left: 5.77px;
+    line-height: 14px;
+    font-weight: 600;
+    display: inline-block;
+    width: 5px;
+    height: 14px;
+}
+.dot {
+    position: absolute;
+    top: 1.76px;
+    left: 14.23px;
+    width: 18px;
+    height: 18px;
+}
+.notification {
+    position: absolute;
+    top: 0.5px;
+    left: 0px;
+    width: 27.6px;
+    height: 37px;
+}
+.bg-color {
+    position: absolute;
+    height: 100%;
+    width: calc(100% - 0.4px);
+    top: 0px;
+    right: 0.4px;
+    bottom: 0px;
+    left: 0px;
+    background-color: rgba(26, 54, 93, 0.3);
+    overflow: hidden;
+}
+.image-99-icon {
+    position: absolute;
+    height: 107.81%;
+    width: 107.89%;
+    top: 0%;
+    right: -3.98%;
+    bottom: -7.81%;
+    left: -3.91%;
+    max-width: 100%;
+    overflow: hidden;
+    max-height: 100%;
+    object-fit: cover;
+}
+.animoji {
+    position: absolute;
+    top: 0px;
+    left: 52px;
+    border-radius: 65px;
+    background-color: #ebf8ff;
+    width: 30.4px;
+    height: 32px;
+    overflow: hidden;
+}
+.action {
+    position: absolute;
+    top: 17px;
+    left: 1011px;
+    background-color: #ebf8ff;
+    width: 90px;
+    height: 38px;
+    font-size: 13px;
+    color: #fff;
+}
+.booking-management {
+    position: absolute;
+    top: 17px;
+    left: 26px;
+    font-size: 24px;
+    line-height: 22px;
+    text-align: left;
+}
+.search {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: #ebf8ff;
+    width: 1139px;
+    height: 1086px;
+}
+.text {
+    position: relative;
+    line-height: 20px;
+    font-weight: 500;
+}
+.pagination-text {
+    align-self: stretch;
+    width: 18px;
+    box-shadow: 0px 2px 4px rgba(165, 163, 174, 0.3);
+    border-radius: 2px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.pagination-text1 {
+    align-self: stretch;
+    width: 18px;
+    border-radius: 2px;
+    background-color: #1e4e8c;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+}
+.pagination-text2 {
+    align-self: stretch;
+    width: 18px;
+    border-radius: 2px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #1e4e8c;
+}
+.text10 {
+    position: relative;
+    line-height: 20px;
+    font-weight: 600;
+}
+.pagination-text10 {
+    align-self: stretch;
+    width: 43px;
+    border-radius: 2px;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    color: #1e4e8c;
+}
+.pagination {
+    position: absolute;
+    top: 23px;
+    left: 747px;
+    width: 253px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 3px;
+    text-align: left;
+    font-size: 13px;
+    color: #fff;
+}
+.main-page {
+    position: absolute;
+    top: 0px;
+    left: 277px;
+    width: 1139px;
+    height: 1086px;
+}
+.main-menu {
+    position: absolute;
+    top: 15px;
+    left: 30px;
+    line-height: 14px;
+}
+.section {
+    position: absolute;
+    top: 133px;
+    left: 0px;
+    border-radius: 6px;
+    width: 260px;
+    height: 44px;
+    font-size: 11px;
+}
+.smart-home-icon {
+    position: absolute;
+    top: 9px;
+    left: 16px;
+    width: 22px;
+    height: 22px;
+}
+.dashboard {
+    position: absolute;
+    top: 9px;
+    left: 46px;
+    line-height: 22px;
+}
+.badge {
+    position: absolute;
+    top: 9px;
+    left: 168px;
+    border-radius: 20px;
+    background-color: rgba(115, 103, 240, 0.16);
+    width: 22px;
+    height: 22px;
+    display: none;
+}
+.chevron-down {
+    position: absolute;
+    top: 11px;
+    left: 198px;
+    width: 18px;
+    height: 18px;
+    display: none;
+}
+.list {
+    align-self: stretch;
+    position: relative;
+    border-radius: 6px;
+    height: 40px;
+    cursor: pointer;
+}
+.reservations {
+    position: absolute;
+    top: 9px;
+    left: 48px;
+    line-height: 22px;
+}
+.vuesaxlinearcar-icon {
+    position: absolute;
+    top: 9px;
+    left: 18px;
+    width: 22px;
+    height: 22px;
+}
+.vuesaxlinearreceipt-text-icon {
+    position: absolute;
+    top: 7px;
+    left: 17px;
+    width: 24px;
+    height: 24px;
+}
+.book {
+    position: absolute;
+    top: 9px;
+    left: 47px;
+    line-height: 22px;
+    font-weight: 600;
+}
+.vuesaxlinearcalendar-add-icon {
+    position: absolute;
+    top: 9px;
+    left: 17px;
+    width: 22px;
+    height: 22px;
+}
+.list3 {
+    align-self: stretch;
+    position: relative;
+    border-radius: 6px;
+    background-color: #ebf8ff;
+    height: 40px;
+    color: #1a365d;
+}
+.list-parent {
+    position: absolute;
+    top: 0px;
+    left: 13px;
+    width: 233px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 8px;
+}
+.user {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    line-height: 14px;
+}
+.section1 {
+    position: absolute;
+    top: 192px;
+    left: -1px;
+    border-radius: 6px;
+    width: 260px;
+    height: 59px;
+    font-size: 11px;
+}
+.list4 {
+    position: absolute;
+    top: 0px;
+    left: 14px;
+    border-radius: 6px;
+    width: 232px;
+    height: 40px;
+    cursor: pointer;
+}
+.components {
+    position: absolute;
+    top: 251px;
+    left: -1px;
+    width: 260px;
+    height: 88px;
+}
+.apps-pages {
+    position: absolute;
+    top: 177px;
+    left: 0px;
+    width: 260px;
+    height: 328px;
+}
+.logout {
+    position: absolute;
+    top: 9px;
+    left: 44px;
+    line-height: 22px;
+}
+.vuesaxlinearlogout-icon {
+    position: absolute;
+    top: 9px;
+    left: 14px;
+    width: 22px;
+    height: 22px;
+}
+.list5 {
+    position: absolute;
+    top: 524px;
+    left: 13px;
+    border-radius: 6px;
+    width: 232px;
+    height: 40px;
+    cursor: pointer;
+}
+.logo-icon {
+    position: absolute;
+    top: 0px;
+    left: 84px;
+    width: 33px;
+    height: 25px;
+}
+logo-title {
+    position: absolute;
+    top: 35px;
+    left: 0px;
+    line-height: 150%;
+    font-weight: 600;
+    display: inline-block;
+    width: 401px;
+}
+.logo-parent {
+    position: absolute;
+    top: 25px;
+    left: 29px;
+    width: 401px;
+    height: 46px;
+    cursor: pointer;
+    font-size: 16px;
+    font-family: Poppins;
+}
+.menu {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: #1a365d;
+    width: 277px;
+    height: 1086px;
+    text-align: left;
+    font-size: 15px;
+    color: #ebf8ff;
+}
+.customer-book-pg-1 {
+    width: 100%;
+    position: relative;
+    background-color: #1a365d;
+    height: 1086px;
+    overflow: hidden;
+    text-align: center;
+    font-size: 16px;
+    color: #1a365d;
+    font-family: 'Public Sans';
+}
+
