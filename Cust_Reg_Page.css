@@ -1,0 +1,358 @@
+body, html {
+    width: 100%;
+    overflow-x: hidden; /* Hide horizontal scroll */
+}
+
+
+.homepage-child {
+    position: absolute;
+    top: 85px;
+    left: 656px;
+    width: 877px;
+    height: 682px;
+    overflow: hidden;
+    opacity: 0.3;
+}
+.or-login {
+    position: absolute;
+    top: 50px;
+    left: 77px;
+    line-height: 17px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.register {
+    position: absolute;
+    top: 15px;
+    left: 75px;
+    line-height: 17px;
+    font-weight: 500;
+    color: #fff;
+}
+.register-login {
+    position: absolute;
+    top: 705px;
+    left: 1064px;
+    border-radius: 8px;
+    background-color: #1e4e8c;
+    width: 208px;
+    height: 40px;
+    cursor: pointer;
+    color: white;
+}
+
+
+.first-name-wrapper {
+    align-self: stretch;
+    position: relative;
+    border-radius: 8px;
+    border-color: white;
+    background-color: rgba(21, 114, 211, 0.1);
+    height: 42px;
+    font-family: Poppins;
+}
+
+.last-name-wrapper {
+    align-self: stretch;
+    position: relative;
+    border-radius: 8px;
+    border-color: white;
+    background-color: rgba(21, 114, 211, 0.1);
+    height: 42px;
+    font-family: Poppins;
+}
+
+.vuesaxlineararrow-down-icon {
+    position: absolute;
+    top: 9px;
+    left: 329px;
+    width: 24px;
+    height: 24px;
+}
+.vuesaxlinearpassword-check-icon1 {
+    position: absolute;
+    top: 440px;
+    left: 365px;
+    width: 22px;
+    height: 22px;
+}
+
+.vuesaxlinearpassword-check-icon2 {
+    position: absolute;
+    top: 520px;
+    left: 365px;
+    width: 22px;
+    height: 22px;
+}
+.form {
+    position: absolute;
+    top: 101px;
+    left: 951px;
+    border-radius: 16px;
+    background-color: #fff;
+    width: 433px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 35px 34px;
+    box-sizing: border-box;
+    gap: 32px;
+    color: #8b909a;
+}
+.homepage-item {
+    position: absolute;
+    top: 169px;
+    left: 163px;
+    width: 649px;
+    height: 109px;
+}
+.up-your-experience {
+    color: #1a365d;
+}
+.rev-up-your-container {
+    position: absolute;
+    top: 242px;
+    left: 163px;
+    font-size: 50px;
+    line-height: 70px;
+    font-weight: 500;
+    display: inline-block;
+    width: 649px;
+    color: #2a69ac;
+}
+.pngitem-1288251-1 {
+    position: absolute;
+    top: 294px;
+    left: -37px;
+    width: 878px;
+    height: 421px;
+}
+.pngitem-902964-1-icon {
+    position: absolute;
+    top: 408px;
+    left: 15px;
+    width: 918px;
+    height: 325px;
+    object-fit: cover;
+}
+.i-have-read {
+    font-weight: 200;
+}
+.terms-and-conditions {
+    font-weight: 500;
+}
+.i-have-read-container {
+    position: absolute;
+    top: 12px;
+    left: calc(50% - 140px);
+    line-height: 150%;
+    cursor: pointer;
+}
+.shape-icon {
+    width: 18px;
+    position: relative;
+    height: 18px;
+    mix-blend-mode: normal;
+}
+.checkbox-material-design {
+    position: absolute;
+    top: 4px;
+    left: 7px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 3px;
+}
+.i-have-read-and-agreed-to-term-parent {
+    position: absolute;
+    top: 664px;
+    left: 990px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.6);
+    width: 360px;
+    height: 33px;
+    overflow: hidden;
+    font-size: 12px;
+    color: #000;
+}
+.homepage {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: #ebf8ff;
+    width: 100vw; /* Full viewport width */
+    max-width: 100%; /* Prevent overflow */
+    height: 800px;
+    overflow: hidden;
+}
+.mar-nor {
+    position: absolute;
+    top: 7.36px;
+    left: 48px;
+    line-height: 150%;
+    font-weight: 600;
+}
+.logo-icon {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 39px;
+    height: 23.1px;
+}
+.header {
+    position: absolute;
+    top: 41px;
+    left: 149px;
+    width: 246px;
+    height: 25px;
+    font-size: 16px;
+    color: #1e4e8c;
+}
+.homepage-parent {
+    width: 100vw; /* Full viewport width */
+    max-width: 100%; /* Prevent overflow */
+    position: relative;
+    height: 800px;
+}
+.vuesaxlinearlocation-icon {
+    position: absolute;
+    top: 15px;
+    left: 0px;
+    width: 24px;
+    height: 24px;
+}
+.jp-rizal-1208 {
+    position: absolute;
+    top: 12px;
+    left: 32px;
+    line-height: 150%;
+    display: inline-block;
+    width: 232px;
+}
+.vuesaxlinearlocation-parent {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 264px;
+    height: 39px;
+}
+.frame-wrapper {
+    position: absolute;
+    top: 56px;
+    left: 0px;
+    width: 264px;
+    height: 47px;
+}
+.logo-icon1 {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 41px;
+    height: 25px;
+    overflow: hidden;
+}
+.mar-nor1 {
+    position: absolute;
+    top: 7px;
+    left: 49px;
+    line-height: 150%;
+    font-weight: 600;
+}
+.logo-parent {
+    position: absolute;
+    top: 0px;
+    left: 439px;
+    width: 247px;
+    height: 25px;
+    font-size: 16px;
+    color: #fff;
+}
+.vuesaxlinearsms-icon {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 24px;
+    height: 24px;
+}
+.marnorautorepairgmailcom {
+    position: absolute;
+    top: 7px;
+    left: 32px;
+    line-height: 150%;
+}
+.vuesaxlinearsms-parent {
+    position: absolute;
+    top: 71px;
+    left: 611px;
+    width: 261px;
+    height: 24px;
+}
+.a {
+    position: absolute;
+    top: 7px;
+    left: 32px;
+    line-height: 150%;
+    color: inherit;
+    text-decoration: none;
+}
+.vuesaxlinearcall-parent {
+    position: absolute;
+    top: 71px;
+    left: 371px;
+    width: 133px;
+    height: 24px;
+}
+.copyright-2024 {
+    position: absolute;
+    top: 180px;
+    left: 383px;
+    font-size: 12px;
+    line-height: 150%;
+}
+.frame-child {
+    position: absolute;
+    top: 146.5px;
+    left: 2.5px;
+    border-top: 1px solid #575757;
+    box-sizing: border-box;
+    width: 1121px;
+    height: 1px;
+}
+.frame-parent {
+    position: absolute;
+    top: 64px;
+    left: 158px;
+    width: 1123px;
+    height: 245px;
+}
+.terms-conditions-parent {
+    position: absolute;
+    top: 135px;
+    left: 1092px;
+    width: 261px;
+    height: 24px;
+    cursor: pointer;
+}
+.footer {
+    width: 100%;
+    position: relative;
+    background-color: #1a365d;
+    height: 374px;
+    color: #d6d6d6;
+}
+.customer-register-page {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
+    font-size: 14px;
+    color: #1a365d;
+    font-family: Poppins;
+    
+}
+
