@@ -32,7 +32,7 @@ body, html {
 .register-login {
     position: absolute;
     top: 705px;
-    left: 1064px;
+    left: 1225px;
     border-radius: 8px;
     background-color: #1e4e8c;
     width: 208px;
@@ -50,6 +50,7 @@ body, html {
     background-color: rgba(21, 114, 211, 0.1);
     height: 42px;
     font-family: Poppins;
+    text-indent: 20px;
 }
 
 .last-name-wrapper {
@@ -59,6 +60,7 @@ body, html {
     border-color: white;
     background-color: rgba(21, 114, 211, 0.1);
     height: 42px;
+    text-indent: 20px;
     font-family: Poppins;
 }
 
@@ -87,7 +89,7 @@ body, html {
 .form {
     position: absolute;
     top: 101px;
-    left: 951px;
+    left: 62%;
     border-radius: 16px;
     background-color: #fff;
     width: 433px;
@@ -149,6 +151,15 @@ body, html {
     line-height: 150%;
     cursor: pointer;
 }
+.i-have-read-and-agreed-to-term-parent{
+    position: absolute;
+    top: 12px;
+    left: 100px;
+    transform: translateX(165px);
+    line-height: 150%;
+    cursor: pointer;
+}
+
 .shape-icon {
     width: 18px;
     position: relative;
@@ -282,6 +293,8 @@ body, html {
     left: 32px;
     line-height: 150%;
 }
+
+
 .vuesaxlinearsms-parent {
     position: absolute;
     top: 71px;
@@ -323,14 +336,14 @@ body, html {
 .frame-parent {
     position: absolute;
     top: 64px;
-    left: 158px;
+    left: 350px;
     width: 1123px;
     height: 245px;
 }
 .terms-conditions-parent {
     position: absolute;
     top: 135px;
-    left: 1092px;
+    left: 1300px;
     width: 261px;
     height: 24px;
     cursor: pointer;
@@ -355,4 +368,3 @@ body, html {
     font-family: Poppins;
     
 }
-
