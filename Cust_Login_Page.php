@@ -52,7 +52,7 @@ if(isset($_SESSION['userlogin'])){
                               </div>
                             </div>
                             
-                            <div class="or-register" id="orRegisterText">or Register</div>
+                            <div class="or-register" id="orRegisterText"><a href = "Cust_Reg_Page.php">or Register</a></div>
                             
 
                               <input type="submit" id="login" class="login-wrapper" value="Log-in">
@@ -139,7 +139,7 @@ $(document).ready(function() {
                 data: {username: username, password: password},
 				success: function(data){
     alert(data);
-    if($.trim(data) === "Login Success"){ // Check for the 'success' response
+    if($.trim(data) === "Login Success!"){ // Check for the 'success' response
         window.location.href = "index.php"; // Redirect to index.php
     }
 }
