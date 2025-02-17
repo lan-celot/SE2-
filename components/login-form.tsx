@@ -12,11 +12,10 @@ import { Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
-import { app } from "../lib/firebase"; // Use relative path
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth" // Backend: Firebase authentication
+import { app } from "../lib/firebase"; // Backend: Firebase app initialization
 
-
-const auth = getAuth(app)
+const auth = getAuth(app) // Backend: Firebase auth instance
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -42,13 +41,14 @@ export function LoginForm() {
     setSuccess(false)
 
     try {
+      // Backend: Handle sign-in with Firebase
       await signInWithEmailAndPassword(auth, values.email, values.password)
       setSuccess(true)
       setTimeout(() => {
-        router.push("/logged-in")
+        router.push("/logged-in") // Backend: Redirect after successful login
       }, 1000)
     } catch (error) {
-      setError("Invalid email or password")
+      setError("Invalid email or password") // Backend: Handle login error
     }
   }
 

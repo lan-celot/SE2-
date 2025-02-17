@@ -25,7 +25,7 @@ const formSchema = z
   .object({
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
-    email: z.string().email("Invalid email address"), // Add this if missing
+    email: z.string().email("Invalid email address"), 
     username: z.string().min(3, "Username must be at least 3 characters"),
     phoneNumber: z.string().regex(/^09\d{9}$/, "Phone number must be in format: 09XXXXXXXXX"),
     gender: z.enum(["MALE", "FEMALE"]),
@@ -61,20 +61,21 @@ export function RegisterForm() {
     },
   })
 
+  // Backend: Handles user registration
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null);
     setSuccess(false);
   
     try {
-      // Create user in Firebase Auth
+      // Backend: Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
   
-      // Update display name
+      // Backend: Update display name in Firebase Auth
       await updateProfile(userCredential.user, {
         displayName: `${values.firstName} ${values.lastName}`
       });
   
-      // Save additional fields to Firestore
+      // Backend: Save additional user fields to Firestore
       await setDoc(doc(db, "users", userCredential.user.uid), {
         firstName: values.firstName,
         lastName: values.lastName,
@@ -88,11 +89,10 @@ export function RegisterForm() {
   
       setSuccess(true);
       console.log("User registered successfully, redirecting...");
-      // ✅ Redirect to login page after successful registration
+      // ✅ Backend: Redirect to login page after successful registration
       setTimeout(() => {
         router.replace("/login");
         router.refresh();
-        
       }, 500);
       
     } catch (err : any) {
@@ -100,7 +100,6 @@ export function RegisterForm() {
       setError(err.message);
     }
   }
-  
   
   return (
     <Form {...form}>
@@ -130,6 +129,7 @@ export function RegisterForm() {
               </FormItem>
             )}
           />
+
 
 <FormField
   control={form.control}
