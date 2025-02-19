@@ -62,44 +62,51 @@ export function RegisterForm() {
   })
 
   // Backend: Handles user registration
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setError(null);
-    setSuccess(false);
-  
-    try {
-      // Backend: Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-  
-      // Backend: Update display name in Firebase Auth
-      await updateProfile(userCredential.user, {
-        displayName: `${values.firstName} ${values.lastName}`
-      });
-  
-      // Backend: Save additional user fields to Firestore
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        firstName: values.firstName,
-        lastName: values.lastName,
-        username: values.username,
-        phoneNumber: values.phoneNumber,
-        gender: values.gender,
-        email: values.email,
-        termsAccepted: values.terms,
-        createdAt: new Date()
-      });
-  
-      setSuccess(true);
-      console.log("User registered successfully, redirecting...");
-      // ✅ Backend: Redirect to login page after successful registration
-      setTimeout(() => {
-        router.replace("/login");
-        router.refresh();
-      }, 500);
-      
-    } catch (err : any) {
-      console.error("Registration Error:", err);
-      setError(err.message);
-    }
+// Backend: Handles user registration
+async function onSubmit(values: z.infer<typeof formSchema>) {
+  setError(null);
+  setSuccess(false);
+
+  try {
+    // 1️⃣ Create user in Firebase Authentication
+    const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+    const user = userCredential.user;
+
+    // 2️⃣ Update user profile (Display Name)
+    await updateProfile(user, {
+      displayName: `${values.firstName} ${values.lastName}`
+    });
+
+    // 3️⃣ Save user details to Firestore Database
+    const userDoc = {
+      uid: user.uid,
+      firstName: values.firstName,
+      lastName: values.lastName,
+      username: values.username,
+      phoneNumber: values.phoneNumber,
+      gender: values.gender,
+      email: values.email,
+      termsAccepted: values.terms,
+      createdAt: new Date().toISOString() // Ensuring consistent timestamp format
+    };
+
+    await setDoc(doc(db, "users", user.uid), userDoc);
+
+    setSuccess(true);
+    console.log("User registered and data stored in Firestore!");
+
+    // 4️⃣ Redirect to login page after successful registration
+    setTimeout(() => {
+      router.replace("/login");
+      router.refresh();
+    }, 500);
+
+  } catch (err: any) {
+    console.error("Registration Error:", err);
+    setError(err.message);
   }
+}
+
   
   return (
     <Form {...form}>

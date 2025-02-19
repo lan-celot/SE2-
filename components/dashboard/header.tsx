@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { Bell } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { db, auth } from "@/lib/firebase" // Import Firebase
+import { doc, getDoc } from "firebase/firestore" // Firestore functions
+import { onAuthStateChanged } from "firebase/auth" // Firebase Auth
 
 interface HeaderProps {
   title?: string
@@ -18,13 +21,33 @@ export function DashboardHeader({ title }: HeaderProps) {
   ])
   const [showNotifications, setShowNotifications] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [userFirstName, setUserFirstName] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentDate(new Date())
     }, 1000)
-
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    // Check if a user is logged in and fetch their first name
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDocRef = doc(db, "users", user.uid)
+        const userDocSnap = await getDoc(userDocRef)
+
+        if (userDocSnap.exists()) {
+          setUserFirstName(userDocSnap.data().firstName)
+        } else {
+          console.log("User document not found in Firestore")
+        }
+      } else {
+        setUserFirstName(null)
+      }
+    })
+
+    return () => unsubscribe()
   }, [])
 
   const formatDate = (date: Date) => {
@@ -50,7 +73,10 @@ export function DashboardHeader({ title }: HeaderProps) {
         <h1 className="text-2xl font-semibold text-gray-900">
           {title || (
             <>
-              Welcome back, <span className="text-[#2a69ac]">Andrea</span>
+              Welcome back,{" "}
+              <span className="text-[#2a69ac]">
+                {userFirstName ? userFirstName : "User"}
+              </span>
             </>
           )}
         </h1>
@@ -128,4 +154,3 @@ export function DashboardHeader({ title }: HeaderProps) {
     </header>
   )
 }
-
