@@ -122,9 +122,9 @@ export function ReviewDetails({
         <Button type="button" variant="outline" onClick={onBack} className="border-[#1e4e8c] text-[#1e4e8c]">
           Back
         </Button>
-        <Button onClick={onSubmit} className="bg-[#1e4e8c] text-white">
-          Reserve
-        </Button>
+        <Button onClick={() => onSubmit()} className="bg-[#1e4e8c] text-white">
+  Reserve
+</Button>
       </div>
     </div>
   )

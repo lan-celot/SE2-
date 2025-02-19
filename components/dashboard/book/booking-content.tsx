@@ -7,11 +7,12 @@ import { DateSelectionForm } from "@/components/dashboard/book/date-selection-fo
 import { ReviewDetails } from "@/components/dashboard/book/review-details"
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page"
 import { cn } from "@/lib/utils"
+import { db } from "@/lib/firebase"
+import { collection, addDoc } from "firebase/firestore"
 
 type BookingStep = 1 | 2 | 3 | 4 | 5
 
 interface FormData {
-  // Personal Details
   firstName: string
   lastName: string
   gender: string
@@ -21,8 +22,6 @@ interface FormData {
   city: string
   province: string
   zipCode: string
-
-  // Car Details
   carModel: string
   yearModel: string
   transmission: string
@@ -30,8 +29,6 @@ interface FormData {
   odometer: string
   generalServices: string[]
   specificIssues: string
-
-  // Reservation Date
   reservationDate: string
 }
 
@@ -57,9 +54,20 @@ export function BookingContent() {
     reservationDate: "",
   })
 
-  const handleNext = (data: Partial<FormData>) => {
-    setFormData((prev) => ({ ...prev, ...data }))
-    setCurrentStep((prev) => (prev + 1) as BookingStep)
+  const handleNext = async (data: Partial<FormData>) => {
+    const updatedFormData = { ...formData, ...data }
+    setFormData(updatedFormData)
+
+    if (currentStep === 4) {
+      try {
+        await addDoc(collection(db, "bookings"), updatedFormData)
+        setCurrentStep(5)
+      } catch (error) {
+        console.error("Error saving booking: ", error)
+      }
+    } else {
+      setCurrentStep((prev) => (prev + 1) as BookingStep)
+    }
   }
 
   const handleBack = () => {
@@ -138,10 +146,9 @@ export function BookingContent() {
         {currentStep === 1 && <PersonalDetailsForm initialData={formData} onSubmit={handleNext} />}
         {currentStep === 2 && <CarDetailsForm initialData={formData} onSubmit={handleNext} onBack={handleBack} />}
         {currentStep === 3 && <DateSelectionForm initialData={formData} onSubmit={handleNext} onBack={handleBack} />}
-        {currentStep === 4 && <ReviewDetails formData={formData} onSubmit={handleNext} onBack={handleBack} />}
+        {currentStep === 4 && <ReviewDetails formData={formData} onSubmit={() => handleNext({})} onBack={handleBack} />}
         {currentStep === 5 && <ConfirmationPage formData={formData} onBookAgain={handleRestart} />}
       </div>
     </div>
   )
 }
-
