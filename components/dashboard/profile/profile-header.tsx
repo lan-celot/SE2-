@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
-import { app } from "@/lib/firebase";
-
+import { onAuthStateChanged } from "firebase/auth";
+import { app, auth } from "@/lib/firebase";
 
 const db = getFirestore(app);
 
@@ -32,13 +32,15 @@ export function ProfileHeader() {
   });
 
   useEffect(() => {
-    async function fetchUserData() {
-      const userDoc = await getDoc(doc(db, "users", "9SMThz76smOMxuEVSXnc6YDPeQA2")); // Replace with dynamic UID
-      if (userDoc.exists()) {
-        setUser(userDoc.data() as UserData); // Type assertion to fix the error
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          setUser(userDoc.data() as UserData);
+        }
       }
-    }
-    fetchUserData();
+    });
+    return () => unsubscribe();
   }, []);
 
   return (
