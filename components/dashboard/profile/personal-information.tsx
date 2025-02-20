@@ -1,27 +1,73 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PencilIcon } from "lucide-react"
+import { auth, db } from "@/lib/firebase" // Ensure Firebase is configured
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { onAuthStateChanged } from "firebase/auth"
 
 export function PersonalInformation() {
   const [isEditing, setIsEditing] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    contactNumber: "09171234567",
-    gender: "Female",
-    dateOfBirth: "2001-01-12",
-    memberSince: "November 9, 2024",
+    fullName: "",
+    contactNumber: "",
+    gender: "",
+    dateOfBirth: "",
+    memberSince: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically make an API call to update the user's information
-    setIsEditing(false)
-  }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          console.log("Fetched user data:", userData); // Debugging
+          setFormData({
+            fullName: `${userData.firstName} ${userData.lastName}` || "",
+            contactNumber: userData.phoneNumber || "",
+            gender: userData.gender || "",
+            dateOfBirth: userData.dateOfBirth || "", // Ensure Firestore has this field
+            memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : "",
+          });
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+  
+  
 
+  // Update Firestore
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+  
+    try {
+      const userRef = doc(db, "users", userId);
+      await setDoc(userRef, {
+        firstName: formData.fullName.split(" ")[0] || "",
+        lastName: formData.fullName.split(" ").slice(1).join(" ") || "",
+        phoneNumber: formData.contactNumber,
+        gender: formData.gender,
+        dateOfBirth: formData.dateOfBirth,
+        createdAt: formData.memberSince ? new Date(formData.memberSince).toISOString() : new Date().toISOString(),
+      }, { merge: true });
+  
+      console.log("Profile updated successfully:", formData);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    }
+  };
+  
   return (
     <div className="bg-white rounded-lg shadow-sm">
       <div className="p-6">
@@ -39,6 +85,10 @@ export function PersonalInformation() {
 
         <dl className="space-y-4">
           <div>
+            <dt className="text-sm text-[#8B909A]">Full Name</dt>
+            <dd className="text-[#1A365D]">{formData.fullName}</dd>
+          </div>
+          <div>
             <dt className="text-sm text-[#8B909A]">Contact Number</dt>
             <dd className="text-[#1A365D]">{formData.contactNumber}</dd>
           </div>
@@ -48,11 +98,15 @@ export function PersonalInformation() {
           </div>
           <div>
             <dt className="text-sm text-[#8B909A]">Date of Birth</dt>
-            <dd className="text-[#1A365D]">{new Date(formData.dateOfBirth).toLocaleDateString()}</dd>
+            <dd className="text-[#1A365D]">
+  {formData.dateOfBirth ? new Date(formData.dateOfBirth).toLocaleDateString() : "N/A"}
+</dd>
           </div>
           <div>
             <dt className="text-sm text-[#8B909A]">Member Since</dt>
-            <dd className="text-[#1A365D]">{formData.memberSince}</dd>
+            <dd className="text-[#1A365D]">
+  {formData.memberSince ? formData.memberSince : "N/A"}
+</dd>
           </div>
         </dl>
       </div>
@@ -64,9 +118,16 @@ export function PersonalInformation() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="contactNumber" className="text-sm font-medium">
-                Contact Number
-              </label>
+              <label htmlFor="fullName" className="text-sm font-medium">Full Name</label>
+              <Input
+                id="fullName"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="bg-white/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="contactNumber" className="text-sm font-medium">Contact Number</label>
               <Input
                 id="contactNumber"
                 value={formData.contactNumber}
@@ -75,9 +136,7 @@ export function PersonalInformation() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="gender" className="text-sm font-medium">
-                Gender
-              </label>
+              <label htmlFor="gender" className="text-sm font-medium">Gender</label>
               <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value })}>
                 <SelectTrigger className="bg-white/50">
                   <SelectValue placeholder="Select gender" />
@@ -90,9 +149,7 @@ export function PersonalInformation() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label htmlFor="dateOfBirth" className="text-sm font-medium">
-                Date of Birth
-              </label>
+              <label htmlFor="dateOfBirth" className="text-sm font-medium">Date of Birth</label>
               <Input
                 id="dateOfBirth"
                 type="date"
@@ -102,12 +159,7 @@ export function PersonalInformation() {
               />
             </div>
             <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsEditing(false)}
-                className="border-[#EA5455] text-[#EA5455] hover:bg-[#EA5455]/10"
-              >
+              <Button type="button" variant="outline" onClick={() => setIsEditing(false)} className="border-[#EA5455] text-[#EA5455] hover:bg-[#EA5455]/10">
                 Cancel
               </Button>
               <Button type="submit" className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]">
@@ -120,4 +172,3 @@ export function PersonalInformation() {
     </div>
   )
 }
-
