@@ -85,6 +85,7 @@ export function PersonalInformation() {
                 <SelectContent>
                   <SelectItem value="Male">Male</SelectItem>
                   <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Others">Others</SelectItem>
                 </SelectContent>
               </Select>
             </div>
