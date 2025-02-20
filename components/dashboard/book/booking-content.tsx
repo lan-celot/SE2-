@@ -30,6 +30,8 @@ interface FormData {
   generalServices: string[]
   specificIssues: string
   reservationDate: string
+  completionDate: string // Ensure this is included
+  status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED" // Ensure this is defined
 }
 
 export function BookingContent() {
@@ -52,6 +54,8 @@ export function BookingContent() {
     generalServices: [],
     specificIssues: "",
     reservationDate: "",
+    status: "CONFIRMED",
+    completionDate: "",
   })
 
   const handleNext = async (data: Partial<FormData>) => {
@@ -94,6 +98,8 @@ export function BookingContent() {
       generalServices: [],
       specificIssues: "",
       reservationDate: "",
+      status: "CONFIRMED",
+      completionDate: "",
     })
   }
 
