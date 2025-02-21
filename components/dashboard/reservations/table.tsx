@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 import { AddServiceDialog } from "./add-service-dialog"
 import React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { db } from "@/lib/firebase"
-import { collection, query, onSnapshot, orderBy, doc, updateDoc } from "firebase/firestore"
+import { db, auth } from "@/lib/firebase"
+import { collection, query, onSnapshot,  where, orderBy, doc, updateDoc } from "firebase/firestore"
 
 interface Service {
   mechanic: string
@@ -22,21 +22,21 @@ interface Reservation {
   reservationDate: string
   carModel: string
   completionDate: string
-  status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
-  services?: Service[]
+  status: string
+  services: string[]
 }
 
-export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
-  const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const [sortField, setSortField] = useState<keyof Reservation>("id")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  const [currentPage, setCurrentPage] = useState(1)
+export function ReservationsTable({searchQuery}: {searchQuery: string}) {
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [serviceToDelete, setServiceToDelete] = useState<{ reservationId: string; serviceIndex: number } | null>(null)
-  const itemsPerPage = 10
 
   useEffect(() => {
-    const q = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
+    const user = auth.currentUser
+    if (!user) return
+
+    const userDocRef = doc(db, "users", user.uid)
+    const bookingsCollectionRef = collection(userDocRef, "bookings")
+    const q = query(bookingsCollectionRef, where("userId", "==", user.uid))
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data()
@@ -44,31 +44,16 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           id: doc.id,
           reservationDate: booking.reservationDate || "N/A",
           carModel: booking.carModel || "Unknown",
-          completionDate: booking.completionDate || "Pending", // Default "Pending"
-          status: booking.status || "CONFIRMED", // Default "CONFIRMED"
+          completionDate: booking.completionDate || "Pending",
+          status: booking.status || "CONFIRMED",
           services: booking.generalServices || [],
         } as Reservation
       })
       setReservations(data)
     })
+
     return () => unsubscribe()
   }, [])
-  
-
-  const handleSort = (field: keyof Reservation) => {
-    setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc")
-    setSortField(field)
-  }
-
-  const handleDeleteService = async () => {
-    if (!serviceToDelete) return
-    const { reservationId, serviceIndex } = serviceToDelete
-    const reservationRef = doc(db, "bookings", reservationId)
-    const updatedServices = reservations.find((res) => res.id === reservationId)?.services || []
-    updatedServices.splice(serviceIndex, 1)
-    await updateDoc(reservationRef, { services: updatedServices })
-    setServiceToDelete(null)
-  }
 
   const filteredAndSortedReservations = [...reservations]
     .filter((reservation) =>
@@ -78,12 +63,6 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           )
         : true
     )
-    .sort((a, b) => {
-      const aValue = a[sortField]?.toString().toLowerCase() || ""
-      const bValue = b[sortField]?.toString().toLowerCase() || ""
-      return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
-    })
-
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <div className="overflow-x-auto">

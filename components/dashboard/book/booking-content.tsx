@@ -7,8 +7,8 @@ import { DateSelectionForm } from "@/components/dashboard/book/date-selection-fo
 import { ReviewDetails } from "@/components/dashboard/book/review-details"
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page"
 import { cn } from "@/lib/utils"
-import { db } from "@/lib/firebase"
-import { collection, addDoc } from "firebase/firestore"
+import { db, auth } from "@/lib/firebase"
+import { collection, addDoc, doc } from "firebase/firestore"
 
 type BookingStep = 1 | 2 | 3 | 4 | 5
 
@@ -30,8 +30,8 @@ interface FormData {
   generalServices: string[]
   specificIssues: string
   reservationDate: string
-  completionDate: string // Ensure this is included
-  status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED" // Ensure this is defined
+  completionDate: string
+  status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
 }
 
 export function BookingContent() {
@@ -64,8 +64,17 @@ export function BookingContent() {
 
     if (currentStep === 4) {
       try {
-        await addDoc(collection(db, "bookings"), updatedFormData)
-        setCurrentStep(5)
+        const user = auth.currentUser
+        if (user) {
+          const userDocRef = doc(db, "users", user.uid)
+          await addDoc(collection(userDocRef, "bookings"), {
+            ...updatedFormData,
+            userId: user.uid, // Include the userId in the booking document
+          })
+          setCurrentStep(5)
+        } else {
+          console.error("No user is logged in")
+        }
       } catch (error) {
         console.error("Error saving booking: ", error)
       }
