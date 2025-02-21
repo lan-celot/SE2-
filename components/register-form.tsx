@@ -16,10 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { db } from "@/lib/firebase"; // Import Firestore
-import { doc, setDoc } from "firebase/firestore"; // Firestore functions
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore"; // Firestore functions
 import { useRouter } from "next/navigation";
-
-
 
 const formSchema = z
   .object({
@@ -61,53 +59,69 @@ export function RegisterForm() {
     },
   })
 
-  // Backend: Handles user registration
-// Backend: Handles user registration
-async function onSubmit(values: z.infer<typeof formSchema>) {
-  setError(null);
-  setSuccess(false);
+  // Function to generate a new UID
+  const generateUID = async () => {
+    const counterDocRef = doc(db, "counters", "userCounter");
+    const counterDocSnap = await getDoc(counterDocRef);
 
-  try {
-    // 1️⃣ Create user in Firebase Authentication
-    const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-    const user = userCredential.user;
+    let newNumber = 1;
+    if (counterDocSnap.exists()) {
+      newNumber = counterDocSnap.data().lastNumber + 1;
+    }
+    //Tweak this to change format of UID
+    const newUID = `U${newNumber.toString().padStart(5, '0')}`;
 
-    // 2️⃣ Update user profile (Display Name)
-    await updateProfile(user, {
-      displayName: `${values.firstName} ${values.lastName}`
-    });
+    await setDoc(counterDocRef, { lastNumber: newNumber });
 
-    // 3️⃣ Save user details to Firestore Database
-    const userDoc = {
-      uid: user.uid,
-      firstName: values.firstName,
-      lastName: values.lastName,
-      username: values.username,
-      phoneNumber: values.phoneNumber,
-      gender: values.gender,
-      email: values.email,
-      termsAccepted: values.terms,
-      createdAt: new Date().toISOString() // Ensuring consistent timestamp format
-    };
-
-    await setDoc(doc(db, "users", user.uid), userDoc);
-
-    setSuccess(true);
-    console.log("User registered and data stored in Firestore!");
-
-    // 4️⃣ Redirect to login page after successful registration
-    setTimeout(() => {
-      router.replace("/login");
-      router.refresh();
-    }, 500);
-
-  } catch (err: any) {
-    console.error("Registration Error:", err);
-    setError(err.message);
+    return newUID;
   }
-}
 
-  
+  // Backend: Handles user registration
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setError(null);
+    setSuccess(false);
+
+    try {
+      // 1️⃣ Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      // 2️⃣ Update user profile (Display Name)
+      await updateProfile(user, {
+        displayName: `${values.firstName} ${values.lastName}`
+      });
+
+      // 3️⃣ Generate UID and save user details to Firestore Database
+      const uid = await generateUID();
+      const userDoc = {
+        uid: uid,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        username: values.username,
+        phoneNumber: values.phoneNumber,
+        gender: values.gender,
+        email: values.email,
+        termsAccepted: values.terms,
+        createdAt: new Date().toISOString() // Ensuring consistent timestamp format
+      };
+
+      await setDoc(doc(db, "users", uid), userDoc);
+
+      setSuccess(true);
+      console.log("User registered and data stored in Firestore!");
+
+      // 4️⃣ Redirect to login page after successful registration
+      setTimeout(() => {
+        router.replace("/login");
+        router.refresh();
+      }, 500);
+
+    } catch (err: any) {
+      console.error("Registration Error:", err);
+      setError(err.message);
+    }
+  }
+
   return (
     <Form {...form}>
       {error && (
@@ -137,21 +151,6 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
             )}
           />
 
-
-<FormField
-  control={form.control}
-  name="email"
-  render={({ field }) => (
-    <FormItem>
-      <FormControl>
-        <Input placeholder="Email" className="bg-white/50" {...field} />
-      </FormControl>
-      <FormMessage />
-    </FormItem>
-  )}
-/>
-
-
           <FormField
             control={form.control}
             name="lastName"
@@ -165,6 +164,19 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input placeholder="Email" className="bg-white/50" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
