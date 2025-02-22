@@ -8,7 +8,7 @@ import { ReviewDetails } from "@/components/dashboard/book/review-details"
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page"
 import { cn } from "@/lib/utils"
 import { db, auth } from "@/lib/firebase"
-import { collection, addDoc, doc } from "firebase/firestore"
+import { collection, addDoc, doc, serverTimestamp, setDoc } from "firebase/firestore"
 
 type BookingStep = 1 | 2 | 3 | 4 | 5
 
@@ -61,7 +61,7 @@ export function BookingContent() {
   const handleNext = async (data: Partial<FormData>) => {
     const updatedFormData = { ...formData, ...data }
     setFormData(updatedFormData)
-
+  
     if (currentStep === 4) {
       try {
         const user = auth.currentUser
@@ -69,21 +69,26 @@ export function BookingContent() {
           console.error("No user is logged in")
           return
         }
-
-        // Generate a reference number
-        const refNumber = `R${Math.floor(Math.random() * 1000000)}`
-        
-        // Create a reference to the user's bookings collection
-        const userBookingsRef = collection(doc(db, "users", user.uid), "bookings")
-        
-        // Add the booking document to the user's bookings collection
-        await addDoc(userBookingsRef, {
+  
+        // Generate a Firestore document reference
+        const bookingRef = doc(collection(db, "bookings")) // Create a new doc in global collection
+        const bookingId = bookingRef.id // Get the auto-generated ID
+  
+        // Prepare booking data
+        const bookingData = {
           ...updatedFormData,
-          referenceNumber: refNumber,
-          createdAt: new Date(),
-          userId: user.uid
-        })
-
+          referenceNumber: `R${Math.floor(Math.random() * 1000000)}`,
+          createdAt: serverTimestamp(),
+          userId: user.uid,
+          bookingId: bookingId, // Keep same ID in both collections
+        }
+  
+        // Save to Global "bookings" Collection
+        await setDoc(bookingRef, bookingData)
+  
+        // Save to User's "users/{userId}/bookings" Subcollection
+        await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), bookingData)
+  
         setCurrentStep(5)
       } catch (error) {
         console.error("Error saving booking: ", error)
