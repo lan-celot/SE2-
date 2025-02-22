@@ -19,23 +19,26 @@ export function PersonalInformation() {
     gender: "",
     dateOfBirth: "",
     memberSince: "",
+    customUid: "", // Added to store custom UID
   })
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
+        // Fetch user data using Firebase Auth UID
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
+        
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          console.log("Fetched user data:", userData); // Debugging
           setFormData({
             fullName: `${userData.firstName} ${userData.lastName}` || "",
             contactNumber: userData.phoneNumber || "",
             gender: userData.gender || "",
-            dateOfBirth: userData.dateOfBirth || "", // Ensure Firestore has this field
+            dateOfBirth: userData.dateOfBirth || "",
             memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : "",
+            customUid: userData.customUid || "",
           });
         }
       }
@@ -45,23 +48,24 @@ export function PersonalInformation() {
   
   
 
-  // Update Firestore
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
-  
+
     try {
+      const [firstName, ...lastNameParts] = formData.fullName.split(" ");
+      const lastName = lastNameParts.join(" ");
+
       const userRef = doc(db, "users", userId);
       await setDoc(userRef, {
-        firstName: formData.fullName.split(" ")[0] || "",
-        lastName: formData.fullName.split(" ").slice(1).join(" ") || "",
+        firstName,
+        lastName,
         phoneNumber: formData.contactNumber,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
-        createdAt: formData.memberSince ? new Date(formData.memberSince).toISOString() : new Date().toISOString(),
+        customUid: formData.customUid, // Preserve custom UID
       }, { merge: true });
-  
-      console.log("Profile updated successfully:", formData);
+
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);

@@ -69,7 +69,7 @@ export function RegisterForm() {
       newNumber = counterDocSnap.data().lastNumber + 1;
     }
     //Tweak this to change format of UID
-    const newUID = `U${newNumber.toString().padStart(5, '0')}`;
+    const newUID = `#CU${newNumber.toString().padStart(5, '0')}`;
 
     await setDoc(counterDocRef, { lastNumber: newNumber });
 
@@ -86,15 +86,18 @@ export function RegisterForm() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // 2️⃣ Update user profile (Display Name)
+      // 2️⃣ Update user profile
       await updateProfile(user, {
         displayName: `${values.firstName} ${values.lastName}`
       });
 
-      // 3️⃣ Generate UID and save user details to Firestore Database
-      const uid = await generateUID();
+      // 3️⃣ Generate custom UID
+      const customUid = await generateUID();
+
+      // 4️⃣ Save user details to Firestore with BOTH UIDs
       const userDoc = {
-        uid: uid,
+        customUid: customUid, // Store custom UID
+        authUid: user.uid,    // Store Firebase Auth UID
         firstName: values.firstName,
         lastName: values.lastName,
         username: values.username,
@@ -102,15 +105,19 @@ export function RegisterForm() {
         gender: values.gender,
         email: values.email,
         termsAccepted: values.terms,
-        createdAt: new Date().toISOString() // Ensuring consistent timestamp format
+        createdAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, "users", uid), userDoc);
+
+      await Promise.all([
+        setDoc(doc(db, "users", user.uid), userDoc),     // Primary document using Auth UID
+         {  // Reference document using custom UID
+          authUid: user.uid
+        },
+      ]);
 
       setSuccess(true);
-      console.log("User registered and data stored in Firestore!");
-
-      // 4️⃣ Redirect to login page after successful registration
+      
       setTimeout(() => {
         router.replace("/login");
         router.refresh();

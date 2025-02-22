@@ -8,9 +8,7 @@ import { ReviewDetails } from "@/components/dashboard/book/review-details"
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page"
 import { cn } from "@/lib/utils"
 import { db, auth } from "@/lib/firebase"
-import { collection, addDoc, doc, setDoc } from "firebase/firestore"
-
-
+import { collection, addDoc, doc } from "firebase/firestore"
 
 type BookingStep = 1 | 2 | 3 | 4 | 5
 
@@ -67,18 +65,25 @@ export function BookingContent() {
     if (currentStep === 4) {
       try {
         const user = auth.currentUser
-        if (user) {
-          const userDocRef = doc(db, "users", user.uid)
-          await addDoc(collection(userDocRef, "bookings"), {
-            ...updatedFormData,
-            userId: user.uid, // Include the userId in the booking document
-          })
-          setCurrentStep(5)
-        } else {
+        if (!user) {
           console.error("No user is logged in")
+          return
         }
-        const RefNumber = `#R${Math.floor(Math.random() * 1000000)}`
-        await setDoc(doc(db, "bookings", RefNumber), updatedFormData)
+
+        // Generate a reference number
+        const refNumber = `R${Math.floor(Math.random() * 1000000)}`
+        
+        // Create a reference to the user's bookings collection
+        const userBookingsRef = collection(doc(db, "users", user.uid), "bookings")
+        
+        // Add the booking document to the user's bookings collection
+        await addDoc(userBookingsRef, {
+          ...updatedFormData,
+          referenceNumber: refNumber,
+          createdAt: new Date(),
+          userId: user.uid
+        })
+
         setCurrentStep(5)
       } catch (error) {
         console.error("Error saving booking: ", error)

@@ -12,7 +12,7 @@ interface UserData {
   firstName: string;
   lastName: string;
   username: string;
-  uid: string;
+  customUid: string;  // Changed from uid to customUid
   email: string;
   phoneNumber: string;
   gender: string;
@@ -24,7 +24,7 @@ export function ProfileHeader() {
     firstName: "",
     lastName: "",
     username: "",
-    uid: "",
+    customUid: "",  // Changed from uid to customUid
     email: "",
     phoneNumber: "",
     gender: "",
@@ -34,6 +34,7 @@ export function ProfileHeader() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // Fetch user data using Firebase Auth UID
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           setUser(userDoc.data() as UserData);
@@ -56,10 +57,10 @@ export function ProfileHeader() {
       </div>
       <div>
         <h2 className="text-2xl font-bold text-[#1A365D]">
-          {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : "Andrea Salazar"}
+          {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : "Loading..."}
         </h2>
-        <p className="text-[#8B909A]">{user.username || "andeng"}</p>
-        <p className="text-sm text-[#8B909A]">{user.uid || "#C00100"}</p>
+        <p className="text-[#8B909A]">{user.username || "Loading..."}</p>
+        <p className="text-sm text-[#8B909A]">{user.customUid || "Loading..."}</p>
       </div>
     </div>
   );
