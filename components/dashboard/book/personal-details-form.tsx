@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -7,6 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { db } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
+import { getAuth } from "firebase/auth"
+
 
 const formSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -29,20 +34,47 @@ interface PersonalDetailsFormProps {
 }
 
 export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFormProps) {
+  const auth = getAuth()
+  const user = auth.currentUser
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      firstName: initialData.firstName || "",
-      lastName: initialData.lastName || "",
-      gender: initialData.gender || "",
-      phoneNumber: initialData.phoneNumber || "",
-      dateOfBirth: initialData.dateOfBirth || "",
-      streetAddress: initialData.streetAddress || "",
-      city: initialData.city || "",
-      province: initialData.province || "",
-      zipCode: initialData.zipCode || "",
+    defaultValues: initialData || {
+      firstName: "",
+      lastName: "",
+      gender: "",
+      phoneNumber: "",
+      dateOfBirth: "",
+      streetAddress: "",
+      city: "",
+      province: "",
+      zipCode: "",
     },
   })
+
+  useEffect(() => {
+    if (user) {
+      const fetchUserData = async () => {
+        const userDoc = await getDoc(doc(db, "users", user.uid))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          form.reset({
+            firstName: userData.firstName || "",
+            lastName: userData.lastName || "",
+            gender: userData.gender || "",
+            phoneNumber: userData.phoneNumber || "",
+            dateOfBirth: userData.dateOfBirth || "",
+            streetAddress: userData.streetAddress || "",
+            city: userData.city || "",
+            province: userData.province || "",
+            zipCode: userData.zipCode || "",
+          })
+        }
+      }
+      fetchUserData()
+    }
+  }, [user, form])
+
+
 
   return (
     <Form {...form}>

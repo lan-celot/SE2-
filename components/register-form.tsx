@@ -77,6 +77,7 @@ export function RegisterForm() {
   }
 
   // Backend: Handles user registration
+  
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null);
     setSuccess(false);
@@ -108,12 +109,12 @@ export function RegisterForm() {
         createdAt: new Date().toISOString()
       };
 
-
+      // Save in two places for efficient querying
       await Promise.all([
         setDoc(doc(db, "users", user.uid), userDoc),     // Primary document using Auth UID
-         {  // Reference document using custom UID
+        setDoc(doc(db, "usersByCustomId", customUid), {  // Reference document using custom UID
           authUid: user.uid
-        },
+        })
       ]);
 
       setSuccess(true);
