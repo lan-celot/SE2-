@@ -8,7 +8,9 @@ import { ReviewDetails } from "@/components/dashboard/book/review-details"
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page"
 import { cn } from "@/lib/utils"
 import { db, auth } from "@/lib/firebase"
-import { collection, addDoc, doc } from "firebase/firestore"
+import { collection, addDoc, doc, setDoc } from "firebase/firestore"
+
+
 
 type BookingStep = 1 | 2 | 3 | 4 | 5
 
@@ -75,6 +77,9 @@ export function BookingContent() {
         } else {
           console.error("No user is logged in")
         }
+        const RefNumber = `#R${Math.floor(Math.random() * 1000000)}`
+        await setDoc(doc(db, "bookings", RefNumber), updatedFormData)
+        setCurrentStep(5)
       } catch (error) {
         console.error("Error saving booking: ", error)
       }
