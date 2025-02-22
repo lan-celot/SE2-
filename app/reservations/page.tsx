@@ -24,7 +24,7 @@ interface Reservation {
   id: string
   reservationDate: string
   customerName: string
-  customerId: string
+  userId: string
   carModel: string
   status: Status
   services?: {
@@ -291,7 +291,7 @@ console.log("Filtered Reservations:", filteredReservations); // Debug log
           <TableCell className="font-medium text-[#1A365D] text-center">{reservation.id}</TableCell>
           <TableCell className="text-[#1A365D] text-center">{reservation.reservationDate}</TableCell>
           <TableCell className="text-[#1A365D] text-center">{reservation.firstName + ' ' + reservation.lastName}</TableCell>
-          <TableCell className="text-[#1A365D] text-center">{reservation.customerId}</TableCell>
+          <TableCell className="text-[#1A365D] text-center">{reservation.userId}</TableCell>
           <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
           <TableCell className="px-6 py-4 flex justify-center">
   <div className="relative inline-block">
