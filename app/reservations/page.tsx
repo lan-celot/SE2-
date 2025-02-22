@@ -1,5 +1,5 @@
 "use client"
-
+import { useEffect } from "react";
 import * as React from "react"
 import { Search, ChevronDown, Trash2, User, ChevronUp } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
@@ -13,12 +13,16 @@ import { AddServiceDialog } from "./add-service-dialog"
 import { ReservationsTabs } from "./reservations-tabs"
 import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
+import { collection, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 type Status = "Confirmed" | "Repairing" | "Completed" | "Cancelled"
 
 interface Reservation {
+  lastName: string;
+  firstName: string;
   id: string
-  date: string
+  reservationDate: string
   customerName: string
   customerId: string
   carModel: string
@@ -31,68 +35,16 @@ interface Reservation {
   }[]
 }
 
-const statusStyles: Record<Status, { bg: string; text: string }> = {
+const statusStyles: Record<string, { bg: string; text: string }> = {
   Completed: { bg: "bg-[#E6FFF3]", text: "text-[#28C76F]" },
   Repairing: { bg: "bg-[#FFF5E0]", text: "text-[#EFBF14]" },
   Cancelled: { bg: "bg-[#FFE5E5]", text: "text-[#EA5455]" },
   Confirmed: { bg: "bg-[#EBF8FF]", text: "text-[#63B3ED]" },
-}
+  default: { bg: "bg-gray-200", text: "text-gray-800" }, // Default style
+};
 
 const reservations: Reservation[] = [
-  {
-    id: "#R00100",
-    date: "11-12-24 3:00 PM",
-    customerName: "ANDREA SALAZAR",
-    customerId: "#C00100",
-    carModel: "HONDA CIVIC",
-    status: "Confirmed",
-    services: [
-      {
-        created: "11-12-24 3:00 pm",
-        reservationDate: "11-12-24 3:00 pm",
-        service: "BRAKE CLEAN",
-        mechanic: "TO BE ASSIGNED",
-      },
-      {
-        created: "11-12-24 3:00 pm",
-        reservationDate: "11-12-24 3:00 pm",
-        service: "OIL CHANGE",
-        mechanic: "TO BE ASSIGNED",
-      },
-    ],
-  },
-  {
-    id: "#R00099",
-    date: "11-12-24 2:00 PM",
-    customerName: "BLAINE RAMOS",
-    customerId: "#C00099",
-    carModel: "FORD RAPTOR",
-    status: "Confirmed",
-    services: [
-      {
-        created: "11-12-24 2:00 pm",
-        reservationDate: "11-12-24 2:00 pm",
-        service: "ENGINE TUNING",
-        mechanic: "TO BE ASSIGNED",
-      },
-    ],
-  },
-  {
-    id: "#R00098",
-    date: "11-12-24 1:00 PM",
-    customerName: "LEO MACAYA",
-    customerId: "#C00098",
-    carModel: "TOYOTA VIOS",
-    status: "Confirmed",
-    services: [
-      {
-        created: "11-12-24 1:00 pm",
-        reservationDate: "11-12-24 1:00 pm",
-        service: "AIR CONDITIONING",
-        mechanic: "TO BE ASSIGNED",
-      },
-    ],
-  },
+
 ]
 
 const mechanics = [
@@ -123,6 +75,18 @@ export default function ReservationsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [sortField, setSortField] = useState<keyof Omit<Reservation, "services" | "status"> | null>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+
+  useEffect(() => {
+    const q = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Reservation))
+      setReservationData(data)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  
+
 
   const handleStatusChange = (reservationId: string, newStatus: Status) => {
     setReservationData((prevData) =>
@@ -190,7 +154,7 @@ export default function ReservationsPage() {
 
             const newServices = selectedServices.map((service) => ({
               created: formattedNow,
-              reservationDate: reservation.date.toLowerCase(),
+              reservationDate: reservation.reservationDate.toLowerCase(),
               service: service,
               mechanic: "TO BE ASSIGNED",
             }))
@@ -210,26 +174,30 @@ export default function ReservationsPage() {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc")
     } else {
       setSortField(field)
-      setSortOrder(field === "id" ? "desc" : "asc")
+      setSortOrder("asc")
     }
   }
 
   const filteredReservations = reservationData
-    .filter((reservation) => {
-      const matchesStatus = activeTab === "all" || reservation.status.toLowerCase() === activeTab
-      const matchesSearch = Object.values(reservation).join(" ").toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesStatus && matchesSearch
-    })
-    .sort((a, b) => {
-      const aValue = a[sortField]
-      const bValue = b[sortField]
-      const modifier = sortOrder === "asc" ? 1 : -1
+  .filter((reservation) => {
+    const matchesStatus = activeTab === "all" || reservation.status.toLowerCase() === activeTab;
+    const matchesSearch = Object.values(reservation).join(" ").toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  })
+  .sort((a, b) => {
+    if (sortField) {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const modifier = sortOrder === "asc" ? 1 : -1;
       if (sortField === "id") {
-        return Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1))
+        return (Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))) * modifier;
       }
-      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0
-    })
+      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0;
+    }
+    return 0;
+  });
 
+console.log("Filtered Reservations:", filteredReservations); // Debug log
   const columns = [
     { key: "id", label: "RESERVATION ID" },
     { key: "date", label: "RESERVATION DATE" },
@@ -244,7 +212,7 @@ export default function ReservationsPage() {
       <Sidebar />
       <main className="ml-64 flex-1 p-8">
         <div className="mb-4">
-          <DashboardHeader title="Reservation Management" className="text-[#1A365D]" />
+          <DashboardHeader title="Reservation Management" />
         </div>
 
         {/* Tabs */}
@@ -311,170 +279,178 @@ export default function ReservationsPage() {
               </tr>
             </thead>
             <TableBody>
-              {filteredReservations.map((reservation) => (
-                <React.Fragment key={reservation.id}>
-                  <TableRow
-                    className={cn(
-                      expandedRowId && expandedRowId !== reservation.id ? "opacity-50" : "",
-                      "transition-opacity duration-200",
-                    )}
-                  >
-                    <TableCell className="font-medium text-[#1A365D] text-center">{reservation.id}</TableCell>
-                    <TableCell className="text-[#1A365D] text-center">{reservation.date}</TableCell>
-                    <TableCell className="text-[#1A365D] text-center">{reservation.customerName}</TableCell>
-                    <TableCell className="text-[#1A365D] text-center">{reservation.customerId}</TableCell>
-                    <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
-                    <TableCell className="px-6 py-4 flex justify-center">
-                      <div className="relative inline-block">
-                        <select
-                          value={reservation.status}
-                          onChange={(e) => handleStatusChange(reservation.id, e.target.value as Status)}
-                          className={cn(
-                            "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
-                            statusStyles[reservation.status].bg,
-                            statusStyles[reservation.status].text,
-                          )}
-                        >
-                          {Object.keys(statusStyles).map((status) => (
-                            <option
-                              key={status}
-                              value={status}
-                              className={cn(
-                                statusStyles[status as Status].bg,
-                                statusStyles[status as Status].text,
-                                "py-1",
-                              )}
-                            >
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          className={cn(
-                            "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
-                            statusStyles[reservation.status].text,
-                          )}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setExpandedRowId(expandedRowId === reservation.id ? null : reservation.id)}
-                        >
-                          {expandedRowId === reservation.id ? (
-                            <img
-                              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector%20up-NiMLet me continue from the exact cut off point:
+  {filteredReservations.length > 0 ? (
+    filteredReservations.map((reservation) => (
+      <React.Fragment key={reservation.id}>
+        <TableRow
+          className={cn(
+            expandedRowId && expandedRowId !== reservation.id ? "opacity-50" : "",
+            "transition-opacity duration-200",
+          )}
+        >
+          <TableCell className="font-medium text-[#1A365D] text-center">{reservation.id}</TableCell>
+          <TableCell className="text-[#1A365D] text-center">{reservation.reservationDate}</TableCell>
+          <TableCell className="text-[#1A365D] text-center">{reservation.firstName + ' ' + reservation.lastName}</TableCell>
+          <TableCell className="text-[#1A365D] text-center">{reservation.customerId}</TableCell>
+          <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
+          <TableCell className="px-6 py-4 flex justify-center">
+  <div className="relative inline-block">
+    <select
+      value={reservation.status}
+      onChange={(e) => handleStatusChange(reservation.id, e.target.value as Status)}
+      className={cn(
+        "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
+        statusStyles[reservation.status]?.bg || statusStyles.default.bg,
+        statusStyles[reservation.status]?.text || statusStyles.default.text,
+      )}
+    >
+      {Object.keys(statusStyles).map((status) => (
+        <option
+          key={status}
+          value={status}
+          className={cn(
+            statusStyles[status]?.bg || statusStyles.default.bg,
+            statusStyles[status]?.text || statusStyles.default.text,
+            "py-1",
+          )}
+        >
+          {status}
+        </option>
+      ))}
+    </select>
+    <ChevronDown
+      className={cn(
+        "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
+        statusStyles[reservation.status]?.text || statusStyles.default.text,
+      )}
+    />
+  </div>
+</TableCell>
+          <TableCell className="px-6 py-4 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setExpandedRowId(expandedRowId === reservation.id ? null : reservation.id)}
+              >
+                {expandedRowId === reservation.id ? (
+                  <img
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector%20up-NiMLet me continue from the exact cut off point:
 
 https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector%20up-NiM43WWAQiX3qnLM68fj74mUJgJUCp.svg"
-                              alt="Collapse"
-                              width={20}
-                              height={20}
-                            />
-                          ) : (
-                            <img
-                              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector-pICkRVClrhBZjNdGniLgpirPIMvT6U.svg"
-                              alt="Expand"
-                              width={20}
-                              height={20}
-                            />
-                          )}
+                    alt="Collapse"
+                    width={20}
+                    height={20}
+                  />
+                ) : (
+                  <img
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector-pICkRVClrhBZjNdGniLgpirPIMvT6U.svg"
+                    alt="Expand"
+                    width={20}
+                    height={20}
+                  />
+                )}
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+        {expandedRowId === reservation.id && reservation.services && (
+          <TableRow>
+            <TableCell colSpan={8} className="bg-gray-50">
+              <div className="px-4 py-2">
+                <Table>
+                  <thead>
+                    <tr>
+                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                        CREATED
+                      </TableHead>
+                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                        RESERVATION DATE
+                      </TableHead>
+                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                        SERVICE
+                      </TableHead>
+                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                        MECHANIC
+                      </TableHead>
+                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                        ACTION
+                      </TableHead>
+                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                        <Button
+                          className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+                          onClick={() => setShowAddServiceDialog(true)}
+                        >
+                          Add Service
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  {expandedRowId === reservation.id && reservation.services && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="bg-gray-50">
-                        <div className="px-4 py-2">
-                          <Table>
-                            <thead>
-                              <tr>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  CREATED
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  RESERVATION DATE
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  SERVICE
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  MECHANIC
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  ACTION
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  <Button
-                                    className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
-                                    onClick={() => setShowAddServiceDialog(true)}
-                                  >
-                                    Add Service
-                                  </Button>
-                                </TableHead>
-                              </tr>
-                            </thead>
-                            <TableBody>
-                              {reservation.services.map((service, index) => (
-                                <TableRow key={index}>
-                                  <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                    {service.created}
-                                  </TableCell>
-                                  <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                    {service.reservationDate}
-                                  </TableCell>
-                                  <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                    {service.service}
-                                  </TableCell>
-                                  <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                    {service.mechanic}
-                                  </TableCell>
-                                  <TableCell className="px-6 py-4 flex justify-center">
-                                    <div className="inline-flex items-center justify-center gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => {
-                                          setSelectedService({
-                                            reservationId: reservation.id,
-                                            serviceIndex: index,
-                                          })
-                                          setSelectedMechanic(service.mechanic)
-                                          setShowMechanicDialog(true)
-                                        }}
-                                      >
-                                        <User className="h-4 w-4 text-[#1A365D]" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => {
-                                          setSelectedService({
-                                            reservationId: reservation.id,
-                                            serviceIndex: index,
-                                          })
-                                          setShowDeleteDialog(true)
-                                        }}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-[#1A365D]" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell></TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </React.Fragment>
-              ))}
-            </TableBody>
+                      </TableHead>
+                    </tr>
+                  </thead>
+                  <TableBody>
+                    {reservation.services.map((service, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                          {service.created}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                          {service.reservationDate}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                          {service.service}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                          {service.mechanic}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 flex justify-center">
+                          <div className="inline-flex items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedService({
+                                  reservationId: reservation.id,
+                                  serviceIndex: index,
+                                });
+                                setSelectedMechanic(service.mechanic);
+                                setShowMechanicDialog(true);
+                              }}
+                            >
+                              <User className="h-4 w-4 text-[#1A365D]" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedService({
+                                  reservationId: reservation.id,
+                                  serviceIndex: index,
+                                });
+                                setShowDeleteDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-[#1A365D]" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
+      </React.Fragment>
+    ))
+  ) : (
+    <TableRow>
+      <TableCell colSpan={8} className="text-center text-[#8B909A]">
+        No reservations found.
+      </TableCell>
+    </TableRow>
+  )}
+</TableBody>
           </Table>
 
           {/* Pagination */}
