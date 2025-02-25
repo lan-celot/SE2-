@@ -36,11 +36,10 @@ interface Reservation {
 }
 
 const statusStyles: Record<string, { bg: string; text: string }> = {
-  Completed: { bg: "bg-[#E6FFF3]", text: "text-[#28C76F]" },
-  Repairing: { bg: "bg-[#FFF5E0]", text: "text-[#EFBF14]" },
-  Cancelled: { bg: "bg-[#FFE5E5]", text: "text-[#EA5455]" },
   Confirmed: { bg: "bg-[#EBF8FF]", text: "text-[#63B3ED]" },
-  default: { bg: "bg-gray-200", text: "text-gray-800" }, // Default style
+  Repairing: { bg: "bg-[#FFF5E0]", text: "text-[#EFBF14]" },
+  Completed: { bg: "bg-[#E6FFF3]", text: "text-[#28C76F]" },
+  Cancelled: { bg: "bg-[#FFE5E5]", text: "text-[#EA5455]" }
 };
 
 const reservations: Reservation[] = [
@@ -88,18 +87,23 @@ export default function ReservationsPage() {
   
 
 
-  const handleStatusChange = async (reservationId: string, newStatus: Status) => {
-    // Update local state
-    setReservationData((prevData) =>
-      prevData.map((reservation) =>
-        reservation.id === reservationId ? { ...reservation, status: newStatus } : reservation,
-      ),
-    );
-  
-    // Update Firestore
-    const reservationDocRef = doc(db, "bookings", reservationId);
-    await updateDoc(reservationDocRef, { status: newStatus });
-  };
+// Inside your handleStatusChange function
+const handleStatusChange = async (reservationId: string, userId: string, newStatus: Status) => {
+  // Update local state
+  setReservationData((prevData) =>
+    prevData.map((reservation) =>
+      reservation.id === reservationId ? { ...reservation, status: newStatus } : reservation,
+    ),
+  );
+
+  // Update Firestore - Global bookings collection
+  const globalDocRef = doc(db, "bookings", reservationId);
+  await updateDoc(globalDocRef, { status: newStatus });
+
+  // Update Firestore - User-specific bookings subcollection
+  const userDocRef = doc(db, "users", userId, "bookings", reservationId);
+  await updateDoc(userDocRef, { status: newStatus });
+};
 
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
@@ -300,15 +304,16 @@ console.log("Filtered Reservations:", filteredReservations); // Debug log
           <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
           <TableCell className="px-6 py-4 flex justify-center">
   <div className="relative inline-block">
-    <select
-      value={reservation.status}
-      onChange={(e) => handleStatusChange(reservation.id, e.target.value as Status)}
-      className={cn(
-        "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
-        statusStyles[reservation.status]?.bg || statusStyles.default.bg,
-        statusStyles[reservation.status]?.text || statusStyles.default.text,
-      )}
-    >
+  <select
+  value={reservation.status}
+  onChange={(e) => handleStatusChange(reservation.id, reservation.customerId, e.target.value as Status)}
+  className={cn(
+    "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
+    statusStyles[reservation.status]?.bg || statusStyles.default.bg,
+    statusStyles[reservation.status]?.text || statusStyles.default.text,
+  )}
+>
+
       {Object.keys(statusStyles).map((status) => (
         <option
           key={status}
