@@ -90,19 +90,19 @@ export default function ReservationsPage() {
 
 // Inside your handleStatusChange function
 // Inside your handleStatusChange function
-const handleStatusChange = async (reservationId: string, userId: string, newStatus: string) => {
+const handleStatusChange = async (reservationId: string, customerId: string, newStatus: string) => {
   try {
     // Normalize status to uppercase
     const normalizedStatus = newStatus.toUpperCase() as Status;
 
     // Log the values to ensure they are defined
     console.log(`reservationId: ${reservationId}`);
-    console.log(`userId: ${userId}`);
+    console.log(`customerId: ${customerId}`);
     console.log(`normalizedStatus: ${normalizedStatus}`);
 
     // Check if any of the variables are undefined
     if (!reservationId) throw new Error("reservationId is undefined");
-    if (!userId) throw new Error("userId is undefined");
+    if (!customerId) throw new Error("userId is undefined");
     if (!normalizedStatus) throw new Error("normalizedStatus is undefined");
 
     // Update local state
@@ -118,7 +118,7 @@ const handleStatusChange = async (reservationId: string, userId: string, newStat
     console.log(`Global bookings collection updated for reservation ${reservationId}`);
 
     // Update Firestore - User-specific bookings subcollection
-    const userDocRef = doc(db, "users", userId, "bookings", reservationId);
+    const userDocRef = doc(db, "users", customerId, "bookings", reservationId);
     await updateDoc(userDocRef, { status: normalizedStatus });
     console.log(`User-specific bookings collection updated for reservation ${reservationId}`);
   } catch (error) {
