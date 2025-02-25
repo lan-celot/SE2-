@@ -91,22 +91,28 @@ export default function ReservationsPage() {
 // Inside your handleStatusChange function
 // Inside your handleStatusChange function
 const handleStatusChange = async (reservationId: string, userId: string, newStatus: string) => {
-  const normalizedStatus = newStatus.toUpperCase() as Status; // Normalize to uppercase and cast to Status type
+  const normalizedStatus = newStatus.toUpperCase() as Status; // Normalize to uppercase
 
-  // Update local state
-  setReservationData((prevData) =>
-    prevData.map((reservation) =>
-      reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation,
-    ),
-  );
+  try {
+    // Update local state
+    setReservationData((prevData) =>
+      prevData.map((reservation) =>
+        reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation,
+      ),
+    );
 
-  // Update Firestore - Global bookings collection
-  const globalDocRef = doc(db, "bookings", reservationId);
-  await updateDoc(globalDocRef, { status: normalizedStatus });
+    // Update Firestore - Global bookings collection
+    const globalDocRef = doc(db, "bookings", reservationId);
+    await updateDoc(globalDocRef, { status: normalizedStatus });
 
-  // Update Firestore - User-specific bookings subcollection
-  const userDocRef = doc(db, "users", userId, "bookings", reservationId);
-  await updateDoc(userDocRef, { status: normalizedStatus });
+    // Update Firestore - User-specific bookings subcollection
+    const userDocRef = doc(db, "users", userId, "bookings", reservationId);
+    await updateDoc(userDocRef, { status: normalizedStatus });
+
+    console.log(`Status updated successfully for reservation ${reservationId}`);
+  } catch (error) {
+    console.error("Error updating status:", error);
+  }
 };
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
