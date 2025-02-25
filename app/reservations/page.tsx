@@ -16,7 +16,8 @@ import { Sidebar } from "@/components/sidebar"
 import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc  } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-type Status = "Confirmed" | "Repairing" | "Completed" | "Cancelled"
+type Status = "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
+
 
 interface Reservation {
   lastName: string;
@@ -88,21 +89,24 @@ export default function ReservationsPage() {
 
 
 // Inside your handleStatusChange function
-const handleStatusChange = async (reservationId: string, userId: string, newStatus: Status) => {
+// Inside your handleStatusChange function
+const handleStatusChange = async (reservationId: string, userId: string, newStatus: string) => {
+  const normalizedStatus = newStatus.toUpperCase() as Status; // Normalize to uppercase and cast to Status type
+
   // Update local state
   setReservationData((prevData) =>
     prevData.map((reservation) =>
-      reservation.id === reservationId ? { ...reservation, status: newStatus } : reservation,
+      reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation,
     ),
   );
 
   // Update Firestore - Global bookings collection
   const globalDocRef = doc(db, "bookings", reservationId);
-  await updateDoc(globalDocRef, { status: newStatus });
+  await updateDoc(globalDocRef, { status: normalizedStatus });
 
   // Update Firestore - User-specific bookings subcollection
   const userDocRef = doc(db, "users", userId, "bookings", reservationId);
-  await updateDoc(userDocRef, { status: newStatus });
+  await updateDoc(userDocRef, { status: normalizedStatus });
 };
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
