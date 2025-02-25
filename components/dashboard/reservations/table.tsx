@@ -30,30 +30,32 @@ export function ReservationsTable({searchQuery}: {searchQuery: string}) {
   const [reservations, setReservations] = useState<Reservation[]>([])
 
   useEffect(() => {
-    const user = auth.currentUser
-    if (!user) return
-
+    const user = auth.currentUser;
+    if (!user) return;
+  
     const userDocRef = doc(db, "users", user.uid)
     const bookingsCollectionRef = collection(userDocRef, "bookings")
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid))
-
+  
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
-        const booking = doc.data()
+        const booking = doc.data();
         return {
           id: doc.id,
           reservationDate: booking.reservationDate || "N/A",
           carModel: booking.carModel || "Unknown",
           completionDate: booking.completionDate || "Pending",
           status: booking.status || "CONFIRMED",
-          services: booking.generalServices || [],
-        } as Reservation
-      })
-      setReservations(data)
-    })
-
-    return () => unsubscribe()
-  }, [])
+          services: booking.services || [],
+        } as Reservation;
+      });
+      setReservations(data);
+    });
+  
+    return () => unsubscribe();
+  }, []);
+  
+  
 
   const filteredAndSortedReservations = [...reservations]
     .filter((reservation) =>
