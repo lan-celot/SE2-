@@ -16,8 +16,7 @@ import { Sidebar } from "@/components/sidebar"
 import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc  } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-type Status = "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
-
+type Status = "Confirmed" | "Repairing" | "Completed" | "Cancelled"
 
 interface Reservation {
   lastName: string;
@@ -90,37 +89,32 @@ export default function ReservationsPage() {
 
 // Inside your handleStatusChange function
 // Inside your handleStatusChange function
+// Inside your handleStatusChange function
 const handleStatusChange = async (reservationId: string, customerId: string, newStatus: string) => {
   try {
-    // Normalize status to uppercase
     const normalizedStatus = newStatus.toUpperCase() as Status;
 
-    // Log the values to ensure they are defined
     console.log(`reservationId: ${reservationId}`);
     console.log(`customerId: ${customerId}`);
     console.log(`normalizedStatus: ${normalizedStatus}`);
 
-    // Check if any of the variables are undefined
     if (!reservationId) throw new Error("reservationId is undefined");
-    if (!customerId) throw new Error("userId is undefined");
+    if (!customerId) throw new Error("customerId is undefined");
     if (!normalizedStatus) throw new Error("normalizedStatus is undefined");
 
-    // Update local state
-    setReservationData((prevData) =>
+    setReservationData((prevData) => 
       prevData.map((reservation) =>
-        reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation,
-      ),
+        reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation
+      )
     );
 
-    // Update Firestore - Global bookings collection
     const globalDocRef = doc(db, "bookings", reservationId);
     await updateDoc(globalDocRef, { status: normalizedStatus });
-    console.log(`Global bookings collection updated for reservation ${reservationId}`);
 
-    // Update Firestore - User-specific bookings subcollection
     const userDocRef = doc(db, "users", customerId, "bookings", reservationId);
     await updateDoc(userDocRef, { status: normalizedStatus });
-    console.log(`User-specific bookings collection updated for reservation ${reservationId}`);
+
+    console.log(`Status updated successfully for reservation ${reservationId}`);
   } catch (error) {
     console.error("Error updating status:", error);
   }
