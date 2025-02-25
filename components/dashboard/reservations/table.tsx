@@ -33,13 +33,14 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     const user = auth.currentUser;
     if (!user) return;
   
-    const userDocRef = doc(db, "users", user.uid)
-    const bookingsCollectionRef = collection(userDocRef, "bookings")
-    const q = query(bookingsCollectionRef, where("userId", "==", user.uid))
+    const userDocRef = doc(db, "users", user.uid);
+    const bookingsCollectionRef = collection(userDocRef, "bookings");
+    const q = query(bookingsCollectionRef);
   
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data();
+        console.log('Fetched booking:', booking); // Debug log
         return {
           id: doc.id,
           reservationDate: booking.reservationDate || "N/A",
