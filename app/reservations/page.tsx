@@ -309,10 +309,11 @@ console.log("Filtered Reservations:", filteredReservations); // Debug log
   onChange={(e) => handleStatusChange(reservation.id, reservation.customerId, e.target.value as Status)}
   className={cn(
     "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
-    statusStyles[reservation.status]?.bg || statusStyles.default.bg,
-    statusStyles[reservation.status]?.text || statusStyles.default.text,
+    (statusStyles[reservation.status]?.bg ?? statusStyles['Confirmed'].bg), // Fallback to "Confirmed" style
+    (statusStyles[reservation.status]?.text ?? statusStyles['Confirmed'].text) // Fallback to "Confirmed" style
   )}
 >
+
 
       {Object.keys(statusStyles).map((status) => (
         <option
