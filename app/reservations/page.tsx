@@ -330,11 +330,12 @@ console.log("Filtered Reservations:", filteredReservations); // Debug log
       ))}
     </select>
     <ChevronDown
-      className={cn(
-        "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
-        statusStyles[reservation.status]?.text || statusStyles.default.text,
-      )}
-    />
+  className={cn(
+    "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
+    (statusStyles[reservation.status]?.text ?? statusStyles['Confirmed'].text) // Fallback to "Confirmed" style
+  )}
+/>
+
   </div>
 </TableCell>
           <TableCell className="px-6 py-4 text-center">
