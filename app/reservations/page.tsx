@@ -85,11 +85,6 @@ export default function ReservationsPage() {
   }, [])
 
   
-
-
-// Inside your handleStatusChange function
-// Inside your handleStatusChange function
-// Inside your handleStatusChange function
 const handleStatusChange = async (reservationId: string, customerId: string, newStatus: string) => {
   try {
     const normalizedStatus = newStatus.toUpperCase() as Status;
