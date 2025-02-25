@@ -26,17 +26,17 @@ interface Reservation {
   services: string[]
 }
 
-export function ReservationsTable({searchQuery}: {searchQuery: string}) {
+export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [reservations, setReservations] = useState<Reservation[]>([])
 
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-  
+
     const userDocRef = doc(db, "users", user.uid)
     const bookingsCollectionRef = collection(userDocRef, "bookings")
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid))
-  
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data();
@@ -51,20 +51,18 @@ export function ReservationsTable({searchQuery}: {searchQuery: string}) {
       });
       setReservations(data);
     });
-  
+
     return () => unsubscribe();
   }, []);
-  
-  
 
-  const filteredAndSortedReservations = [...reservations]
-    .filter((reservation) =>
-      searchQuery
-        ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) =>
-            reservation[key as keyof Reservation]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
-          )
-        : true
-    )
+  const filteredAndSortedReservations = reservations.filter((reservation) =>
+    searchQuery
+      ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) =>
+          reservation[key as keyof Reservation]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : true
+  )
+    
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
