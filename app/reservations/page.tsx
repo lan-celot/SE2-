@@ -13,7 +13,7 @@ import { AddServiceDialog } from "./add-service-dialog"
 import { ReservationsTabs } from "./reservations-tabs"
 import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { collection, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc  } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 type Status = "Confirmed" | "Repairing" | "Completed" | "Cancelled"
@@ -88,13 +88,18 @@ export default function ReservationsPage() {
   
 
 
-  const handleStatusChange = (reservationId: string, newStatus: Status) => {
+  const handleStatusChange = async (reservationId: string, newStatus: Status) => {
+    // Update local state
     setReservationData((prevData) =>
       prevData.map((reservation) =>
         reservation.id === reservationId ? { ...reservation, status: newStatus } : reservation,
       ),
-    )
-  }
+    );
+  
+    // Update Firestore
+    const reservationDocRef = doc(db, "bookings", reservationId);
+    await updateDoc(reservationDocRef, { status: newStatus });
+  };
 
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
