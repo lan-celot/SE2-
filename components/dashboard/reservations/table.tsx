@@ -18,13 +18,15 @@ interface Service {
 }
 
 interface Reservation {
-  id: string
-  reservationDate: string
-  carModel: string
-  completionDate: string
-  status: string
-  services: string[]
+  id: string;
+  userId: string; // Include this field
+  reservationDate: string;
+  carModel: string;
+  completionDate: string;
+  status: string;
+  services: string[];
 }
+
 
 export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -35,18 +37,18 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   
     const userDocRef = doc(db, "users", user.uid);
     const bookingsCollectionRef = collection(userDocRef, "bookings");
-    const q = query(bookingsCollectionRef);
+    const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
   
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data();
-        console.log('Fetched booking:', booking); // Debug log
         return {
           id: doc.id,
+          userId: booking.userId, // Ensure this is included
           reservationDate: booking.reservationDate || "N/A",
           carModel: booking.carModel || "Unknown",
           completionDate: booking.completionDate || "Pending",
-          status: booking.status.toUpperCase() || "CONFIRMED", // Normalize to uppercase
+          status: booking.status.toUpperCase() || "CONFIRMED",
           services: booking.services || [],
         } as Reservation;
       });
@@ -55,6 +57,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   
     return () => unsubscribe();
   }, []);
+  
   
 
   const filteredAndSortedReservations = reservations.filter((reservation) =>
