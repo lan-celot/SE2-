@@ -104,7 +104,6 @@ const handleStatusChange = async (reservationId: string, userId: string, newStat
   const userDocRef = doc(db, "users", userId, "bookings", reservationId);
   await updateDoc(userDocRef, { status: newStatus });
 };
-
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
       setReservationData((prevData) =>
