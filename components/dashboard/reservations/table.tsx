@@ -32,11 +32,11 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-
+  
     const userDocRef = doc(db, "users", user.uid)
     const bookingsCollectionRef = collection(userDocRef, "bookings")
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid))
-
+  
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data();
@@ -45,15 +45,16 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           reservationDate: booking.reservationDate || "N/A",
           carModel: booking.carModel || "Unknown",
           completionDate: booking.completionDate || "Pending",
-          status: booking.status || "CONFIRMED",
+          status: booking.status.toUpperCase() || "CONFIRMED", // Normalize to uppercase
           services: booking.services || [],
         } as Reservation;
       });
       setReservations(data);
     });
-
+  
     return () => unsubscribe();
   }, []);
+  
 
   const filteredAndSortedReservations = reservations.filter((reservation) =>
     searchQuery
