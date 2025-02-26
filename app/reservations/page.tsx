@@ -113,8 +113,9 @@ export default function ReservationsPage() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       console.error("Error updating status:", errorMessage);
-          }
+    }
   };
+  
   
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
