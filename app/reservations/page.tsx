@@ -85,35 +85,37 @@ export default function ReservationsPage() {
   }, [])
 
   
-const handleStatusChange = async (reservationId: string, customerId: string, newStatus: string) => {
-  try {
-    const normalizedStatus = newStatus.toUpperCase() as Status;
-
-    console.log(`reservationId: ${reservationId}`);
-    console.log(`customerId: ${customerId}`);
-    console.log(`normalizedStatus: ${normalizedStatus}`);
-
-    if (!reservationId) throw new Error("reservationId is undefined");
-    if (!customerId) throw new Error("customerId is undefined");
-    if (!normalizedStatus) throw new Error("normalizedStatus is undefined");
-
-    setReservationData((prevData) => 
-      prevData.map((reservation) =>
-        reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation
-      )
-    );
-
-    const globalDocRef = doc(db, "bookings", reservationId);
-    await updateDoc(globalDocRef, { status: normalizedStatus });
-
-    const userDocRef = doc(db, "users", customerId, "bookings", reservationId);
-    await updateDoc(userDocRef, { status: normalizedStatus });
-
-    console.log(`Status updated successfully for reservation ${reservationId}`);
-  } catch (error) {
-    console.error("Error updating status:", error);
-  }
-};
+  const handleStatusChange = async (reservationId: string, customerId: string, newStatus: string) => {
+    try {
+      const normalizedStatus = newStatus.toUpperCase() as Status;
+  
+      console.log(`Updating status for reservation ID: ${reservationId}, Customer ID: ${customerId}, New Status: ${normalizedStatus}`);
+  
+      if (!reservationId || !customerId || !normalizedStatus) {
+        throw new Error("Missing required data for status update");
+      }
+  
+      // Update local state
+      setReservationData((prevData) =>
+        prevData.map((reservation) =>
+          reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation
+        )
+      );
+  
+      // Update Firestore
+      const globalDocRef = doc(db, "bookings", reservationId);
+      await updateDoc(globalDocRef, { status: normalizedStatus });
+  
+      const userDocRef = doc(db, "users", customerId, "bookings", reservationId);
+      await updateDoc(userDocRef, { status: normalizedStatus });
+  
+      console.log(`Status updated successfully for reservation ${reservationId}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      console.error("Error updating status:", errorMessage);
+          }
+  };
+  
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
       setReservationData((prevData) =>
