@@ -13,7 +13,7 @@ import { AddServiceDialog } from "./add-service-dialog"
 import { ReservationsTabs } from "./reservations-tabs"
 import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc, getDoc  } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc, getDoc, writeBatch  } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 
@@ -113,38 +113,36 @@ export default function ReservationsPage() {
   
   
   
-  const handleStatusChange = async (id: string, userId: string, newStatus: string) => {
-    
+  const handleStatusChange = async (reservationId: string, userId: string, newStatus: string) => {
     try {
       const normalizedStatus = newStatus.toUpperCase() as Status;
   
-      console.log(`Updating status for ID: ${id}, Customer ID: ${userId}, New Status: ${normalizedStatus}`);
+      console.log(`Updating status for reservation ID: ${reservationId}, Customer ID: ${userId}, New Status: ${normalizedStatus}`);
   
-      if (!id || !userId || !normalizedStatus) {
+      if (!reservationId || !userId || !normalizedStatus) {
         throw new Error("Missing required data for status update");
       }
   
-      const globalDocRef = doc(db, "bookings", id);
-      const userDocRef = doc(db, "users", userId, "bookings", id);
+      // References to both locations in Firestore
+      const globalDocRef = doc(db, "bookings", reservationId);
+      const userDocRef = doc(db, "users", userId, "bookings", reservationId);
   
-      await updateDoc(globalDocRef, { status: normalizedStatus });
-      await updateDoc(userDocRef, { status: normalizedStatus });
+      // Use Firestore batch to update both documents atomically
+      const batch = writeBatch(db);
+      batch.update(globalDocRef, { status: normalizedStatus });
+      batch.update(userDocRef, { status: normalizedStatus });
   
-      console.log("Status updated successfully in Firestore");
+      await batch.commit(); // Apply both updates together
   
-      const updatedDoc = await getDoc(globalDocRef);
-      if (updatedDoc.exists()) {
-        const updatedData = updatedDoc.data();
-        console.log("Updated Firestore Data:", updatedData);
+      console.log("Status updated successfully in both Firestore locations");
   
-        setReservationData((prevData) =>
-          prevData.map((reservation) =>
-            reservation.id === id ? { ...reservation, status: updatedData.status } : reservation
-          )
-        );
-      } else {
-        console.error("Updated document not found in Firestore.");
-      }
+      // Update state to reflect changes immediately
+      setReservationData((prevData) =>
+        prevData.map((reservation) =>
+          reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation
+        )
+      );
+  
     } catch (error) {
       console.error("Error updating status:", error instanceof Error ? error.message : "Unknown error");
     }
