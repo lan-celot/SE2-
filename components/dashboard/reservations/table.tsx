@@ -44,7 +44,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         const booking = doc.data();
         return {
           id: doc.id,
-          userId: booking.userId, // Ensure this is included
+          userId: booking.userId,
           reservationDate: booking.reservationDate || "N/A",
           carModel: booking.carModel || "Unknown",
           completionDate: booking.completionDate || "Pending",
