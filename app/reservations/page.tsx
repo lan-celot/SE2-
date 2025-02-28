@@ -85,7 +85,7 @@ export default function ReservationsPage() {
       const data = snapshot.docs.map((doc) => {
         const bookingData = doc.data();
         return {
-          id: doc.id, // Change from reservationId to id
+          id: doc.id,
           lastName: bookingData.lastName || "",
           firstName: bookingData.firstName || "",
           reservationDate: bookingData.reservationDate || "",
@@ -93,7 +93,7 @@ export default function ReservationsPage() {
           userId: bookingData.userId || "",
           carModel: bookingData.carModel || "",
           status: (bookingData.status?.toUpperCase() as Status) || "CONFIRMED",
-          services: bookingData.services || [],
+          services: bookingData.services || [], // Ensure services is an array
         } satisfies Reservation;
       });
   
@@ -101,15 +101,11 @@ export default function ReservationsPage() {
       setReservationData(data);
     }, (error) => {
       console.error("Error fetching reservations:", error.message);
-      if (error.code === "permission-denied") {
-        console.error("Permission denied. Check Firestore rules and authentication status.");
-      } else {
-        console.error("Unexpected error:", error);
-      }
     });
   
     return () => unsubscribe();
   }, []);
+  
   
   
   
@@ -170,57 +166,81 @@ export default function ReservationsPage() {
     }
   }
 
-  const handleDeleteService = () => {
-    if (selectedService) {
-      setReservationData((prevData) =>
-        prevData.map((reservation) => {
-          if (reservation.id === selectedService.reservationId && reservation.services) {
-            const updatedServices = reservation.services.filter((_, index) => index !== selectedService.serviceIndex)
-            return { ...reservation, services: updatedServices }
-          }
-          return reservation
-        }),
-      )
-      setShowDeleteDialog(false)
-      setSelectedService(null)
-    }
-  }
-
-  const handleAddServices = (selectedServices: string[]) => {
+  const handleAddServices = async (selectedServices: any[]) => {
     if (expandedRowId) {
-      setReservationData((prevData) =>
-        prevData.map((reservation) => {
-          if (reservation.id === expandedRowId) {
-            const now = new Date()
-            const formattedNow = now
-              .toLocaleString("en-US", {
-                month: "2-digit",
-                day: "2-digit",
-                year: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-              .replace(",", "")
-              .toLowerCase()
-              .replace(/\//g, "-")
-
-            const newServices = selectedServices.map((service) => ({
-              created: formattedNow,
-              reservationDate: reservation.reservationDate.toLowerCase(),
-              service: service,
-              mechanic: "TO BE ASSIGNED",
-            }))
-            return {
-              ...reservation,
-              services: [...(reservation.services || []), ...newServices],
-            }
-          }
-          return reservation
-        }),
-      )
+      const reservation = reservationData.find((res) => res.id === expandedRowId);
+      if (reservation) {
+        const now = new Date();
+        const formattedNow = now.toLocaleString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }).replace(",", "").toLowerCase().replace(/\//g, "-");
+  
+        const newServices = selectedServices.map((service) => ({
+          created: formattedNow,
+          reservationDate: reservation.reservationDate.toLowerCase(),
+          service: service,
+          mechanic: "TO BE ASSIGNED",
+        }));
+  
+        const updatedServices = [...(reservation.services || []), ...newServices];
+  
+        // Update Firestore
+        const globalDocRef = doc(db, "bookings", reservation.id);
+        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
+  
+        const batch = writeBatch(db);
+        batch.update(globalDocRef, { services: updatedServices });
+        batch.update(userDocRef, { services: updatedServices });
+  
+        await batch.commit();
+  
+        // Update local state
+        setReservationData((prevData) =>
+          prevData.map((res) =>
+            res.id === reservation.id ? { ...res, services: updatedServices } : res
+          )
+        );
+      }
     }
-  }
+  };
+  
+  const handleDeleteService = async () => {
+    if (selectedService) {
+      const reservation = reservationData.find((res) => res.id === selectedService.reservationId);
+      if (reservation) {
+        const updatedServices = (reservation.services || []).filter(
+          (_, index) => index !== selectedService.serviceIndex
+        );
+  
+        // Update Firestore
+        const globalDocRef = doc(db, "bookings", reservation.id);
+        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
+  
+        const batch = writeBatch(db);
+        batch.update(globalDocRef, { services: updatedServices });
+        batch.update(userDocRef, { services: updatedServices });
+  
+        await batch.commit();
+  
+        // Update local state
+        setReservationData((prevData) =>
+          prevData.map((res) =>
+            res.id === reservation.id ? { ...res, services: updatedServices } : res
+          )
+        );
+  
+        setShowDeleteDialog(false);
+        setSelectedService(null);
+      }
+    }
+  };
+  
+  
 
   const handleSort = (field: keyof Omit<Reservation, "services" | "status">) => {
     if (sortField === field) {
@@ -433,93 +453,96 @@ https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector%20up-NiM43WWAQiX3
             </div>
           </TableCell>
         </TableRow>
-        {expandedRowId === reservation.id && reservation.services && (
-          <TableRow>
-            <TableCell colSpan={8} className="bg-gray-50">
-              <div className="px-4 py-2">
-                <Table>
-                  <thead>
-                    <tr>
-                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                        CREATED
-                      </TableHead>
-                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                        RESERVATION DATE
-                      </TableHead>
-                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                        SERVICE
-                      </TableHead>
-                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                        MECHANIC
-                      </TableHead>
-                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                        ACTION
-                      </TableHead>
-                      <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                        <Button
-                          className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
-                          onClick={() => setShowAddServiceDialog(true)}
-                        >
-                          Add Service
-                        </Button>
-                      </TableHead>
-                    </tr>
-                  </thead>
-                  <TableBody>
-                    {reservation.services.map((service, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                          {service.created}
-                        </TableCell>
-                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                          {service.reservationDate}
-                        </TableCell>
-                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                          {service.service}
-                        </TableCell>
-                        <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                          {service.mechanic}
-                        </TableCell>
-                        <TableCell className="px-6 py-4 flex justify-center">
-                          <div className="inline-flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedService({
-                                  reservationId: reservation.id,
-                                  serviceIndex: index,
-                                });
-                                setSelectedMechanic(service.mechanic);
-                                setShowMechanicDialog(true);
-                              }}
-                            >
-                              <User className="h-4 w-4 text-[#1A365D]" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedService({
-                                  reservationId: reservation.id,
-                                  serviceIndex: index,
-                                });
-                                setShowDeleteDialog(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 text-[#1A365D]" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TableCell>
-          </TableRow>
-        )}
+        {expandedRowId === reservation.id && (
+  <TableRow>
+    <TableCell colSpan={8} className="bg-gray-50">
+      <div className="px-4 py-2">
+        <Table>
+          <thead>
+            <tr>
+              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                CREATED
+              </TableHead>
+              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                RESERVATION DATE
+              </TableHead>
+              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                SERVICE
+              </TableHead>
+              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                MECHANIC
+              </TableHead>
+              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                ACTION
+              </TableHead>
+              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                <Button
+                  className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+                  onClick={() => setShowAddServiceDialog(true)}
+                >
+                  Add Service
+                </Button>
+              </TableHead>
+            </tr>
+          </thead>
+          <TableBody>
+            {(reservation.services || []).map((service, index) => (
+              <TableRow key={index}>
+                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.created}
+                </TableCell>
+                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.reservationDate}
+                </TableCell>
+                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.service}
+                </TableCell>
+                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.mechanic}
+                </TableCell>
+                <TableCell className="px-6 py-4 flex justify-center">
+                  <div className="inline-flex items-center justify-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedService({
+                          reservationId: reservation.id,
+                          serviceIndex: index,
+                        });
+                        setSelectedMechanic(service.mechanic);
+                        setShowMechanicDialog(true);
+                      }}
+                    >
+                      <User className="h-4 w-4 text-[#1A365D]" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedService({
+                          reservationId: reservation.id,
+                          serviceIndex: index,
+                        });
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-[#1A365D]" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </TableCell>
+  </TableRow>
+)}
+
+
+
       </React.Fragment>
     ))
   ) : (
