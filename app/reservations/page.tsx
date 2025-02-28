@@ -13,34 +13,35 @@ import { AddServiceDialog } from "./add-service-dialog"
 import { ReservationsTabs } from "./reservations-tabs"
 import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { collection, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc, getDoc, writeBatch  } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-type Status = "Confirmed" | "Repairing" | "Completed" | "Cancelled"
+
+type Status = "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
 
 interface Reservation {
+  id: string; // Change this from reservationId
   lastName: string;
   firstName: string;
-  id: string
-  reservationDate: string
-  customerName: string
-  userId: string
-  carModel: string
-  status: Status
+  reservationDate: string;
+  customerName: string;
+  userId: string;
+  carModel: string;
+  status: Status;
   services?: {
-    created: string
-    reservationDate: string
-    service: string
-    mechanic: string
-  }[]
+    created: string;
+    reservationDate: string;
+    service: string;
+    mechanic: string;
+  }[];
 }
 
+
 const statusStyles: Record<string, { bg: string; text: string }> = {
-  Completed: { bg: "bg-[#E6FFF3]", text: "text-[#28C76F]" },
-  Repairing: { bg: "bg-[#FFF5E0]", text: "text-[#EFBF14]" },
-  Cancelled: { bg: "bg-[#FFE5E5]", text: "text-[#EA5455]" },
-  Confirmed: { bg: "bg-[#EBF8FF]", text: "text-[#63B3ED]" },
-  default: { bg: "bg-gray-200", text: "text-gray-800" }, // Default style
+  CONFIRMED: { bg: "bg-[#EBF8FF]", text: "text-[#63B3ED]" },
+  REPAIRING: { bg: "bg-[#FFF5E0]", text: "text-[#EFBF14]" },
+  COMPLETED: { bg: "bg-[#E6FFF3]", text: "text-[#28C76F]" },
+  CANCELLED: { bg: "bg-[#FFE5E5]", text: "text-[#EA5455]" }
 };
 
 const reservations: Reservation[] = [
@@ -75,27 +76,79 @@ export default function ReservationsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [sortField, setSortField] = useState<keyof Omit<Reservation, "services" | "status"> | null>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-
-  useEffect(() => {
-    const q = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Reservation))
-      setReservationData(data)
-    })
-    return () => unsubscribe()
-  }, [])
-
   
 
-
-  const handleStatusChange = (reservationId: string, newStatus: Status) => {
-    setReservationData((prevData) =>
-      prevData.map((reservation) =>
-        reservation.id === reservationId ? { ...reservation, status: newStatus } : reservation,
-      ),
-    )
-  }
-
+  useEffect(() => {
+    const q = query(collection(db, "bookings"), orderBy("reservationDate", "desc"));
+  
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => {
+        const bookingData = doc.data();
+        return {
+          id: doc.id, // Change from reservationId to id
+          lastName: bookingData.lastName || "",
+          firstName: bookingData.firstName || "",
+          reservationDate: bookingData.reservationDate || "",
+          customerName: bookingData.customerName || "",
+          userId: bookingData.userId || "",
+          carModel: bookingData.carModel || "",
+          status: (bookingData.status?.toUpperCase() as Status) || "CONFIRMED",
+          services: bookingData.services || [],
+        } satisfies Reservation;
+      });
+  
+      console.log("Fetched Reservations:", data);
+      setReservationData(data);
+    }, (error) => {
+      console.error("Error fetching reservations:", error.message);
+      if (error.code === "permission-denied") {
+        console.error("Permission denied. Check Firestore rules and authentication status.");
+      } else {
+        console.error("Unexpected error:", error);
+      }
+    });
+  
+    return () => unsubscribe();
+  }, []);
+  
+  
+  
+  const handleStatusChange = async (reservationId: string, userId: string, newStatus: string) => {
+    try {
+      const normalizedStatus = newStatus.toUpperCase() as Status;
+  
+      console.log(`Updating status for reservation ID: ${reservationId}, Customer ID: ${userId}, New Status: ${normalizedStatus}`);
+  
+      if (!reservationId || !userId || !normalizedStatus) {
+        throw new Error("Missing required data for status update");
+      }
+  
+      // References to both locations in Firestore
+      const globalDocRef = doc(db, "bookings", reservationId);
+      const userDocRef = doc(db, "users", userId, "bookings", reservationId);
+  
+      // Use Firestore batch to update both documents atomically
+      const batch = writeBatch(db);
+      batch.update(globalDocRef, { status: normalizedStatus });
+      batch.update(userDocRef, { status: normalizedStatus });
+  
+      await batch.commit(); // Apply both updates together
+  
+      console.log("Status updated successfully in both Firestore locations");
+  
+      // Update state to reflect changes immediately
+      setReservationData((prevData) =>
+        prevData.map((reservation) =>
+          reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation
+        )
+      );
+  
+    } catch (error) {
+      console.error("Error updating status:", error instanceof Error ? error.message : "Unknown error");
+    }
+  };
+  
+  
   const handleMechanicChange = () => {
     if (selectedService && selectedMechanic) {
       setReservationData((prevData) =>
@@ -178,31 +231,33 @@ export default function ReservationsPage() {
     }
   }
 
+  // Ensure the filtering logic is correct
   const filteredReservations = reservationData
-  .filter((reservation) => {
-    const matchesStatus = activeTab === "all" || reservation.status.toLowerCase() === activeTab;
-    const matchesSearch = Object.values(reservation).join(" ").toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  })
-  .sort((a, b) => {
-    if (sortField) {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      const modifier = sortOrder === "asc" ? 1 : -1;
-      if (sortField === "id") {
-        return (Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))) * modifier;
+    .filter((reservation) => {
+      const matchesStatus = activeTab === "all" || reservation.status.toLowerCase() === activeTab;
+      const matchesSearch = Object.values(reservation).join(" ").toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortField) {
+        const aValue = a[sortField];
+        const bValue = b[sortField];
+        const modifier = sortOrder === "asc" ? 1 : -1;
+        if (sortField === "id") {
+          return (Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))) * modifier;
+        }
+        return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0;
       }
-      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0;
-    }
-    return 0;
-  });
-
-console.log("Filtered Reservations:", filteredReservations); // Debug log
+      return 0;
+    });
+  
+  console.log("Filtered Reservations:", filteredReservations); // Log the filtered reservations
+  
   const columns = [
     { key: "id", label: "RESERVATION ID" },
     { key: "date", label: "RESERVATION DATE" },
     { key: "customerName", label: "CUSTOMER NAME" },
-    { key: "customerId", label: "CUSTOMER ID" },
+    { key: "userId", label: "CUSTOMER ID" },
     { key: "carModel", label: "CAR MODEL" },
     { key: "status", label: "STATUS", sortable: false },
   ]
@@ -295,15 +350,38 @@ console.log("Filtered Reservations:", filteredReservations); // Debug log
           <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
           <TableCell className="px-6 py-4 flex justify-center">
   <div className="relative inline-block">
-    <select
-      value={reservation.status}
-      onChange={(e) => handleStatusChange(reservation.id, e.target.value as Status)}
-      className={cn(
-        "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
-        statusStyles[reservation.status]?.bg || statusStyles.default.bg,
-        statusStyles[reservation.status]?.text || statusStyles.default.text,
-      )}
-    >
+  <select
+  value={reservation.status}
+  onChange={(e) => {
+    const newStatus = e.target.value as Status;
+
+    // Ensure the selected status is valid
+    if (!["CONFIRMED", "REPAIRING", "COMPLETED", "CANCELLED"].includes(newStatus)) {
+      console.error("Invalid status selected:", newStatus);
+      return;
+    }
+
+    // Ensure reservation ID and user ID are defined
+    if (!reservation.id || !reservation.userId) {
+      console.error("Missing reservation ID or user ID:", reservation);
+      return;
+    }
+
+    console.log("Changing status for Reservation ID:", reservation.id);
+    console.log("User ID:", reservation.userId);
+    console.log("New Status:", newStatus);
+
+    handleStatusChange(reservation.id, reservation.userId, newStatus);
+  }}
+  className={cn(
+    "appearance-none h-8 px-3 py-1 rounded-md pr-8 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium",
+    (statusStyles[reservation.status]?.bg ?? statusStyles['CONFIRMED'].bg), // Fallback to "CONFIRMED" style
+    (statusStyles[reservation.status]?.text ?? statusStyles['CONFIRMED'].text) // Fallback to "CONFIRMED" text style
+  )}
+>
+
+
+
       {Object.keys(statusStyles).map((status) => (
         <option
           key={status}
@@ -319,11 +397,12 @@ console.log("Filtered Reservations:", filteredReservations); // Debug log
       ))}
     </select>
     <ChevronDown
-      className={cn(
-        "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
-        statusStyles[reservation.status]?.text || statusStyles.default.text,
-      )}
-    />
+  className={cn(
+    "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
+    (statusStyles[reservation.status]?.text ?? statusStyles['CONFIRMED'].text) // Fallback to "Confirmed" style
+  )}
+/>
+
   </div>
 </TableCell>
           <TableCell className="px-6 py-4 text-center">
