@@ -27,7 +27,7 @@ interface FormData {
   transmission: string
   fuelType: string
   odometer: string
-  generalServices: string[]
+  services: string[]
   specificIssues: string
   reservationDate: string
   completionDate: string
@@ -51,7 +51,7 @@ export function BookingContent() {
     transmission: "",
     fuelType: "",
     odometer: "",
-    generalServices: [],
+    services: [],
     specificIssues: "",
     reservationDate: "",
     status: "CONFIRMED",
@@ -119,7 +119,7 @@ export function BookingContent() {
       transmission: "",
       fuelType: "",
       odometer: "",
-      generalServices: [],
+      services: [],
       specificIssues: "",
       reservationDate: "",
       status: "CONFIRMED",
