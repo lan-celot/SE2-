@@ -81,7 +81,14 @@ export function BookingContent() {
           createdAt: serverTimestamp(),
           userId: user.uid,
           bookingId: bookingId, // Keep same ID in both collections
-        }
+          services: updatedFormData.services.map(serviceId => ({
+            created: new Date().toISOString(),
+            reservationDate: updatedFormData.reservationDate,
+            service: serviceId,
+            mechanic: "TO BE ASSIGNED", // Default mechanic assignment
+          })),
+        };
+        
   
         // Save to Global "bookings" Collection
         await setDoc(bookingRef, bookingData)

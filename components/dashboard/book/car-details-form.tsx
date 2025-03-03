@@ -44,7 +44,7 @@ interface CarDetailsFormProps {
 }
 
 export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       carModel: initialData.carModel || "",
@@ -55,8 +55,22 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
       generalServices: initialData.generalServices || [],
       specificIssues: initialData.specificIssues || "",
     },
-  })
+  });
 
+  const handleFormSubmit = (data: { generalServices: any[] }) => {
+    // Prepare the services data
+    const structuredServices = data.generalServices.map((serviceId) => ({
+      service: serviceId,
+      mechanic: "TO BE ASSIGNED", // Default mechanic assignment
+      created: new Date().toISOString(), // Timestamp for creation
+      reservationDate: initialData.reservationDate || new Date().toISOString(), // Use reservation date if available
+    }));
+
+    // Pass the structured data to the booking process
+    onSubmit({ ...data, generalServices: structuredServices });
+  };
+
+  
   const [characterCount, setCharacterCount] = React.useState(initialData.specificIssues?.length || 0)
 
   return (
@@ -209,7 +223,7 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                               onCheckedChange={(checked) => {
                                 return checked
                                   ? field.onChange([...field.value, service.id])
-                                  : field.onChange(field.value?.filter((value) => value !== service.id))
+                                  : field.onChange(field.value?.filter((value: string) => value !== service.id))
                               }}
                             />
                           </FormControl>
@@ -240,11 +254,11 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                     placeholder="For specific issue/s, kindly describe in detail..."
                     className="min-h-[100px] bg-white/50 resize-none"
                     maxLength={1000}
+                    {...field}
                     onChange={(e) => {
                       field.onChange(e)
                       setCharacterCount(e.target.value.length)
                     }}
-                    {...field}
                   />
                   <div className="absolute bottom-2 right-2 text-xs text-gray-400">{characterCount}/1000</div>
                 </div>
