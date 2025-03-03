@@ -209,6 +209,7 @@ export default function ReservationsPage() {
     }
   };
   
+  
   const handleDeleteService = async () => {
     if (selectedService) {
       const reservation = reservationData.find((res) => res.id === selectedService.reservationId);
