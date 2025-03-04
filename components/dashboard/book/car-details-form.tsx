@@ -27,26 +27,26 @@ const formSchema = z.object({
 })
 
 // Sample data structure - to be replaced with Firebase data
-const carData = {
-  "Toyota": ["Vios", "Corolla", "Camry", "Fortuner", "Innova"],
-  "Honda": ["Civic", "BRV", "CRV", "City", "Accord"],
-  "Ford": ["Raptor", "Everest", "Ranger", "Mustang", "Ecosport"]
+const carData: Record<string, string[]> = {
+  Toyota: ["Vios", "Corolla", "Camry", "Fortuner", "Innova"],
+  Honda: ["Civic", "BRV", "CRV", "City", "Accord"],
+  Ford: ["Raptor", "Everest", "Ranger", "Mustang", "Ecosport"],
 }
 
 const transmissionTypes = ["Automatic", "Manual"]
 const fuelTypes = ["Gas", "Diesel"]
 const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km"]
 const services = [
-  { id: "paint_jobs", label: "Paint Jobs" },
-  { id: "brake_shoes_clean", label: "Brake Shoes Clean" },
-  { id: "engine_overhaul", label: "Engine Overhaul" },
-  { id: "suspension_systems", label: "Suspension Systems" },
-  { id: "brake_shoes_replace", label: "Brake Shoes Replace" },
-  { id: "brake_clean", label: "Brake Clean" },
-  { id: "engine_tuning", label: "Engine Tuning" },
-  { id: "air_conditioning", label: "Air Conditioning" },
-  { id: "brake_replace", label: "Brake Replace" },
-  { id: "oil_change", label: "Oil Change" },
+  { id: "PAINT JOBS", label: "Paint Jobs" },
+  { id: "BRAKE SHOES CLEAN", label: "Brake Shoes Clean" },
+  { id: "ENGINE OVERHAUL", label: "Engine Overhaul" },
+  { id: "SUSPENSION SYSTEMS", label: "Suspension Systems" },
+  { id: "BRAKE SHOES REPLACE", label: "Brake Shoes Replace" },
+  { id: "BRAKE CLEAN", label: "Brake Clean" },
+  { id: "ENGINE TUNING", label: "Engine Tuning" },
+  { id: "AIR COONDITIONING", label: "Air Conditioning" },
+  { id: "BRAKE REPLACE", label: "Brake Replace" },
+  { id: "OIL CHANGE", label: "Oil Change" },
 ]
 
 interface CarDetailsFormProps {
@@ -320,7 +320,7 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                               onCheckedChange={(checked) => {
                                 return checked
                                   ? field.onChange([...field.value, service.id])
-                                  : field.onChange(field.value?.filter((value) => value !== service.id))
+                                  : field.onChange(field.value?.filter((value: string) => value !== service.id))
                               }}
                             />
                           </FormControl>
