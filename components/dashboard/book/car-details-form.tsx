@@ -25,16 +25,16 @@ const transmissionTypes = ["Automatic", "Manual"]
 const fuelTypes = ["Gas", "Diesel"]
 const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km"]
 const services = [
-  { id: "Paint Jobs", label: "Paint Jobs" },
-  { id: "Brake Shoes Clean", label: "Brake Shoes Clean" },
-  { id: "Engine Overhaul", label: "Engine Overhaul" },
-  { id: "Suspension Systems", label: "Suspension Systems" },
-  { id: "Brake Shoes Replace", label: "Brake Shoes Replace" },
-  { id: "Brake Clean", label: "Brake Clean" },
-  { id: "Engine Tuning", label: "Engine Tuning" },
-  { id: "Air Conditioning", label: "Air Conditioning" },
-  { id: "Brake Replace", label: "Brake Replace" },
-  { id: "Oil Change", label: "Oil Change" },
+  { id: "PAINT JOBS", label: "Paint Jobs" },
+  { id: "BRAKE SHOES CLEAN", label: "Brake Shoes Clean" },
+  { id: "ENGINE OVERHAUL", label: "Engine Overhaul" },
+  { id: "SUSPENSION SYSTEMS", label: "Suspension Systems" },
+  { id: "BRAKE SHOES REPLACE", label: "Brake Shoes Replace" },
+  { id: "BRAKE CLEAN", label: "Brake Clean" },
+  { id: "ENGINE TUNING", label: "Engine Tuning" },
+  { id: "AIR COONDITIONING", label: "Air Conditioning" },
+  { id: "BRAKE REPLACE", label: "Brake Replace" },
+  { id: "OIL CHANGE", label: "Oil Change" },
 ]
 
 interface CarDetailsFormProps {
