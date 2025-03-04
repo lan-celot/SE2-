@@ -15,7 +15,7 @@ interface FormData {
   transmission: string
   fuelType: string
   odometer: string
-  services: string[]
+  generalServices: string[]
   specificIssues: string
   reservationDate: string
 }
@@ -102,7 +102,7 @@ export function ReviewDetails({
         <div className="space-y-2">
           <p className="text-sm text-gray-500">General Services</p>
           <div className="flex flex-wrap gap-2">
-            {formData.services.map((service: string) => (
+            {formData.generalServices.map((service: string) => (
               <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
                 {service.split("_").join(" ").toUpperCase()}
               </span>

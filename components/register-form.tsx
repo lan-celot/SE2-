@@ -59,22 +59,6 @@ export function RegisterForm() {
     },
   })
 
-  // Function to generate a new UID
-  const generateUID = async () => {
-    const counterDocRef = doc(db, "counters", "userCounter");
-    const counterDocSnap = await getDoc(counterDocRef);
-
-    let newNumber = 1;
-    if (counterDocSnap.exists()) {
-      newNumber = counterDocSnap.data().lastNumber + 1;
-    }
-    //Tweak this to change format of UID
-    const newUID = `#CU${newNumber.toString().padStart(5, '0')}`;
-
-    await setDoc(counterDocRef, { lastNumber: newNumber });
-
-    return newUID;
-  }
 
   // Backend: Handles user registration
   
@@ -92,12 +76,10 @@ export function RegisterForm() {
         displayName: `${values.firstName} ${values.lastName}`
       });
 
-      // 3️⃣ Generate custom UID
-      const customUid = await generateUID();
+  
 
       // 4️⃣ Save user details to Firestore with BOTH UIDs
       const userDoc = {
-        customUid: customUid, // Store custom UID
         authUid: user.uid,    // Store Firebase Auth UID
         firstName: values.firstName,
         lastName: values.lastName,
@@ -112,9 +94,9 @@ export function RegisterForm() {
       // Save in two places for efficient querying
       await Promise.all([
         setDoc(doc(db, "users", user.uid), userDoc),     // Primary document using Auth UID
-        setDoc(doc(db, "usersByCustomId", customUid), {  // Reference document using custom UID
+        {  // Reference document using custom UID
           authUid: user.uid
-        })
+        }
       ]);
 
       setSuccess(true);

@@ -25,16 +25,16 @@ const transmissionTypes = ["Automatic", "Manual"]
 const fuelTypes = ["Gas", "Diesel"]
 const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km"]
 const services = [
-  { id: "paint_jobs", label: "Paint Jobs" },
-  { id: "brake_shoes_clean", label: "Brake Shoes Clean" },
-  { id: "engine_overhaul", label: "Engine Overhaul" },
-  { id: "suspension_systems", label: "Suspension Systems" },
-  { id: "brake_shoes_replace", label: "Brake Shoes Replace" },
-  { id: "brake_clean", label: "Brake Clean" },
-  { id: "engine_tuning", label: "Engine Tuning" },
-  { id: "air_conditioning", label: "Air Conditioning" },
-  { id: "brake_replace", label: "Brake Replace" },
-  { id: "oil_change", label: "Oil Change" },
+  { id: "Paint Jobs", label: "Paint Jobs" },
+  { id: "Brake Shoes Clean", label: "Brake Shoes Clean" },
+  { id: "Engine Overhaul", label: "Engine Overhaul" },
+  { id: "Suspension Systems", label: "Suspension Systems" },
+  { id: "Brake Shoes Replace", label: "Brake Shoes Replace" },
+  { id: "Brake Clean", label: "Brake Clean" },
+  { id: "Engine Tuning", label: "Engine Tuning" },
+  { id: "Air Conditioning", label: "Air Conditioning" },
+  { id: "Brake Replace", label: "Brake Replace" },
+  { id: "Oil Change", label: "Oil Change" },
 ]
 
 interface CarDetailsFormProps {
@@ -56,20 +56,6 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
       specificIssues: initialData.specificIssues || "",
     },
   });
-
-  const handleFormSubmit = (data: { generalServices: any[] }) => {
-    // Prepare the services data
-    const structuredServices = data.generalServices.map((serviceId) => ({
-      service: serviceId,
-      mechanic: "TO BE ASSIGNED", // Default mechanic assignment
-      created: new Date().toISOString(), // Timestamp for creation
-      reservationDate: initialData.reservationDate || new Date().toISOString(), // Use reservation date if available
-    }));
-
-    // Pass the structured data to the booking process
-    onSubmit({ ...data, generalServices: structuredServices });
-  };
-
   
   const [characterCount, setCharacterCount] = React.useState(initialData.specificIssues?.length || 0)
 

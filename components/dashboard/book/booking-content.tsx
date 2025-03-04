@@ -27,7 +27,7 @@ interface FormData {
   transmission: string
   fuelType: string
   odometer: string
-  services: string[]
+  generalServices: string[]
   specificIssues: string
   reservationDate: string
   completionDate: string
@@ -51,7 +51,7 @@ export function BookingContent() {
     transmission: "",
     fuelType: "",
     odometer: "",
-    services: [],
+    generalServices: [],
     specificIssues: "",
     reservationDate: "",
     status: "CONFIRMED",
@@ -75,26 +75,35 @@ export function BookingContent() {
         const bookingId = bookingRef.id // Get the auto-generated ID
   
         // Prepare booking data
-        const bookingData = {
-          ...updatedFormData,
-          referenceNumber: `R${Math.floor(Math.random() * 1000000)}`,
-          createdAt: serverTimestamp(),
-          userId: user.uid,
-          bookingId: bookingId, // Keep same ID in both collections
-          services: updatedFormData.services.map(serviceId => ({
-            created: new Date().toISOString(),
-            reservationDate: updatedFormData.reservationDate,
-            service: serviceId,
-            mechanic: "TO BE ASSIGNED", // Default mechanic assignment
-          })),
-        };
-        
-  
-        // Save to Global "bookings" Collection
-        await setDoc(bookingRef, bookingData)
-  
-        // Save to User's "users/{userId}/bookings" Subcollection
-        await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), bookingData)
+// Prepare the services array
+// Prepare the services array
+const services = formData.generalServices.map((serviceId, index) => ({
+  mechanic: "TO BE ASSIGNED", // Default mechanic assignment
+  service: serviceId,
+  createdAt: new Date().toISOString(), // Current timestamp
+  reservationId: `RES-${bookingId}-${index + 1}`, // Unique reservation ID for each service
+  reservationDate: formData.reservationDate, // Reservation date from form data
+}));
+
+// Prepare booking data
+const bookingData = {
+  ...formData,
+  referenceNumber: `R${Math.floor(Math.random() * 1000000)}`,
+  createdAt: serverTimestamp(),
+  userId: user.uid,
+  bookingId: bookingId, // Keep same ID in both collections
+  services: services, // Include the formatted services array
+};
+
+// Save to Global "bookings" Collection
+await setDoc(bookingRef, bookingData);
+
+// Save to User's "users/{userId}/bookings" Subcollection
+await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), bookingData);
+
+
+
+
   
         setCurrentStep(5)
       } catch (error) {
@@ -126,7 +135,7 @@ export function BookingContent() {
       transmission: "",
       fuelType: "",
       odometer: "",
-      services: [],
+      generalServices: [],
       specificIssues: "",
       reservationDate: "",
       status: "CONFIRMED",
