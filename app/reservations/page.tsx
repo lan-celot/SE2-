@@ -93,7 +93,7 @@ export default function ReservationsPage() {
           userId: bookingData.userId || "",
           carModel: bookingData.carModel || "",
           status: (bookingData.status?.toUpperCase() as Status) || "CONFIRMED",
-          services: bookingData.services || [], // Ensure services is an array
+          services: Array.isArray(bookingData.services) ? bookingData.services : [], // Ensure services is an array
         } satisfies Reservation;
       });
   
@@ -105,6 +105,7 @@ export default function ReservationsPage() {
   
     return () => unsubscribe();
   }, []);
+  
   
   
   
@@ -144,27 +145,64 @@ export default function ReservationsPage() {
     }
   };
   
+  const updateMechanicAssignment = async (reservationId: string, serviceIndex: any, mechanicName: any, userId: any) => {
+    try {
+      // Reference to the booking document in the global "bookings" collection
+      const bookingRef = doc(db, "bookings", reservationId);
   
-  const handleMechanicChange = () => {
+      // Update the mechanic for the specific service
+      await updateDoc(bookingRef, {
+        [`services.${serviceIndex}.mechanic`]: mechanicName,
+      });
+  
+      // Reference to the booking document in the user's "bookings" subcollection
+      const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
+  
+      // Update the mechanic for the specific service in the user's subcollection
+      await updateDoc(userBookingRef, {
+        [`services.${serviceIndex}.mechanic`]: mechanicName,
+      });
+  
+      console.log("Mechanic assignment updated successfully");
+    } catch (error) {
+      console.error("Error updating mechanic assignment: ", error);
+    }
+  };
+  
+
+  const handleMechanicChange = async () => {
     if (selectedService && selectedMechanic) {
+      // Update local state
       setReservationData((prevData) =>
         prevData.map((reservation) => {
           if (reservation.id === selectedService.reservationId && reservation.services) {
-            const updatedServices = [...reservation.services]
+            const updatedServices = [...reservation.services];
             updatedServices[selectedService.serviceIndex] = {
               ...updatedServices[selectedService.serviceIndex],
               mechanic: selectedMechanic,
-            }
-            return { ...reservation, services: updatedServices }
+            };
+            return { ...reservation, services: updatedServices };
           }
-          return reservation
-        }),
-      )
-      setShowMechanicDialog(false)
-      setSelectedService(null)
-      setSelectedMechanic("")
+          return reservation;
+        })
+      );
+  
+      // Update Firestore
+      const userId = reservationData.find(res => res.id === selectedService.reservationId)?.userId || "";
+      await updateMechanicAssignment(
+        selectedService.reservationId,
+        selectedService.serviceIndex,
+        selectedMechanic,
+        userId
+      );
+  
+      setShowMechanicDialog(false);
+      setSelectedService(null);
+      setSelectedMechanic("");
     }
-  }
+  };
+  
+  
 
   const handleAddServices = async (selectedServices: any[]) => {
     if (expandedRowId) {
@@ -487,54 +525,55 @@ https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Vector%20up-NiM43WWAQiX3
             </tr>
           </thead>
           <TableBody>
-            {(reservation.services || []).map((service, index) => (
-              <TableRow key={index}>
-                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                  {service.created}
-                </TableCell>
-                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                  {service.reservationDate}
-                </TableCell>
-                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                  {service.service}
-                </TableCell>
-                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                  {service.mechanic}
-                </TableCell>
-                <TableCell className="px-6 py-4 flex justify-center">
-                  <div className="inline-flex items-center justify-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSelectedService({
-                          reservationId: reservation.id,
-                          serviceIndex: index,
-                        });
-                        setSelectedMechanic(service.mechanic);
-                        setShowMechanicDialog(true);
-                      }}
-                    >
-                      <User className="h-4 w-4 text-[#1A365D]" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSelectedService({
-                          reservationId: reservation.id,
-                          serviceIndex: index,
-                        });
-                        setShowDeleteDialog(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-[#1A365D]" />
-                    </Button>
-                  </div>
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-            ))}
+          {(Array.isArray(reservation.services) ? reservation.services : []).map((service, index) => (
+  <TableRow key={index}>
+    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+      {service.created}
+    </TableCell>
+    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+      {service.reservationDate}
+    </TableCell>
+    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+      {service.service}
+    </TableCell>
+    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+      {service.mechanic}
+    </TableCell>
+    <TableCell className="px-6 py-4 flex justify-center">
+      <div className="inline-flex items-center justify-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            setSelectedService({
+              reservationId: reservation.id,
+              serviceIndex: index,
+            });
+            setSelectedMechanic(service.mechanic);
+            setShowMechanicDialog(true);
+          }}
+        >
+          <User className="h-4 w-4 text-[#1A365D]" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            setSelectedService({
+              reservationId: reservation.id,
+              serviceIndex: index,
+            });
+            setShowDeleteDialog(true);
+          }}
+        >
+          <Trash2 className="h-4 w-4 text-[#1A365D]" />
+        </Button>
+      </div>
+    </TableCell>
+    <TableCell></TableCell>
+  </TableRow>
+))}
+
           </TableBody>
         </Table>
       </div>
