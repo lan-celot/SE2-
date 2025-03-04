@@ -9,8 +9,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useEffect, useState } from "react"
+
+// Firebase imports
+// import { collection, getDocs } from "firebase/firestore"
+// import { db } from "@/lib/firebase"
 
 const formSchema = z.object({
+  carBrand: z.string().min(1, "Car brand is required"),
   carModel: z.string().min(1, "Car model is required"),
   yearModel: z.string().min(1, "Year model is required"),
   transmission: z.string().min(1, "Transmission is required"),
@@ -20,7 +26,13 @@ const formSchema = z.object({
   specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
 })
 
-const carModels = ["Honda Civic", "Toyota Vios", "Honda BRV", "Ford Raptor", "Ford Everest"]
+// Sample data structure - to be replaced with Firebase data
+const carData = {
+  "Toyota": ["Vios", "Corolla", "Camry", "Fortuner", "Innova"],
+  "Honda": ["Civic", "BRV", "CRV", "City", "Accord"],
+  "Ford": ["Raptor", "Everest", "Ranger", "Mustang", "Ecosport"]
+}
+
 const transmissionTypes = ["Automatic", "Manual"]
 const fuelTypes = ["Gas", "Diesel"]
 const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km"]
@@ -44,9 +56,16 @@ interface CarDetailsFormProps {
 }
 
 export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsFormProps) {
+  const [carBrands, setCarBrands] = useState<string[]>(Object.keys(carData))
+  const [availableModels, setAvailableModels] = useState<string[]>([])
+  // const [carBrands, setCarBrands] = useState<string[]>([])
+  // const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      carBrand: initialData.carBrand || "",
       carModel: initialData.carModel || "",
       yearModel: initialData.yearModel || "",
       transmission: initialData.transmission || "",
@@ -57,7 +76,57 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
     },
   })
 
+  const selectedBrand = form.watch("carBrand")
   const [characterCount, setCharacterCount] = React.useState(initialData.specificIssues?.length || 0)
+
+  // Uncomment this to fetch actual data from Firebase
+  /*
+  useEffect(() => {
+    async function fetchCarBrands() {
+      setLoading(true)
+      try {
+        const brandsSnapshot = await getDocs(collection(db, "carBrands"))
+        const brandsList = brandsSnapshot.docs.map(doc => doc.id)
+        setCarBrands(brandsList)
+      } catch (error) {
+        console.error("Error fetching car brands:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchCarBrands()
+  }, [])
+  */
+
+  // Update available models when brand changes
+  useEffect(() => {
+    if (selectedBrand) {
+      // For the static data example
+      setAvailableModels(carData[selectedBrand] || [])
+      
+      // Uncomment for Firebase implementation
+      /*
+      async function fetchCarModels() {
+        setLoading(true)
+        try {
+          const modelsSnapshot = await getDocs(collection(db, "carBrands", selectedBrand, "models"))
+          const modelsList = modelsSnapshot.docs.map(doc => doc.id)
+          setAvailableModels(modelsList)
+        } catch (error) {
+          console.error("Error fetching car models:", error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      
+      fetchCarModels()
+      */
+      
+      // Reset the car model field when brand changes
+      form.setValue("carModel", "")
+    }
+  }, [selectedBrand, form])
 
   return (
     <Form {...form}>
@@ -65,21 +134,27 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
         <div className="grid md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="carModel"
+            name="carBrand"
             render={({ field }) => (
               <FormItem>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="bg-white/50">
-                      <SelectValue placeholder="Car Model" />
+                      <SelectValue placeholder="Car Brand" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {carModels.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
+                    {loading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading...
                       </SelectItem>
-                    ))}
+                    ) : (
+                      carBrands.map((brand) => (
+                        <SelectItem key={brand} value={brand}>
+                          {brand}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -87,6 +162,42 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="carModel"
+            render={({ field }) => (
+              <FormItem>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedBrand}>
+                  <FormControl>
+                    <SelectTrigger className="bg-white/50">
+                      <SelectValue placeholder="Car Model" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {loading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading...
+                      </SelectItem>
+                    ) : availableModels.length > 0 ? (
+                      availableModels.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-models" disabled>
+                        {selectedBrand ? "No models available" : "Select a brand first"}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="yearModel"
@@ -110,9 +221,7 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
               </FormItem>
             )}
           />
-        </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="transmission"
@@ -136,7 +245,9 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
               </FormItem>
             )}
           />
+        </div>
 
+        <div className="grid md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="fuelType"
@@ -160,31 +271,31 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
               </FormItem>
             )}
           />
-        </div>
 
-        <FormField
-          control={form.control}
-          name="odometer"
-          render={({ field }) => (
-            <FormItem>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger className="bg-white/50">
-                    <SelectValue placeholder="Odometer" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {odometerRanges.map((range) => (
-                    <SelectItem key={range} value={range}>
-                      {range}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="odometer"
+            render={({ field }) => (
+              <FormItem>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="bg-white/50">
+                      <SelectValue placeholder="Odometer" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {odometerRanges.map((range) => (
+                      <SelectItem key={range} value={range}>
+                        {range}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
@@ -240,11 +351,11 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                     placeholder="For specific issue/s, kindly describe in detail..."
                     className="min-h-[100px] bg-white/50 resize-none"
                     maxLength={1000}
+                    {...field}
                     onChange={(e) => {
                       field.onChange(e)
                       setCharacterCount(e.target.value.length)
                     }}
-                    {...field}
                   />
                   <div className="absolute bottom-2 right-2 text-xs text-gray-400">{characterCount}/1000</div>
                 </div>
@@ -266,4 +377,3 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
     </Form>
   )
 }
-

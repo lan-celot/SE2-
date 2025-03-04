@@ -1,4 +1,9 @@
+// ReviewDetails.tsx - Modified to save data to Firebase
 import { Button } from "@/components/ui/button"
+import { db, auth } from "@/lib/firebase"
+import { collection, addDoc, doc } from "firebase/firestore"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 interface FormData {
   firstName: string
@@ -29,6 +34,69 @@ export function ReviewDetails({
   onBack: () => void
   onSubmit: () => void
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter()
+
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true)
+      const user = auth.currentUser;
+      
+      if (!user) {
+        alert("You must be logged in to make a reservation");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Create the booking data object
+      const bookingData = {
+        userId: user.uid,
+        customerName: `${formData.firstName} ${formData.lastName}`,
+        gender: formData.gender,
+        phoneNumber: formData.phoneNumber,
+        dateOfBirth: formData.dateOfBirth,
+        address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
+        carModel: formData.carModel,
+        yearModel: formData.yearModel,
+        transmission: formData.transmission,
+        fuelType: formData.fuelType,
+        odometer: formData.odometer,
+        reservationDate: new Date(formData.reservationDate).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric"
+        }),
+        completionDate: "Pending",
+        status: "confirmed", // Start with confirmed status
+        services: formData.generalServices.map(service => ({
+          mechanic: "TO BE ASSIGNED",
+          service: service.split("_").join(" ").toUpperCase(),
+          status: "Confirmed"
+        })),
+        specificIssues: formData.specificIssues,
+        createdAt: new Date()
+      };
+      
+      // Save to Firebase
+      const userDocRef = doc(db, "users", user.uid);
+      const bookingsCollectionRef = collection(userDocRef, "bookings");
+      await addDoc(bookingsCollectionRef, bookingData);
+      
+      // Call the original onSubmit function
+      onSubmit();
+      
+      // Redirect to reservations page
+      router.push("/dashboard/reservations");
+    } catch (error) {
+      console.error("Error submitting reservation:", error);
+      alert("There was an error submitting your reservation. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="p-4 bg-white rounded-lg shadow-md">
       <h2 className="text-xl font-bold mb-4">Review Your Booking</h2>
@@ -122,11 +190,14 @@ export function ReviewDetails({
         <Button type="button" variant="outline" onClick={onBack} className="border-[#1e4e8c] text-[#1e4e8c]">
           Back
         </Button>
-        <Button onClick={() => onSubmit()} className="bg-[#1e4e8c] text-white">
-  Reserve
-</Button>
+        <Button 
+          onClick={handleSubmit} 
+          className="bg-[#1e4e8c] text-white"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Processing..." : "Reserve"}
+        </Button>
       </div>
     </div>
   )
 }
-
