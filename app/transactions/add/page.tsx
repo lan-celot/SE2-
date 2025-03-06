@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
@@ -8,18 +8,32 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { db } from '@/lib/firebase'; // Ensure this path is correct
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 
-const services = [
-  { id: "paint_jobs", label: "PAINT JOBS" },
-  { id: "brake_shoes_clean", label: "BRAKE SHOES CLEAN" },
-  { id: "engine_overhaul", label: "ENGINE OVERHAUL" },
-  { id: "suspension_systems", label: "SUSPENSION SYSTEMS" },
-  { id: "brake_shoes_replace", label: "BRAKE SHOES REPLACE" },
-  { id: "brake_clean", label: "BRAKE CLEAN" },
-  { id: "engine_tuning", label: "ENGINE TUNING" },
-  { id: "air_conditioning", label: "AIR CONDITIONING" },
-  { id: "brake_replace", label: "BRAKE REPLACE" },
-  { id: "oil_change", label: "OIL CHANGE" },
+// Define types for services and reservations
+interface Service {
+  id: string;
+  label: string;
+}
+
+interface Reservation {
+  id: string;
+  customer: string;
+  car: string;
+}
+
+const services: Service[] = [
+  { id: "PAINT JOBS", label: "PAINT JOBS" },
+  { id: "BRAKE SHOES CLEAN", label: "BRAKE SHOES CLEAN" },
+  { id: "ENGINE OVERHAUL", label: "ENGINE OVERHAUL" },
+  { id: "SUSPENSION SYSTEMS", label: "SUSPENSION SYSTEMS" },
+  { id: "BRAKE SHOES REPLACE", label: "BRAKE SHOES REPLACE" },
+  { id: "BRAKE CLEAN", label: "BRAKE CLEAN" },
+  { id: "ENGINE TUNING", label: "ENGINE TUNING" },
+  { id: "AIR CONDITIONING", label: "AIR CONDITIONING" },
+  { id: "BRAKE REPLACE", label: "BRAKE REPLACE" },
+  { id: "OIL CHANGE", label: "OIL CHANGE" },
 ]
 
 const mechanics = [
@@ -35,12 +49,6 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
-const reservations = [
-  { id: "#R00100", customer: "ANDREA SALAZAR", car: "HONDA CIVIC" },
-  { id: "#R00099", customer: "BLAINE RAMOS", car: "FORD RAPTOR" },
-  { id: "#R00098", customer: "LEO MACAYA", car: "TOYOTA VIOS" },
-]
-
 export default function AddTransactionPage() {
   const router = useRouter()
   const [selectedServices, setSelectedServices] = useState<string[]>([])
@@ -51,6 +59,24 @@ export default function AddTransactionPage() {
     quantity: "",
     discount: "",
   })
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+
+  useEffect(() => {
+    const fetchReservations = async () => {
+      const querySnapshot = await getDocs(collection(db, 'bookings'));
+      const reservationsData: Reservation[] = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: data.bookingId,
+          customer: `${data.firstName} ${data.lastName}`,
+          car: data.carModel,
+        };
+      });
+      setReservations(reservationsData);
+    };
+
+    fetchReservations();
+  }, []);
 
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServices((current) =>
@@ -65,9 +91,33 @@ export default function AddTransactionPage() {
     }))
   }
 
-  const handleConfirm = () => {
-    // Add transaction logic here
-    router.push("/transactions")
+  const handleConfirm = async () => {
+    const reservation = reservations.find(res => res.id === formData.reservationId);
+    if (!reservation) return;
+
+    const transactionData = {
+      id: formData.reservationId,
+      reservationDate: new Date().toLocaleString(), // Replace with actual reservation date if available
+      customerName: reservation.customer,
+      customerId: formData.reservationId, // Assuming reservationId is the same as customerId
+      carModel: reservation.car,
+      completionDate: new Date().toLocaleString(), // Replace with actual completion date if available
+      totalPrice: parseFloat(formData.price) * parseInt(formData.quantity),
+      services: selectedServices.map(serviceId => {
+        const service = services.find(s => s.id === serviceId);
+        return {
+          service: service?.label || "",
+          mechanic: formData.mechanic,
+          price: parseFloat(formData.price),
+          quantity: parseInt(formData.quantity),
+          discount: parseInt(formData.discount),
+          total: parseFloat(formData.price) * parseInt(formData.quantity),
+        };
+      }),
+    };
+
+    await addDoc(collection(db, 'transactions'), transactionData);
+    router.push("/transactions");
   }
 
   return (
@@ -177,4 +227,3 @@ export default function AddTransactionPage() {
     </div>
   )
 }
-
