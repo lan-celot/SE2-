@@ -1,34 +1,55 @@
-"use client"
+"use client";
 
-
-import { useRouter } from "next/navigation"
-import { DashboardHeader } from "@/components/header"
-import { Input } from "@/components/ui/input"
-import { Sidebar } from "@/components/sidebar"
-import { Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import React, { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase'; // Ensure this path is correct
 import { collection, onSnapshot } from 'firebase/firestore';
 import TransactionsTable from './TransactionsTable';
+import { DashboardHeader } from "@/components/header";
+import { Sidebar } from "@/components/sidebar";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 
+interface Transaction {
+  id: string;
+  reservationDate: string;
+  customerName: string;
+  customerId: string;
+  carModel: string;
+  completionDate: string;
+  totalPrice: number;
+  services?: {
+    service: string;
+    mechanic: string;
+    price: number;
+    quantity: number;
+    discount: number;
+    total: number;
+  }[];
+}
 
 export default function TransactionsPage() {
-  interface Transaction {
-    id: string;
-    [key: string]: any;
-  }
-
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'transactions'), (snapshot) => {
-      const transactionsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const transactionsData: Transaction[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id, // This is the transaction ID
+          reservationDate: data.reservationDate || "", // Ensure this is the correct field
+          reservationId: data.reservationId || "", // Ensure this is the correct field
+          customerName: data.customerName || "",
+          customerId: data.customerId || "", // Ensure this is the correct field
+          carModel: data.carModel || "",
+          completionDate: data.completionDate || "",
+          totalPrice: data.totalPrice || 0,
+          services: data.services || [],
+        };
+      });
       setTransactions(transactionsData);
     });
 
@@ -54,15 +75,18 @@ export default function TransactionsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md" onClick={() => router.push("/transactions/add")}>
+          <Button
+            className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+            onClick={() => router.push("/transactions/add")}
+          >
             Add Transaction
           </Button>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-sm">
-          <TransactionsTable searchQuery={searchQuery} transactions={[]} />
+          <TransactionsTable transactions={transactions} searchQuery={searchQuery} />
         </div>
       </main>
     </div>
-)
+  );
 }

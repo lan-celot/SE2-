@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ChevronUp, ChevronDown } from "lucide-react";
 import Image from "next/image";
@@ -6,13 +7,20 @@ import { cn } from "@/lib/utils";
 
 interface Transaction {
   id: string;
+  reservationDate: string;
   customerName: string;
   customerId: string;
   carModel: string;
-  reservationDate: string;
   completionDate: string;
-  services: { service: string; mechanic: string; price: number; quantity: number; discount: number; total: number }[];
   totalPrice: number;
+  services?: {
+    service: string;
+    mechanic: string;
+    price: number;
+    quantity: number;
+    discount: number;
+    total: number;
+  }[];
 }
 
 interface TransactionsTableProps {
@@ -22,12 +30,12 @@ interface TransactionsTableProps {
 
 const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, searchQuery }) => {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [sortField, setSortField] = useState("completionDate");
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortField, setSortField] = useState<keyof Transaction>("completionDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
-  const handleSort = (field: React.SetStateAction<string>) => {
+  const handleSort = (field: keyof Transaction) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
@@ -41,7 +49,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
   };
 
   const filteredAndSortedTransactions = transactions
-    .filter((transaction: { id: string; customerName: string; customerId: string; carModel: string; reservationDate: string; completionDate: string; }) => {
+    .filter((transaction) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -55,18 +63,21 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
       }
       return true;
     })
-    .sort((a: { [x: string]: any; completionDate: string | number | Date; }, b: { [x: string]: any; completionDate: string | number | Date; }) => {
+    .sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
       const modifier = sortOrder === "asc" ? 1 : -1;
       if (sortField === "completionDate") {
         return new Date(b.completionDate).getTime() - new Date(a.completionDate).getTime();
       }
+      if (aValue === undefined || bValue === undefined) {
+        return 0;
+      }
       return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0;
     });
 
   const handlePrint = () => {
-    const transaction = transactions.find((t: Transaction) => t.id === selectedTransactionId);
+    const transaction = transactions.find((t) => t.id === selectedTransactionId);
     if (transaction) {
       setShowPrintDialog(false);
       window.print();
@@ -80,10 +91,10 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
           <thead>
             <tr className="border-b border-gray-200">
               {[
-                { key: "id", label: "RESERVATION ID" },
+                { key: "id", label: "TRANSACTION ID" },
                 { key: "reservationDate", label: "RESERVATION DATE" },
                 { key: "customerName", label: "CUSTOMER NAME" },
-                { key: "customerId", label: "CUSTOMER ID" },
+                { key: "customerId", label: "RESERVATION ID" },
                 { key: "carModel", label: "CAR MODEL" },
                 { key: "completionDate", label: "COMPLETION DATE" },
                 { key: "action", label: "ACTION" },
@@ -95,7 +106,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
                   {column.key !== "action" ? (
                     <button
                       className="flex items-center gap-1 hover:text-[#1A365D]"
-                      onClick={() => column.key !== "action" && handleSort(column.key)}
+                      onClick={() => column.key !== "action" && handleSort(column.key as keyof Transaction)}
                     >
                       {column.label}
                       {column.key !== "action" && (
@@ -123,8 +134,8 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredAndSortedTransactions.map((transaction: Transaction) => (
-              <React.Fragment key={String(transaction.id)}>
+            {filteredAndSortedTransactions.map((transaction) => (
+              <React.Fragment key={transaction.id}>
                 <tr className={cn("hover:bg-gray-50", expandedRow && expandedRow !== transaction.id && "opacity-50")}>
                   <td className="px-6 py-4 text-sm text-[#1A365D]">{transaction.id}</td>
                   <td className="px-6 py-4 text-sm text-[#1A365D]">{transaction.reservationDate}</td>
