@@ -240,9 +240,19 @@ const formSchema = z.object({
   streetAddress: z.string().min(1, "Street address is required"),
   region: z.string().min(1, "Region is required"),
   province: z.string().min(1, "Province is required"),
-  city: z.string().min(1, "City is required"),
+  city: z.string().optional(), // Make city optional
   zipCode: z.string().min(1, "ZIP code is required"),
-})
+}).refine((data) => {
+  const selectedProvince = data.province;
+  if (selectedProvince && locationHierarchy[data.region]?.cities[selectedProvince]?.length > 0) {
+    return !!data.city; // Require city if province has cities
+  }
+  return true; // Allow proceeding if the province has no cities
+}, {
+  message: "City is required if the province has cities",
+  path: ["city"],
+});
+
 
 interface PersonalDetailsFormProps {
   initialData: any

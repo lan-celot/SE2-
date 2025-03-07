@@ -23,8 +23,9 @@ export function ConfirmationPage({ formData, onBookAgain }: ConfirmationPageProp
             <p className="font-medium">{`${formData.firstName} ${formData.lastName}`}</p>
           </div>
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">Car Model</p>
-            <p className="font-medium">{formData.carModel}</p>
+            <p className="text-sm text-gray-500">Car </p>
+            <p className="font-medium">{`${formData.carBrand} ${formData.carModel}`}
+            </p>
           </div>
         </div>
 

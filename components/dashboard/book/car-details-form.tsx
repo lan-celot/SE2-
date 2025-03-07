@@ -18,6 +18,7 @@ import { useEffect, useState } from "react"
 const formSchema = z.object({
   carBrand: z.string().min(1, "Car brand is required"),
   carModel: z.string().min(1, "Car model is required"),
+  carFullName: z.string().optional(),
   yearModel: z.string().min(1, "Year model is required"),
   transmission: z.string().min(1, "Transmission is required"),
   fuelType: z.string().min(1, "Fuel type is required"),
@@ -28,13 +29,30 @@ const formSchema = z.object({
 
 // Sample data structure - to be replaced with Firebase data
 const carData: Record<string, string[]> = {
-  Toyota: ["Vios", "Corolla", "Camry", "Fortuner", "Innova"],
-  Honda: ["Civic", "BRV", "CRV", "City", "Accord"],
-  Ford: ["Raptor", "Everest", "Ranger", "Mustang", "Ecosport"],
+Toyota: ["Vios", "Corolla", "Camry", "Fortuner", "Innova", "Hilux", "Land Cruiser", "Supra", "Yaris", "Rush", 
+    "Avanza", "Raize", "Tundra", "Tacoma", "4Runner", "Sequoia", "Sienna", "C-HR", "GR86", "GR Yaris", "Crown"],
+Honda: ["Civic", "BRV", "CRV", "City", "Accord", "Jazz", "HRV", "Pilot", "Odyssey", "Fit", "Freed", "Insight", 
+   "Legend", "Passport", "Ridgeline", "S2000", "e", "Stepwgn", "ZR-V", "Clarity", "Integra"],
+Nissan: ["Almera", "Altima", "GT-R", "370Z", "Navara", "Patrol", "Terra", "X-Trail", "Juke", "Sylphy", "Teana", 
+    "Titan", "Murano", "Rogue", "Kicks", "Frontier", "Pathfinder", "Ariya", "Leaf", "Note", "Fairlady Z"],
+Mazda: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-5", "CX-9", "BT-50", "MX-5", "CX-30", "CX-60", "CX-90", 
+   "CX-50", "RX-8", "RX-7", "Eunos Cosmo", "Bongo", "Flair", "Scrum", "Roadster"],
+Mitsubishi: ["Mirage", "Lancer", "Xpander", "Montero Sport", "Pajero", "Strada", "Outlander", "Eclipse Cross", 
+        "Delica", "ASX", "RVR", "i-MiEV", "Triton", "Galant", "Attrage", "Minicab", "Toppo"],
+Subaru: ["Impreza", "WRX", "Forester", "Outback", "XV", "BRZ", "Legacy", "Levorg", "Ascent", "Crosstrek", "Solterra", 
+    "Baja", "Justy", "Tribeca", "Sambar"],
+Suzuki: ["Swift", "Ertiga", "Celerio", "Vitara", "Jimny", "XL7", "Dzire", "Baleno", "Ignis", "Alto", "Wagon R", 
+    "S-Presso", "Carry", "Every", "Spacia", "Lapin", "Ciaz", "Grand Vitara"],
+Isuzu: ["D-Max", "MU-X", "Crosswind", "Trooper", "Panther", "VehiCROSS", "Fargo", "Giga", "Bighorn", "Elf", 
+   "Rodeo", "Axiom", "Ascender", "Amigo"],
+Daihatsu: ["Terios", "Hijet", "Move", "Mira", "Copen", "Rocky", "Atrai", "Tanto", "Thor", "Wake", "Boon", 
+      "Cast", "Sonica", "Materia"],
+Lexus: ["IS", "ES", "GS", "LS", "NX", "RX", "GX", "LX", "LC", "UX", "RC", "LM", "LBX", "RZ", "SC", "HS", "CT"]
+
 }
 
-const transmissionTypes = ["Automatic", "Manual"]
-const fuelTypes = ["Gas", "Diesel"]
+const transmissionTypes = ["Automatic", "Manual", ]
+const fuelTypes = ["Gas", "Diesel", "Electric"]
 const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km"]
 const services = [
   { id: "PAINT JOBS", label: "Paint Jobs" },
@@ -102,8 +120,8 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
   // Update available models when brand changes
   useEffect(() => {
     if (selectedBrand) {
-      // For the static data example
-      setAvailableModels(carData[selectedBrand] || [])
+      // Update available models based on the selected brand
+      setAvailableModels(carData[selectedBrand] || []);
       
       // Uncomment for Firebase implementation
       /*
@@ -123,10 +141,12 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
       fetchCarModels()
       */
       
-      // Reset the car model field when brand changes
-      form.setValue("carModel", "")
+      // Keep the selected model if it exists in the new brand's models
+      if (!carData[selectedBrand]?.includes(form.getValues("carModel"))) {
+        form.setValue("carModel", ""); // Reset only if the previous model is not in the new list
+      }
     }
-  }, [selectedBrand, form])
+  }, [selectedBrand, form]);
 
   return (
     <Form {...form}>
@@ -210,8 +230,8 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Array.from({ length: 25 }, (_, i) => 2024 - i).map((year) => (
-                      <SelectItem key={year} value={year.toString()}>
+                  {Array.from({ length: new Date().getFullYear() - 1949 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+              <SelectItem key={year} value={year.toString()}>
                         {year}
                       </SelectItem>
                     ))}
