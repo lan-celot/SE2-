@@ -94,7 +94,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
                 { key: "id", label: "TRANSACTION ID" },
                 { key: "reservationDate", label: "RESERVATION DATE" },
                 { key: "customerName", label: "CUSTOMER NAME" },
-                { key: "customerId", label: "RESERVATION ID" },
+                { key: "customerId", label: "CUSTOMER ID" },
                 { key: "carModel", label: "CAR MODEL" },
                 { key: "completionDate", label: "COMPLETION DATE" },
                 { key: "action", label: "ACTION" },
