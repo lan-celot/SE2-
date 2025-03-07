@@ -1,146 +1,116 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
-import { ChevronUp, ChevronDown } from "lucide-react"
-import React from "react"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Ensure this path is correct
+import React from "react";
 
 interface Service {
-  service: string
-  mechanic: string
-  price: number
-  quantity: number
-  discount: number
-  total: number
+  service: string;
+  mechanic: string;
+  price: number;
+  quantity: number;
+  discount: number;
+  total: number;
 }
 
 interface Transaction {
-  id: string
-  reservationDate: string
-  carModel: string
-  completionDate: string
-  totalPrice: number
-  services?: Service[]
+  id: string;
+  reservationDate: string;
+  carModel: string;
+  completionDate: string;
+  totalPrice: number;
+  services?: Service[];
 }
 
-const initialTransactions: Transaction[] = [
-  {
-    id: "#R00052",
-    reservationDate: "10-12-24 1:00 PM",
-    carModel: "HONDA CIVIC",
-    completionDate: "10-12-24 6:00 PM",
-    totalPrice: 8000.0,
-    services: [
-      {
-        service: "BRAKE CLEAN",
-        mechanic: "MARCIAL TAMONDONG",
-        price: 1000.0,
-        quantity: 1,
-        discount: 0,
-        total: 1000.0,
-      },
-      {
-        service: "OIL CHANGE",
-        mechanic: "KOBE BRYANT",
-        price: 1000.0,
-        quantity: 1,
-        discount: 0,
-        total: 1000.0,
-      },
-      {
-        service: "BRAKE SHOES REPLACE",
-        mechanic: "TIM DUNCAN",
-        price: 3000.0,
-        quantity: 2,
-        discount: 0,
-        total: 6000.0,
-      },
-    ],
-  },
-  {
-    id: "#R00046",
-    reservationDate: "10-05-24 2:00 PM",
-    carModel: "HONDA BRV",
-    completionDate: "10-05-24 5:00 PM",
-    totalPrice: 5000.0,
-  },
-  {
-    id: "#R00020",
-    reservationDate: "08-27-24 10:00 AM",
-    carModel: "HONDA CIVIC",
-    completionDate: "08-29-24 10:00 AM",
-    totalPrice: 2000.0,
-  },
-  {
-    id: "#R00015",
-    reservationDate: "07-18-24 11:00 AM",
-    carModel: "HONDA BRV",
-    completionDate: "07-19-24 11:00 AM",
-    totalPrice: 3000.0,
-  },
-]
-
-// Double the transactions data
-const transactions = [
-  ...initialTransactions,
-  ...initialTransactions.map((t) => ({
-    ...t,
-    id: t.id.replace("R", "S"),
-  })),
-]
-
-type SortField = "id" | "reservationDate" | "carModel" | "completionDate" | "totalPrice"
-type SortOrder = "asc" | "desc"
+type SortField = "id" | "reservationDate" | "carModel" | "completionDate" | "totalPrice";
+type SortOrder = "asc" | "desc";
 
 interface TransactionsTableProps {
-  searchQuery: string
+  searchQuery: string;
+  userId: string; // Add userId to the props to identify the user
 }
 
-export function TransactionsTable({ searchQuery }: TransactionsTableProps) {
-  const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const [sortField, setSortField] = useState<SortField>("id")
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [transactionsData] = useState(transactions)
-  const itemsPerPage = 10
+export function TransactionsTable({ searchQuery, userId }: TransactionsTableProps) {
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [transactionsData, setTransactionsData] = useState<Transaction[]>([]);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    if (!userId) {
+      console.error("userId is undefined or empty. Please ensure userId is correctly passed to the component.");
+      return;
+    }
+
+    const unsub = onSnapshot(collection(db, 'users', userId, 'transactions'), (snapshot) => {
+      if (snapshot.empty) {
+        console.warn("No transactions found for the given userId.");
+        setTransactionsData([]);
+        return;
+      }
+
+      const transactions: Transaction[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          reservationDate: data.reservationDate || "",
+          carModel: data.carModel || "",
+          completionDate: data.completionDate || "",
+          totalPrice: data.totalPrice || 0,
+          services: data.services || [],
+        };
+      });
+      setTransactionsData(transactions);
+    });
+
+    return () => unsub();
+  }, [userId]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
-      setSortField(field)
-      setSortOrder("asc")
+      setSortField(field);
+      setSortOrder("asc");
     }
-  }
+  };
 
   const formatCurrency = (amount: number) => {
-    return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
+    return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   const filteredAndSortedTransactions = [...transactionsData]
     .filter((transaction) => {
       if (searchQuery) {
-        const query = searchQuery.toLowerCase()
+        const query = searchQuery.toLowerCase();
         return (
           transaction.id.toLowerCase().includes(query) ||
           transaction.carModel.toLowerCase().includes(query) ||
           transaction.reservationDate.toLowerCase().includes(query) ||
           transaction.completionDate.toLowerCase().includes(query) ||
           transaction.totalPrice.toString().includes(query)
-        )
+        );
       }
-      return true
+      return true;
     })
     .sort((a, b) => {
-      const aValue = a[sortField]
-      const bValue = b[sortField]
-      const modifier = sortOrder === "asc" ? 1 : -1
-      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0
-    })
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const modifier = sortOrder === "asc" ? 1 : -1;
+      if (sortField === "completionDate" || sortField === "reservationDate") {
+        return new Date(aValue).getTime() - new Date(bValue).getTime();
+      }
+      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0;
+    });
 
-  const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage)
-  const currentItems = filteredAndSortedTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
+  const currentItems = filteredAndSortedTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -300,6 +270,5 @@ export function TransactionsTable({ searchQuery }: TransactionsTableProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
