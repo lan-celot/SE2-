@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { DashboardHeader } from "@/components/header"
-import { Sidebar } from "@/components/sidebar"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { DashboardHeader } from "@/components/header";
+import { Sidebar } from "@/components/sidebar";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { db } from '@/lib/firebase'; // Ensure this path is correct
 import { collection, getDocs, addDoc } from 'firebase/firestore';
 
@@ -21,6 +21,7 @@ interface Reservation {
   id: string;
   customer: string;
   car: string;
+  customerId: string; // Add customerId to the Reservation interface
 }
 
 const services: Service[] = [
@@ -34,7 +35,7 @@ const services: Service[] = [
   { id: "AIR CONDITIONING", label: "AIR CONDITIONING" },
   { id: "BRAKE REPLACE", label: "BRAKE REPLACE" },
   { id: "OIL CHANGE", label: "OIL CHANGE" },
-]
+];
 
 const mechanics = [
   "MARCIAL TAMONDONG",
@@ -47,18 +48,18 @@ const mechanics = [
   "RAY ALLEN",
   "KOBE BRYANT",
   "STEPHEN CURRY",
-]
+];
 
 export default function AddTransactionPage() {
-  const router = useRouter()
-  const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const router = useRouter();
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     reservationId: "",
     mechanic: "",
     price: "",
     quantity: "",
     discount: "",
-  })
+  });
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function AddTransactionPage() {
           id: data.bookingId,
           customer: `${data.firstName} ${data.lastName}`,
           car: data.carModel,
+          customerId: data.userId, // Assuming userId is the correct field for customerId
         };
       });
       setReservations(reservationsData);
@@ -81,25 +83,28 @@ export default function AddTransactionPage() {
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServices((current) =>
       current.includes(serviceId) ? current.filter((id) => id !== serviceId) : [...current, serviceId],
-    )
-  }
+    );
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-    }))
-  }
+    }));
+  };
 
   const handleConfirm = async () => {
     const reservation = reservations.find(res => res.id === formData.reservationId);
-    if (!reservation) return;
+    if (!reservation || !reservation.customerId) {
+      console.error("Reservation or customerId not found:", reservation);
+      return;
+    }
 
     const transactionData = {
       id: formData.reservationId,
       reservationDate: new Date().toLocaleString(), // Replace with actual reservation date if available
       customerName: reservation.customer,
-      customerId: formData.reservationId, // Assuming reservationId is the same as customerId
+      customerId: reservation.customerId,
       carModel: reservation.car,
       completionDate: new Date().toLocaleString(), // Replace with actual completion date if available
       totalPrice: parseFloat(formData.price) * parseInt(formData.quantity),
@@ -116,9 +121,19 @@ export default function AddTransactionPage() {
       }),
     };
 
-    await addDoc(collection(db, 'transactions'), transactionData);
-    router.push("/transactions");
-  }
+    try {
+      // Add transaction to the global transactions collection
+      await addDoc(collection(db, 'transactions'), transactionData);
+
+      // Add transaction to the specific user's subcollection
+      const userRef = collection(db, 'users', reservation.customerId, 'transactions');
+      await addDoc(userRef, transactionData);
+
+      router.push("/transactions");
+    } catch (error) {
+      console.error("Error adding transaction:", error);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-[#EBF8FF]">
@@ -225,5 +240,5 @@ export default function AddTransactionPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }
