@@ -31,10 +31,10 @@ type SortOrder = "asc" | "desc";
 
 interface TransactionsTableProps {
   searchQuery: string;
-  userId: string; // Add userId to the props to identify the user
+  customerId: string; // Add customerId to the props to identify the user
 }
 
-export function TransactionsTable({ searchQuery, userId }: TransactionsTableProps) {
+export function TransactionsTable({ searchQuery, customerId }: TransactionsTableProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("id");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -43,14 +43,14 @@ export function TransactionsTable({ searchQuery, userId }: TransactionsTableProp
   const itemsPerPage = 10;
 
   useEffect(() => {
-    if (!userId) {
-      console.error("userId is undefined or empty. Please ensure userId is correctly passed to the component.");
+    if (!customerId) {
+      console.error("customerId is undefined or empty. Please ensure customerId is correctly passed to the component.");
       return;
     }
 
-    const unsub = onSnapshot(collection(db, 'users', userId, 'transactions'), (snapshot) => {
+    const unsub = onSnapshot(collection(db, 'users', customerId, 'transactions'), (snapshot) => {
       if (snapshot.empty) {
-        console.warn("No transactions found for the given userId.");
+        console.warn("No transactions found for the given customerId.");
         setTransactionsData([]);
         return;
       }
@@ -70,7 +70,7 @@ export function TransactionsTable({ searchQuery, userId }: TransactionsTableProp
     });
 
     return () => unsub();
-  }, [userId]);
+  }, [customerId]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
