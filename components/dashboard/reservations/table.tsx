@@ -3,18 +3,21 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { ChevronUp, ChevronDown } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 import { AddServiceDialog } from "./add-service-dialog"
 import React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { db, auth } from "@/lib/firebase"
-import { collection, query, onSnapshot, where, orderBy, doc, updateDoc } from "firebase/firestore"
+import { collection, query, onSnapshot, where, doc, updateDoc } from "firebase/firestore"
 
 interface Service {
   mechanic: string
   service: string
   status: string
+  created?: string
+  reservationDate?: string
 }
 
 interface Reservation {
@@ -32,15 +35,17 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [showAddService, setShowAddService] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState<{ reservationId: string; serviceIndex: number } | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-  
+
     const userDocRef = doc(db, "users", user.uid);
     const bookingsCollectionRef = collection(userDocRef, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
-  
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data();
@@ -51,13 +56,26 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           carModel: booking.carModel || "Unknown",
           completionDate: booking.completionDate || "Pending",
           status: booking.status.toUpperCase() || "CONFIRMED",
-          services: booking.services || [],
+          services: Array.isArray(booking.services) ? booking.services : [],
         } as Reservation;
       });
       setReservations(data);
     });
-  
+
     return () => unsubscribe();
+  }, []);
+
+  // Add event listener for status filter changes
+  useEffect(() => {
+    const handleStatusFilter = (event: CustomEvent) => {
+      setStatusFilter(event.detail);
+    };
+
+    window.addEventListener('filterStatus', handleStatusFilter as EventListener);
+
+    return () => {
+      window.removeEventListener('filterStatus', handleStatusFilter as EventListener);
+    };
   }, []);
 
   const handleAddServices = async (selectedServices: string[]) => {
@@ -74,11 +92,13 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
               mechanic: "TO BE ASSIGNED",
               service: service.toUpperCase(),
               status: "Confirmed",
+              created: new Date().toISOString().split('T')[0],
+              reservationDate: reservation.reservationDate,
             }));
 
             return {
               ...reservation,
-              services: [...(reservation.services || []), ...newServices],
+              services: [...(Array.isArray(reservation.services) ? reservation.services : []), ...newServices],
             };
           }
           return reservation;
@@ -88,7 +108,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
       // Update Firestore
       const userDocRef = doc(db, "users", user.uid);
       const bookingDocRef = doc(userDocRef, "bookings", expandedRow);
-      
+
       // Get the reservation to update
       const reservation = reservations.find(res => res.id === expandedRow);
       if (reservation) {
@@ -96,10 +116,12 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           mechanic: "TO BE ASSIGNED",
           service: service.toUpperCase(),
           status: "Confirmed",
+          created: new Date().toISOString().split('T')[0],
+          reservationDate: reservation.reservationDate,
         }));
-        
+
         await updateDoc(bookingDocRef, {
-          services: [...(reservation.services || []), ...newServices]
+          services: [...(Array.isArray(reservation.services) ? reservation.services : []), ...newServices]
         });
       }
     } catch (error) {
@@ -118,7 +140,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
       setReservations((prev) =>
         prev.map((reservation) => {
           if (reservation.id === serviceToDelete.reservationId) {
-            const services = [...(reservation.services || [])];
+            const services = [...(Array.isArray(reservation.services) ? reservation.services : [])];
             services.splice(serviceToDelete.serviceIndex, 1);
             return {
               ...reservation,
@@ -132,33 +154,42 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
       // Update Firestore
       const userDocRef = doc(db, "users", user.uid);
       const bookingDocRef = doc(userDocRef, "bookings", serviceToDelete.reservationId);
-      
+
       // Get the reservation to update
       const reservation = reservations.find(res => res.id === serviceToDelete.reservationId);
       if (reservation) {
-        const updatedServices = [...reservation.services];
+        const updatedServices = [...(Array.isArray(reservation.services) ? reservation.services : [])];
         updatedServices.splice(serviceToDelete.serviceIndex, 1);
-        
+
         await updateDoc(bookingDocRef, {
           services: updatedServices
         });
       }
-      
+
       setServiceToDelete(null);
+      setShowDeleteDialog(false);
     } catch (error) {
       console.error("Error deleting service:", error);
       alert("There was an error deleting the service. Please try again.");
     }
   };
 
-  const filteredAndSortedReservations = reservations.filter((reservation) =>
-    searchQuery
+  const filteredAndSortedReservations = reservations.filter((reservation) => {
+    // First apply search query filter
+    const matchesSearch = searchQuery
       ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) =>
           reservation[key as keyof Reservation]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
         )
-      : true
-  );
-    
+      : true;
+
+    // Then apply status filter if it exists
+    const matchesStatus = statusFilter
+      ? reservation.status.toLowerCase() === statusFilter
+      : true;
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -208,41 +239,71 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                   <tr>
                     <td colSpan={6} className="px-6 py-4 bg-gray-50">
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="grid grid-cols-4 flex-1 gap-4">
-                            <div className="text-xs font-medium text-[#8B909A] uppercase text-center">Mechanic</div>
-                            <div className="text-xs font-medium text-[#8B909A] uppercase text-center">Service</div>
-                            <div className="text-xs font-medium text-[#8B909A] uppercase text-center">Status</div>
-                            <div className="text-xs font-medium text-[#8B909A] uppercase text-center">Action</div>
-                          </div>
-                          <Button
-                            onClick={() => setShowAddService(true)}
-                            className="bg-[#1A365D] hover:bg-[#1A365D]/90 text-white whitespace-nowrap ml-4"
-                          >
-                            Add service
-                          </Button>
-                        </div>
-                        {reservation.services?.map((service, index) => (
-                          <div key={index} className="grid grid-cols-4 gap-4">
-                            <div className="text-sm text-[#1A365D] text-center">{service.mechanic}</div>
-                            <div className="text-sm text-[#1A365D] text-center">{service.service}</div>
-                            <div className="flex justify-center">
-                              <span className="inline-flex rounded-lg px-3 py-1 text-sm font-medium bg-[#63B3ED]/10 text-[#63B3ED]">
-                                {service.status}
-                              </span>
-                            </div>
-                            <div className="flex justify-center">
-                              <button
-                                onClick={() =>
-                                  setServiceToDelete({ reservationId: reservation.id, serviceIndex: index })
-                                }
-                                className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-[#1A365D] text-[#1A365D] hover:text-[#63B3ED] hover:border-[#63B3ED]"
-                              >
-                                <span className="text-lg font-semibold">-</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                        <Table>
+                          <thead>
+                            <tr>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                CREATED
+                              </TableHead>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                RESERVATION DATE
+                              </TableHead>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                SERVICE
+                              </TableHead>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                MECHANIC
+                              </TableHead>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                ACTION
+                              </TableHead>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                <Button
+                                  className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+                                  onClick={() => setShowAddService(true)}
+                                >
+                                  Add Service
+                                </Button>
+                              </TableHead>
+                            </tr>
+                          </thead>
+                          <TableBody>
+                            {(Array.isArray(reservation.services) ? reservation.services : []).map((service, index) => (
+                              <TableRow key={index}>
+                                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                                  {service.created || "N/A"}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                                  {service.reservationDate || reservation.reservationDate}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                                  {service.service}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                                  {service.mechanic}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 flex justify-center">
+                                  <div className="inline-flex items-center justify-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        setServiceToDelete({
+                                          reservationId: reservation.id,
+                                          serviceIndex: index,
+                                        });
+                                        setShowDeleteDialog(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-[#1A365D]" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     </td>
                   </tr>
@@ -253,7 +314,8 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         </table>
       </div>
 
-      <Dialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
+      {/* Delete Service Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center">Are you sure to delete this service?</DialogTitle>
@@ -261,7 +323,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           <div className="flex justify-center space-x-2">
             <Button
               variant="outline"
-              onClick={() => setServiceToDelete(null)}
+              onClick={() => setShowDeleteDialog(false)}
               className="bg-[#FFE5E5] hover:bg-[#EA5455]/30 text-[#EA5455] hover:text-[#EA5455]"
             >
               No, go back
@@ -276,6 +338,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
       <AddServiceDialog open={showAddService} onOpenChange={setShowAddService} onConfirm={handleAddServices} />
     </div>
   )

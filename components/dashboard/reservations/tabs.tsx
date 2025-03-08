@@ -25,7 +25,7 @@ export function ReservationsTabs() {
               // Emit custom event for table filtering
               window.dispatchEvent(
                 new CustomEvent("filterStatus", {
-                  detail: tab.id === "all" ? null : tab.id.toUpperCase(),
+                  detail: tab.id === "all" ? null : tab.id,
                 }),
               )
             }}
@@ -43,4 +43,3 @@ export function ReservationsTabs() {
     </div>
   )
 }
-

@@ -1,11 +1,12 @@
-// ReviewDetails.tsx - Modified to save data to Firebase
+// ReviewDetails.tsx - Fixed Firestore query and date formatting issues
 import { Button } from "@/components/ui/button"
 import { db, auth } from "@/lib/firebase"
-import { collection, addDoc, doc } from "firebase/firestore"
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 interface FormData {
+  carBrand: any
   firstName: string
   lastName: string
   gender: string
@@ -16,6 +17,7 @@ interface FormData {
   province: string
   zipCode: string
   carModel: string
+  carFullName: string
   yearModel: string
   transmission: string
   fuelType: string
@@ -38,17 +40,46 @@ export function ReviewDetails({
   const router = useRouter()
 
   const handleSubmit = async () => {
+    if (isSubmitting) return; // Prevent multiple clicks
+    setIsSubmitting(true);
+
     try {
-      setIsSubmitting(true)
       const user = auth.currentUser;
-      
       if (!user) {
         alert("You must be logged in to make a reservation");
         setIsSubmitting(false);
         return;
       }
-      
-      // Create the booking data object
+
+      const bookingsCollectionRef = collection(db, "bookings"); // Use global bookings collection
+
+      // Ensure consistent date format
+      const formattedDate = formData.reservationDate.split("T")[0]; // Store in ISO format
+
+      // Debugging logs
+      console.log("Checking for existing reservations...");
+      console.log("User ID:", user.uid);
+      console.log("Formatted Reservation Date:", formattedDate);
+
+      // Check for existing reservation on the same date
+      const existingBookingsQuery = query(
+        bookingsCollectionRef,
+        where("userId", "==", user.uid),
+        where("reservationDate", "==", formattedDate) // Query in the correct format
+      );
+
+      const querySnapshot = await getDocs(existingBookingsQuery);
+
+      // Log existing reservations
+      querySnapshot.forEach((doc) => console.log("Existing Booking Found:", doc.data()));
+
+      if (!querySnapshot.empty) {
+        alert("You already have a reservation for this date.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Booking data
       const bookingData = {
         userId: user.uid,
         customerName: `${formData.firstName} ${formData.lastName}`,
@@ -57,38 +88,29 @@ export function ReviewDetails({
         dateOfBirth: formData.dateOfBirth,
         address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
         carModel: formData.carModel,
+        carBrand: formData.carBrand,
         yearModel: formData.yearModel,
         transmission: formData.transmission,
         fuelType: formData.fuelType,
         odometer: formData.odometer,
-        reservationDate: new Date(formData.reservationDate).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "numeric",
-          minute: "numeric"
-        }),
+        reservationDate: formattedDate, // Store in ISO format
         completionDate: "Pending",
-        status: "confirmed", // Start with confirmed status
+        status: "confirmed",
         services: formData.generalServices.map(service => ({
           mechanic: "TO BE ASSIGNED",
           service: service.split("_").join(" ").toUpperCase(),
           status: "Confirmed"
         })),
         specificIssues: formData.specificIssues,
-        createdAt: new Date()
+        createdAt: new Date().toISOString()
       };
-      
+
       // Save to Firebase
-      const userDocRef = doc(db, "users", user.uid);
-      const bookingsCollectionRef = collection(userDocRef, "bookings");
       await addDoc(bookingsCollectionRef, bookingData);
-      
-      // Call the original onSubmit function
+
+      // Proceed to the next step (confirmation page)
       onSubmit();
-      
-      // Redirect to reservations page
-      router.push("/dashboard/reservations");
+
     } catch (error) {
       console.error("Error submitting reservation:", error);
       alert("There was an error submitting your reservation. Please try again.");
@@ -127,33 +149,6 @@ export function ReviewDetails({
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Address</p>
           <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500">Car Model</p>
-            <p className="font-medium">{formData.carModel}</p>
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500">Year Model</p>
-            <p className="font-medium">{formData.yearModel}</p>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500">Transmission</p>
-            <p className="font-medium">{formData.transmission}</p>
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500">Fuel Type</p>
-            <p className="font-medium">{formData.fuelType}</p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm text-gray-500">Odometer</p>
-          <p className="font-medium">{formData.odometer}</p>
         </div>
 
         <div className="space-y-2">
