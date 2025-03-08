@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { ChevronUp, ChevronDown } from "lucide-react";
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, getFirestore } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from '@/lib/firebase'; // Ensure this path is correct
 import React from "react";
 
@@ -31,46 +32,113 @@ type SortOrder = "asc" | "desc";
 
 interface TransactionsTableProps {
   searchQuery: string;
-  customerId: string; // Add customerId to the props to identify the user
+  userId?: string; // Make userId optional since we'll also check auth directly
 }
 
-export function TransactionsTable({ searchQuery, customerId }: TransactionsTableProps) {
+export function TransactionsTable({ searchQuery, userId: propUserId }: TransactionsTableProps) {
+  // Add this state to control client-side rendering
+  const [isClient, setIsClient] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("id");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [transactionsData, setTransactionsData] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(propUserId || null);
   const itemsPerPage = 10;
 
+  // Set isClient to true after component mounts
   useEffect(() => {
-    if (!customerId) {
-      console.error("customerId is undefined or empty. Please ensure customerId is correctly passed to the component.");
+    setIsClient(true);
+  }, []);
+
+  // First, ensure we have a userId, either from props or from auth
+  useEffect(() => {
+    if (!isClient) return; // Skip if not client-side yet
+    
+    // If userId was passed in props, use it
+    if (propUserId) {
+      setUserId(propUserId);
       return;
     }
 
-    const unsub = onSnapshot(collection(db, 'users', customerId, 'transactions'), (snapshot) => {
-      if (snapshot.empty) {
-        console.warn("No transactions found for the given customerId.");
-        setTransactionsData([]);
-        return;
+    // Otherwise get the current user from Firebase Auth
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("User authenticated:", user.uid);
+        setUserId(user.uid);
+      } else {
+        console.log("No user authenticated");
+        setUserId(null);
+        setError("Please log in to view transactions");
+        setLoading(false);
       }
-
-      const transactions: Transaction[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          reservationDate: data.reservationDate || "",
-          carModel: data.carModel || "",
-          completionDate: data.completionDate || "",
-          totalPrice: data.totalPrice || 0,
-          services: data.services || [],
-        };
-      });
-      setTransactionsData(transactions);
     });
 
-    return () => unsub();
-  }, [customerId]);
+    return () => unsubscribe();
+  }, [propUserId, isClient]);
+
+  // Then, fetch transactions once we have a userId
+  useEffect(() => {
+    if (!isClient || !userId) {
+      // If no userId and we've already checked auth, we'll show the error
+      // If we're still waiting for auth, we'll show loading
+      return;
+    }
+
+    console.log("Fetching transactions for userId:", userId);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Create the reference to the collection
+      const transactionsRef = collection(db, 'users', userId, 'transactions');
+      
+      const unsub = onSnapshot(
+        transactionsRef, 
+        (snapshot) => {
+          console.log("Snapshot received, docs count:", snapshot.docs.length);
+          
+          if (snapshot.empty) {
+            console.log("No transactions found for userId:", userId);
+            setTransactionsData([]);
+          } else {
+            const transactions = snapshot.docs.map((doc) => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                reservationDate: data.reservationDate || "",
+                carModel: data.carModel || "",
+                completionDate: data.completionDate || "",
+                totalPrice: data.totalPrice || 0,
+                services: data.services || [],
+              };
+            });
+            console.log("Parsed transactions:", transactions.length);
+            setTransactionsData(transactions);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Error fetching transactions:", err);
+          setError("Error loading transactions: " + err.message);
+          setLoading(false);
+        }
+      );
+      
+      return () => {
+        console.log("Cleaning up transaction listener");
+        unsub();
+      };
+    } catch (err) {
+      console.error("Exception in transaction setup:", err);
+      setError("Failed to set up transaction listener");
+      setLoading(false);
+      return () => {};
+    }
+  }, [userId, isClient]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -104,13 +172,51 @@ export function TransactionsTable({ searchQuery, customerId }: TransactionsTable
       const bValue = b[sortField];
       const modifier = sortOrder === "asc" ? 1 : -1;
       if (sortField === "completionDate" || sortField === "reservationDate") {
-        return new Date(aValue).getTime() - new Date(bValue).getTime();
+        return (new Date(aValue).getTime() - new Date(bValue).getTime()) * modifier;
       }
       return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0;
     });
 
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
   const currentItems = filteredAndSortedTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Return a simple loading state during server-side rendering
+  if (!isClient) {
+    return <div className="bg-white rounded-lg shadow-sm p-6 text-center">Loading...</div>;
+  }
+
+  // Display loading state
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+        <div className="animate-pulse">Loading transactions...</div>
+      </div>
+    );
+  }
+
+  // Display error state
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="text-center text-red-500">{error}</div>
+        <div className="mt-4 text-center text-sm text-gray-500">
+          If you're already logged in and seeing this error, there might be an issue with the database connection or permissions.
+        </div>
+      </div>
+    );
+  }
+
+  // Display empty state
+  if (transactionsData.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+        <div>No transactions found.</div>
+        <div className="mt-2 text-sm text-gray-500">
+          Transactions will appear here once they are added by an admin.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -119,7 +225,7 @@ export function TransactionsTable({ searchQuery, customerId }: TransactionsTable
           <thead>
             <tr className="border-b border-gray-200">
               {[
-                { key: "id", label: "RESERVATION ID" },
+                { key: "id", label: "TRANSACTION ID" },
                 { key: "reservationDate", label: "RESERVATION DATE" },
                 { key: "carModel", label: "CAR MODEL" },
                 { key: "completionDate", label: "COMPLETION DATE" },
@@ -233,42 +339,44 @@ export function TransactionsTable({ searchQuery, customerId }: TransactionsTable
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className={cn(
-              "px-3 py-1 rounded-md text-sm",
-              currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-            )}
-          >
-            Previous
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+      {totalPages > 0 && (
+        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
+          <div className="flex items-center gap-2">
             <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
-                currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
               )}
             >
-              {page}
+              Previous
             </button>
-          ))}
-          <button
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-            className={cn(
-              "px-3 py-1 rounded-md text-sm",
-              currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-            )}
-          >
-            Next
-          </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-sm",
+                  currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                )}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className={cn(
+                "px-3 py-1 rounded-md text-sm",
+                currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+              )}
+            >
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
