@@ -508,7 +508,7 @@ const confirmStatusChange = () => {
                       <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
                       <TableCell className="px-6 py-4 flex justify-center">
                         <div className="relative inline-block">
-<select
+                        <select
   value={reservation.status}
   onChange={(e) => {
     const newStatus = e.target.value as Status;
@@ -541,20 +541,27 @@ const confirmStatusChange = () => {
     reservation.status === "CANCELLED"
   }
 >
-                            {Object.keys(statusStyles).map((status) => (
-                              <option
-                                key={status}
-                                value={status}
-                                className={cn(
-                                  statusStyles[status]?.bg || statusStyles.default.bg,
-                                  statusStyles[status]?.text || statusStyles.default.text,
-                                  "py-1",
-                                )}
-                              >
-                                {status}
-                              </option>
-                            ))}
-                          </select>
+  {Object.keys(statusStyles).map((status) => {
+    // Skip CONFIRMED option if current status is REPAIRING
+    if (status === "CONFIRMED" && reservation.status === "REPAIRING") {
+      return null;
+    }
+    
+    return (
+      <option
+        key={status}
+        value={status}
+        className={cn(
+          statusStyles[status]?.bg || statusStyles.default.bg,
+          statusStyles[status]?.text || statusStyles.default.text,
+          "py-1",
+        )}
+      >
+        {status}
+      </option>
+    );
+  })}
+</select>
                           <ChevronDown
                             className={cn(
                               "absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none h-4 w-4",
@@ -816,15 +823,15 @@ const confirmStatusChange = () => {
     <AlertDialogHeader>
       <AlertDialogTitle>Are you sure?</AlertDialogTitle>
       <AlertDialogDescription>
-        Changing to this status will restrict modifications to this reservation.
-        {pendingStatusChange?.newStatus === "REPAIRING" && (
-          " You'll only be able to change this to COMPLETED later."
-        )}
-        {(pendingStatusChange?.newStatus === "COMPLETED" || 
-          pendingStatusChange?.newStatus === "CANCELLED") && (
-          " This status change cannot be reversed."
-        )}
-      </AlertDialogDescription>
+  Changing to {pendingStatusChange?.newStatus} will restrict modifications to this reservation.
+  {pendingStatusChange?.newStatus === "REPAIRING" && (
+    " You won't be able to change this back to CONFIRMED."
+  )}
+  {(pendingStatusChange?.newStatus === "COMPLETED" || 
+    pendingStatusChange?.newStatus === "CANCELLED") && (
+    " This status change cannot be reversed."
+  )}
+</AlertDialogDescription>
     </AlertDialogHeader>
     <AlertDialogFooter>
       <AlertDialogCancel>No</AlertDialogCancel>
