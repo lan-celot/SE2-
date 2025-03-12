@@ -78,6 +78,19 @@ export default function ReservationsPage() {
   // Add these state variables to your component
 const [showStatusConfirmDialog, setShowStatusConfirmDialog] = useState(false);
 const [pendingStatusChange, setPendingStatusChange] = useState<{reservationId: string; userId: string; newStatus: Status} | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error("Rendering Error:", event.error);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, "bookings"), orderBy("reservationDate", "desc"));
@@ -170,6 +183,7 @@ const handleStatusChangeAttempt = (reservationId: string, userId: string, newSta
   }
 };
 
+
 // Add this function to confirm status change
 const confirmStatusChange = () => {
   if (pendingStatusChange) {
@@ -201,77 +215,89 @@ const confirmStatusChange = () => {
     }
   };
 
-  const handleMechanicChange = async () => {
-    if (selectedService && selectedMechanic) {
-      const reservationId = selectedService.reservationId;
-      const serviceIndex = selectedService.serviceIndex;
-      const userId = reservationData.find(res => res.id === reservationId)?.userId || "";
-
-      try {
-        setReservationData((prevData) =>
-          prevData.map((reservation) => {
-            if (reservation.id === reservationId && reservation.services) {
-              const updatedServices = [...reservation.services];
-              updatedServices[serviceIndex] = {
-                ...updatedServices[serviceIndex],
-                mechanic: selectedMechanic,
-              };
-              return { ...reservation, services: updatedServices };
-            }
-            return reservation;
-          })
-        );
-
-        await runTransaction(db, async (transaction) => {
-          const bookingRef = doc(db, "bookings", reservationId);
-          const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
-
-          const bookingDoc = await transaction.get(bookingRef);
-          const userBookingDoc = await transaction.get(userBookingRef);
-
-          if (!bookingDoc.exists() || !userBookingDoc.exists()) {
-            throw new Error("Document does not exist!");
-          }
-
-          const bookingData = bookingDoc.data();
-          const userBookingData = userBookingDoc.data();
-
-          if (!Array.isArray(bookingData.services) || !Array.isArray(userBookingData.services)) {
-            throw new Error("Services field is not an array!");
-          }
-
-          bookingData.services[serviceIndex].mechanic = selectedMechanic;
-          userBookingData.services[serviceIndex].mechanic = selectedMechanic;
-
-          transaction.update(bookingRef, { services: bookingData.services });
-          transaction.update(userBookingRef, { services: userBookingData.services });
-        });
-
-        console.log("Mechanic assignment updated successfully");
-
-      } catch (error) {
-        console.error("Error updating mechanic assignment: ", error);
-      } finally {
-        setShowMechanicDialog(false);
-        setSelectedService(null);
-        setSelectedMechanic("");
-      }
+ const handleMechanicChange = async () => {
+  if (selectedService && selectedMechanic) {
+    const reservationId = selectedService.reservationId;
+    const reservation = reservationData.find(res => res.id === reservationId);
+    
+    if (!reservation) {
+      console.error("Reservation not found");
+      return;
     }
-  };
+
+    const userId = reservation.userId;
+    
+    if (!userId) {
+      console.error("User ID not found");
+      return;
+    }
+
+    try {
+      // Update local state
+      setReservationData(prevData =>
+        prevData.map(res => {
+          if (res.id === reservationId && res.services) {
+            const updatedServices = [...res.services];
+            updatedServices[selectedService.serviceIndex] = {
+              ...updatedServices[selectedService.serviceIndex],
+              mechanic: selectedMechanic,
+            };
+            return { ...res, services: updatedServices };
+          }
+          return res;
+        })
+      );
+
+      // Update Firestore
+      await runTransaction(db, async (transaction) => {
+        const bookingRef = doc(db, "bookings", reservationId);
+        const userBookingRef = doc(db, "users", userId, "bookings", reservationId);
+
+        const bookingDoc = await transaction.get(bookingRef);
+        const userBookingDoc = await transaction.get(userBookingRef);
+
+        if (!bookingDoc.exists() || !userBookingDoc.exists()) {
+          throw new Error("Document does not exist!");
+        }
+
+        const bookingData = bookingDoc.data();
+        const userBookingData = userBookingDoc.data();
+
+        if (!bookingData.services || !userBookingData.services) {
+          throw new Error("Services array does not exist!");
+        }
+
+        const updatedServices = [...bookingData.services];
+        updatedServices[selectedService.serviceIndex].mechanic = selectedMechanic;
+
+        transaction.update(bookingRef, { services: updatedServices });
+        transaction.update(userBookingRef, { services: updatedServices });
+      });
+
+      console.log("Mechanic assignment updated successfully");
+    } catch (error) {
+      console.error("Error updating mechanic assignment:", error);
+    } finally {
+      setShowMechanicDialog(false);
+      setSelectedService(null);
+      setSelectedMechanic("");
+    }
+  }
+};
 
   const handleAddServices = async (selectedServices: any[]) => {
     if (expandedRowId) {
       const reservation = reservationData.find((res) => res.id === expandedRowId);
       if (reservation) {
-         // Check if status is restricted
-      if (
-        reservation.status === "COMPLETED" || 
-        reservation.status === "CANCELLED" || 
-        reservation.status === "REPAIRING"
-      ) {
-        alert("Cannot add services: reservation status is " + reservation.status);
-        return;
-      }
+        // Check if status is restricted
+        if (
+          reservation.status === "COMPLETED" || 
+          reservation.status === "CANCELLED" || 
+          reservation.status === "REPAIRING"
+        ) {
+          alert("Cannot add services: reservation status is " + reservation.status);
+          return;
+        }
         const now = new Date();
         const formattedNow = now.toLocaleString("en-US", {
           month: "2-digit",
@@ -313,6 +339,16 @@ const confirmStatusChange = () => {
     if (selectedService) {
       const reservation = reservationData.find((res) => res.id === selectedService.reservationId);
       if (reservation) {
+ // Check if status is restricted
+ if (
+  reservation.status === "COMPLETED" || 
+  reservation.status === "CANCELLED" || 
+  reservation.status === "REPAIRING"
+) {
+  alert("Cannot delete services: reservation status is " + reservation.status);
+  return;
+}
+
         const updatedServices = (reservation.services || []).filter(
           (_, index) => index !== selectedService.serviceIndex
         );
@@ -419,7 +455,16 @@ const confirmStatusChange = () => {
   };
   
   
-  
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen bg-[#EBF8FF] items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A365D] mx-auto"></div>
+          <p className="mt-2 text-[#1A365D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   
 
@@ -840,11 +885,12 @@ const confirmStatusChange = () => {
   </AlertDialogContent>
 </AlertDialog>
 
-      <AddServiceDialog
-        open={showAddServiceDialog}
-        onOpenChange={setShowAddServiceDialog}
-        onConfirm={handleAddServices}
-      />
+<AddServiceDialog
+          open={showAddServiceDialog}
+          onOpenChange={setShowAddServiceDialog}
+          onConfirm={handleAddServices}
+        />
     </div>
   );
 }
+
