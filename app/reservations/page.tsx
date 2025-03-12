@@ -508,7 +508,6 @@ const confirmStatusChange = () => {
                       <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
                       <TableCell className="px-6 py-4 flex justify-center">
                         <div className="relative inline-block">
-                        // Update the disabled condition on the status dropdown
 <select
   value={reservation.status}
   onChange={(e) => {
