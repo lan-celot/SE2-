@@ -54,106 +54,118 @@ const locationHierarchy: LocationHierarchy = {
   "Region I (Ilocos Region)": {
     "provinces": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan", "Quezon City", "San Juan"],
     "cities": {
-      "Ilocos Norte": ["Laoag", "Batac"],
-      "Ilocos Sur": ["Vigan", "Candon"],
-      "La Union": ["San Fernando"],
-      "Pangasinan": ["Dagupan", "Alaminos", "San Carlos", "Urdaneta"]
+"Ilocos Norte": ["Laoag", "Batac", "Paoay", "Pagudpud"],
+    "Ilocos Sur": ["Vigan", "Candon", "Bantay", "Narvacan"],
+    "La Union": ["San Fernando", "Agoo", "Bauang"],
+    "Pangasinan": ["Dagupan", "Alaminos", "San Carlos", "Urdaneta", "Lingayen", "Bayambang", "Binmaley", "Mangaldan", "Rosales"]
     }
   },
 "Region II (Cagayan Valley)": {
     "provinces": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
     "cities": {
-      "Batanes": [],
-      "Cagayan": ["Tuguegarao"],
-      "Isabela": ["Cauayan", "Ilagan", "Santiago"],
-      "Nueva Vizcaya": [],
-      "Quirino": []
+      "Batanes": ["Basco", "Ivana", "Mahatao", "Sabtang", "Uyugan", "Itbayat"],
+      "Cagayan": ["Tuguegarao", "Aparri", "Ballesteros", "Gonzaga", "Lal-lo", "Peñablanca", "Santa Ana", "Claveria", "Camalaniugan", "Tuao", "Gattaran"],
+      "Isabela": ["Cauayan", "Ilagan", "Santiago", "Alicia", "Cabagan", "Echague", "Roxas", "Tumauini", "San Mateo", "Angadanan"],
+      "Nueva Vizcaya": ["Bayombong", "Solano", "Bambang", "Aritao", "Bagabag", "Kasibu", "Dupax del Norte", "Dupax del Sur"],
+      "Quirino": ["Cabarroguis", "Diffun", "Maddela", "Nagtipunan", "Saguday"]
     }
   },
 
-  "Region III (Central Luzon)": {
-    "provinces": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
-    "cities": {
-      "Aurora": [],
-      "Bataan": ["Balanga"],
-      "Bulacan": ["Malolos", "Meycauayan", "San Jose del Monte"],
-      "Nueva Ecija": ["Cabanatuan", "Gapan", "Muñoz", "Palayan", "San Jose"],
-      "Pampanga": ["San Fernando", "Angeles", "Mabalacat"],
-      "Tarlac": ["Tarlac City"],
-      "Zambales": ["Olongapo"]
-    }
-  },
+"Region III (Central Luzon)": {
+  "provinces": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
+  "cities": {
+    "Aurora": ["Baler", "Casiguran", "Dilasag", "Dinalungan", "Dingalan", "Dipaculao", "Maria Aurora", "San Luis"],
+    "Bataan": ["Balanga", "Abucay", "Bagac", "Dinalupihan", "Hermosa", "Limay", "Mariveles", "Morong", "Orani", "Orion", "Pilar", "Samal"],
+    "Bulacan": ["Malolos", "Meycauayan", "San Jose del Monte", "Baliuag", "Plaridel", "Pulilan", "Santa Maria", "San Miguel", "Hagonoy", "Guiguinto"],
+    "Nueva Ecija": ["Cabanatuan", "Gapan", "Muñoz", "Palayan", "San Jose", "Aliaga", "Bongabon", "Guimba", "Jaen", "San Leonardo", "Zaragoza"],
+    "Pampanga": ["San Fernando", "Angeles", "Mabalacat", "Lubao", "Porac", "Mexico", "Arayat", "Floridablanca", "Macabebe", "Santa Rita"],
+    "Tarlac": ["Tarlac City", "Concepcion", "Capas", "Paniqui", "Gerona", "Victoria", "Bamban", "San Manuel", "Mayantoc", "Camiling"],
+    "Zambales": ["Olongapo", "Iba", "Subic", "San Antonio", "San Narciso", "San Marcelino", "Botolan", "Masinloc", "Palauig", "Candelaria"]
+  }
+},
   "Region IV-A (CALABARZON)": {
     "provinces": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
     "cities": {
-      "Batangas": ["Batangas City", "Lipa", "Tanauan", "Santo Tomas", "Calaca"],
-      "Cavite": ["Bacoor", "Cavite City", "Dasmariñas", "Imus", "Tagaytay", "Trece Martires", "General Trias", "Tanza"],
-      "Laguna": ["Biñan", "Cabuyao", "Calamba", "San Pablo", "San Pedro", "Santa Rosa"],
-      "Quezon": ["Lucena", "Tayabas"],
-      "Rizal": ["Antipolo"]
+    "Batangas": ["Batangas City", "Lipa", "Tanauan", "Santo Tomas", "Calaca", "Balayan", "Bauan", "Nasugbu"],
+    "Cavite": ["Cavite City", "Bacoor", "Dasmariñas", "Imus", "Tagaytay", "Trece Martires", "General Trias", "Tanza", "Noveleta", "Naic"],
+    "Laguna": ["Biñan", "Cabuyao", "Calamba", "San Pablo", "San Pedro", "Santa Rosa", "Los Baños", "Pagsanjan", "Liliw"],
+    "Quezon": ["Lucena", "Tayabas", "Sariaya", "Candelaria", "Gumaca"],
+    "Rizal": ["Antipolo", "Taytay", "Binangonan", "Cainta", "Rodriguez"]
     }
   },
     "Region IV-B (MIMAROPA)": {
       "provinces": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
       "cities": {
-        "Marinduque": [],
-        "Occidental Mindoro": [],
-        "Oriental Mindoro": ["Calapan"],
-        "Palawan": ["Puerto Princesa"],
-        "Romblon": []
+        "Marinduque": ["Boac", "Mogpog", "Santa Cruz", "Torrijos", "Gasan", "Buenavista"],
+        "Occidental Mindoro": ["Mamburao", "Sablayan", "San Jose", "Rizal"],
+        "Oriental Mindoro": ["Calapan", "Pinamalayan", "Roxas", "Naujan", "Bansud"],
+        "Palawan": ["Puerto Princesa", "Coron", "El Nido", "Roxas", "Brooke's Point", "Narra"],
+        "Romblon": ["Odiongan", "Romblon", "Cajidiocan", "San Fernando", "Santa Fe"]
       }
     },
   "Region V (Bicol Region)": {
     provinces: ["Albay", "Camarines Norte", "Camarines Sur", "Catanduanes", "Masbate", "Sorsogon"],
     cities: {
-      "Albay": ["Legazpi", "Ligao", "Tabaco"],
-      "Camarines Norte": [],
-      "Camarines Sur": ["Iriga", "Naga"],
-      "Catanduanes": [],
-      "Masbate": ["Masbate City"],
-      "Sorsogon": ["Sorsogon City"]
+      "Albay": ["Legazpi", "Ligao", "Tabaco", "Daraga", "Guinobatan", "Malilipot", "Polangui", "Camalig"],
+      "Camarines Norte": ["Daet", "Labo", "Vinzons", "Talisay", "Jose Panganiban"],
+      "Camarines Sur": ["Iriga", "Naga", "Caramoan", "Buhi", "Baao", "Bato", "Pili"],
+      "Catanduanes": ["Virac", "San Andres", "Baras", "Bato", "Panganiban"],
+      "Masbate": ["Masbate City", "Aroroy", "Mobo", "Milagros", "Esperanza", "Cawayan"],
+      "Sorsogon": ["Sorsogon City", "Casiguran", "Bulan", "Gubat", "Irosin", "Castilla"]
     }
   },
   "Region VI (Western Visayas)": {
     provinces: ["Aklan", "Antique", "Capiz", "Guimaras", "Iloilo", "Negros Occidental"],
     cities: {
-      "Aklan": ["Kalibo"],
-      "Antique": ["San Jose de Buenavista"],
-      "Capiz": ["Roxas City"],
-      "Guimaras": [],
-      "Iloilo": ["Iloilo City", "Passi"],
-      "Negros Occidental": ["Bago", "Bacolod", "Cadiz", "Escalante", "Himamaylan", "Kabankalan", "La Carlota", "Sagay", "San Carlos", "Silay", "Sipalay", "Talisay", "Victorias"]
+      "Aklan": ["Kalibo", "Malay (Boracay)", "Banga", "Numancia", "Ibajay"],
+      "Antique": ["San Jose de Buenavista", "Tibiao", "Pandan", "Hamtic"],
+      "Capiz": ["Roxas City", "Pontevedra", "Panay", "Sigma"],
+      "Guimaras": ["Jordan", "Buenavista", "Nueva Valencia", "San Lorenzo"],
+      "Iloilo": ["Iloilo City", "Passi", "Dumangas", "Pototan", "Oton", "Janiuay", "Santa Barbara"],
+      "Negros Occidental": ["Bago", "Bacolod", "Cadiz", "Escalante", "Himamaylan", "Kabankalan", "La Carlota", "Sagay", "San Carlos", "Silay", "Sipalay", "Talisay", "Victorias", "Moises Padilla", "Valladolid", "Manapla", "Candoni", "Pulupandan"]
     }
   },
   "Region VII (Central Visayas)": {
       "provinces": ["Bohol", "Cebu", "Negros Oriental", "Siquijor"],
       "cities": {
-        "Bohol": ["Tagbilaran"],
-        "Cebu": ["Bogo", "Carcar", "Cebu City", "Danao", "Lapu-Lapu", "Mandaue", "Naga", "Talisay", "Toledo"],
-        "Negros Oriental": ["Bais", "Bayawan", "Canlaon", "Dumaguete", "Guihulngan", "Tanjay"],
-        "Siquijor": []
+        "Bohol": ["Tagbilaran", "Ubay", "Carmen", "Tubigon", "Jagna", "Talibon"],
+        "Cebu": ["Bogo", "Carcar", "Cebu City", "Danao", "Lapu-Lapu", "Mandaue", "Naga", "Talisay", "Toledo", "Daanbantayan", "Minglanilla", "Balamban", "Consolacion"],
+        "Negros Oriental": ["Bais", "Bayawan", "Canlaon", "Dumaguete", "Guihulngan", "Tanjay", "Sibulan", "Valencia", "Dauin", "Basay"],
+        "Siquijor": ["Siquijor", "Larena", "Lazi", "Maria", "Enrique Villanueva", "San Juan"]
     }
   },
   "Region VIII (Eastern Visayas)": {
     "provinces": ["Biliran", "Eastern Samar", "Leyte", "Northern Samar", "Samar", "Southern Leyte"],
     "cities": {
-      "Biliran": [],
-      "Eastern Samar": ["Borongan"],
-      "Leyte": ["Tacloban", "Ormoc", "Baybay"],
-      "Northern Samar": ["Catarman"],
-      "Samar": ["Calbayog", "Catbalogan"],
-      "Southern Leyte": ["Maasin"]
+      "Biliran": ["Naval"],
+      "Eastern Samar": ["Borongan", "Guiuan"],
+      "Leyte": ["Tacloban", "Ormoc", "Baybay", "Palo", "Abuyog", "Carigara", "Hilongos"],
+      "Northern Samar": ["Catarman", "Laoang", "Bobon"],
+      "Samar": ["Calbayog", "Catbalogan", "Gandara", "Basey", "Sta. Rita"],
+      "Southern Leyte": ["Maasin", "Sogod", "Hinunangan"]
     }
   },
 
   "Region IX (Zamboanga Peninsula)": {
     "provinces": ["Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay", "Others"],
     "cities": {
-      "Zamboanga del Norte": ["Dapitan", "Dipolog"],
-      "Zamboanga del Sur": ["Pagadian"],
-      "Zamboanga Sibugay": [],
-      "Highly Urbanized": ["Zamboanga City"],
-      "Others": ["Isabela"] 
+      "Zamboanga del Norte": [
+        "Bacungan", "Baliguian", "Dapitan", "Dipolog", "Godod", "Gutalac", "Jose Dalman", "Kalawit", "Katipunan", 
+        "La Libertad", "Labason", "Liloy", "Manukan", "Mutia", "Piñan", "Polanco", 
+        "Pres. Manuel A. Roxas", "Rizal", "Salug", "Sergio Osmeña Sr.", "Siayan", "Sibuco", 
+        "Sibutad", "Sindangan", "Siocon", "Sirawai", "Tampilisan"
+      ],
+      "Zamboanga del Sur": [
+        "Aurora", "Bayog", "Dimataling", "Dinas", "Dumalinao", "Dumingag", "Guipos", "Josefina", 
+        "Kumalarang", "Labangan", "Lakewood", "Lapuyan", "Mahayag", "Margosatubig", "Midsalip", 
+        "Molave", "Pagadian", "Pitogo", "Ramon Magsaysay", "San Miguel", "San Pablo", "Sominot", "Tabina", 
+        "Tambulig", "Tigbao", "Tukuran", "Vincenzo Sagun"
+      ],
+      "Zamboanga Sibugay": [
+      "Alicia", "Buug", "Diplahan", "Imelda", "Ipil", "Kabasalan", "Mabuhay", "Malangas", "Naga", 
+      "Olutanga", "Payao", "Roseller Lim", "Siay", "Talusan", "Titay", "Tungawan"
+      ],
+      "Others": ["Isabela City", "Zamboanga City"]
     }
   },
     "Region X (Northern Mindanao)": {
@@ -427,7 +439,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input placeholder="Street Address" className="bg-white/50" {...field} />
+                <Input placeholder="House No. & Street, Subdivision/Barangay" className="bg-white/50" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -491,7 +503,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                 <Select onValueChange={field.onChange} value={field.value} disabled={availableCities.length === 0}>
                   <FormControl>
                     <SelectTrigger className="bg-white/50">
-                      <SelectValue placeholder="City" />
+                      <SelectValue placeholder="City/Municipality" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="max-h-56 overflow-y-auto">

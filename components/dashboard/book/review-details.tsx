@@ -62,6 +62,7 @@ export function ReviewDetails({
       console.log("Formatted Reservation Date:", formattedDate);
 
       // Check for existing reservation on the same date
+    // recode this into if booking on that date is more than 4 then user cannot book on that date 
       const existingBookingsQuery = query(
         bookingsCollectionRef,
         where("userId", "==", user.uid),
@@ -151,10 +152,11 @@ export function ReviewDetails({
           <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
         </div>
 
+        //fix the date of the booking 
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Reservation Date</p>
           <p className="font-medium">
-            {new Date(formData.reservationDate).toLocaleDateString("en-US", {
+            {new Date(formData.reservationDate.split("T")[0]).toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
