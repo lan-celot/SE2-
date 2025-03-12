@@ -1,7 +1,7 @@
 // ReviewDetails.tsx - Fixed Firestore query and date formatting issues
 import { Button } from "@/components/ui/button"
 import { db, auth } from "@/lib/firebase"
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore"
+import { collection, addDoc, query, where, getDocs, doc } from "firebase/firestore"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -51,7 +51,9 @@ export function ReviewDetails({
         return;
       }
 
-      const bookingsCollectionRef = collection(db, "bookings"); // Use global bookings collection
+      // Store bookings in the user's bookings subcollection
+      const userDocRef = doc(db, "users", user.uid);
+      const bookingsCollectionRef = collection(userDocRef, "bookings");
 
       // Ensure consistent date format
       const formattedDate = formData.reservationDate.split("T")[0]; // Store in ISO format
@@ -62,10 +64,8 @@ export function ReviewDetails({
       console.log("Formatted Reservation Date:", formattedDate);
 
       // Check for existing reservation on the same date
-    // recode this into if booking on that date is more than 4 then user cannot book on that date 
       const existingBookingsQuery = query(
         bookingsCollectionRef,
-        where("userId", "==", user.uid),
         where("reservationDate", "==", formattedDate) // Query in the correct format
       );
 
@@ -152,7 +152,6 @@ export function ReviewDetails({
           <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
         </div>
 
-        //fix the date of the booking 
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Reservation Date</p>
           <p className="font-medium">

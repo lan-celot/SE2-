@@ -42,7 +42,8 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     const user = auth.currentUser;
     if (!user) return;
 
-    const bookingsCollectionRef = collection(db, "bookings");
+    const userDocRef = doc(db, "users", user.uid);
+    const bookingsCollectionRef = collection(userDocRef, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
