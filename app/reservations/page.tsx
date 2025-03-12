@@ -145,6 +145,7 @@ const handleStatusChange = async (reservationId: string, userId: string, newStat
 };
 
 // Add this function to handle status change attempts
+// Corrected function to handle status change attempts
 const handleStatusChangeAttempt = (reservationId: string, userId: string, newStatus: Status) => {
   const reservation = reservationData.find(res => res.id === reservationId);
   
@@ -152,12 +153,9 @@ const handleStatusChangeAttempt = (reservationId: string, userId: string, newSta
   
   const currentStatus = reservation.status;
   
-  // Check if changing from a restricted status
-  if (
-    (currentStatus === "COMPLETED" || currentStatus === "CANCELLED") || 
-    (currentStatus === "REPAIRING" && newStatus !== "COMPLETED")
-  ) {
-    // Status cannot be changed except REPAIRING to COMPLETED
+  // Check if changing from a non-changeable status (COMPLETED or CANCELLED)
+  if (currentStatus === "COMPLETED" || currentStatus === "CANCELLED") {
+    // Status cannot be changed
     alert("This status cannot be changed.");
     return;
   }
@@ -510,7 +508,8 @@ const confirmStatusChange = () => {
                       <TableCell className="text-[#1A365D] text-center">{reservation.carModel}</TableCell>
                       <TableCell className="px-6 py-4 flex justify-center">
                         <div className="relative inline-block">
-                        <select
+                        // Update the disabled condition on the status dropdown
+<select
   value={reservation.status}
   onChange={(e) => {
     const newStatus = e.target.value as Status;
@@ -540,8 +539,7 @@ const confirmStatusChange = () => {
   )}
   disabled={
     reservation.status === "COMPLETED" || 
-    reservation.status === "CANCELLED" || 
-    reservation.status === "REPAIRING"
+    reservation.status === "CANCELLED"
   }
 >
                             {Object.keys(statusStyles).map((status) => (
