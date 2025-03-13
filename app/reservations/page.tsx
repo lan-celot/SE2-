@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { AddServiceDialog } from "./add-service-dialog"
 import { ReservationsTabs } from "./reservations-tabs"
 import { Sidebar } from "@/components/sidebar"
-import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc, getDoc, writeBatch, runTransaction } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, orderBy, query, doc, updateDoc, getDoc, writeBatch, runTransaction, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 // Add this to your imports
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -193,29 +193,38 @@ const confirmStatusChange = () => {
     setShowStatusConfirmDialog(false);
   }
 };
-  const updateMechanicAssignment = async (reservationId: string, serviceIndex: number, mechanicName: string, userId: string) => {
-    try {
-      console.log(`Updating mechanic for reservation ID: ${reservationId}, Service Index: ${serviceIndex}, Mechanic: ${mechanicName}`);
+const updateMechanicAssignment = async (reservationId: string, serviceIndex: number, mechanicName: string, userId: string) => {
+  try {
+    const bookingRef = doc(db, "bookings", reservationId);
+    const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
 
-      const bookingRef = doc(db, "bookings", reservationId);
-
-      await updateDoc(bookingRef, {
-        [`services.${serviceIndex}.mechanic`]: mechanicName,
-      });
-
-      const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
-
-      await updateDoc(userBookingRef, {
-        [`services.${serviceIndex}.mechanic`]: mechanicName,
-      });
-
-      console.log("Mechanic assignment updated successfully");
-    } catch (error) {
-      console.error("Error updating mechanic assignment: ", error);
+    // Get the main booking data
+    const bookingSnap = await getDoc(bookingRef);
+    if (!bookingSnap.exists()) {
+      throw new Error("Main booking document not found");
     }
-  };
 
- const handleMechanicChange = async () => {
+    const bookingData = bookingSnap.data();
+    const updatedServices = [...(bookingData.services || [])];
+    updatedServices[serviceIndex] = {
+      ...updatedServices[serviceIndex],
+      mechanic: mechanicName
+    };
+
+    // Use setDoc with merge option to create or update both documents
+    await Promise.all([
+      setDoc(bookingRef, { services: updatedServices }, { merge: true }),
+      setDoc(userBookingRef, { services: updatedServices }, { merge: true })
+    ]);
+
+    console.log("Mechanic assignment updated successfully");
+  } catch (error) {
+    console.error("Error in updateMechanicAssignment:", error);
+    throw error;
+  }
+};
+
+const handleMechanicChange = async () => {
   if (selectedService && selectedMechanic) {
     const reservationId = selectedService.reservationId;
     const reservation = reservationData.find(res => res.id === reservationId);
@@ -233,7 +242,7 @@ const confirmStatusChange = () => {
     }
 
     try {
-      // Update local state
+      // First update local state for immediate feedback
       setReservationData(prevData =>
         prevData.map(res => {
           if (res.id === reservationId && res.services) {
@@ -248,35 +257,19 @@ const confirmStatusChange = () => {
         })
       );
 
-      // Update Firestore
-      await runTransaction(db, async (transaction) => {
-        const bookingRef = doc(db, "bookings", reservationId);
-        const userBookingRef = doc(db, "users", userId, "bookings", reservationId);
+      // Then update in Firestore
+      await updateMechanicAssignment(
+        reservationId,
+        selectedService.serviceIndex,
+        selectedMechanic,
+        userId
+      );
 
-        const bookingDoc = await transaction.get(bookingRef);
-        const userBookingDoc = await transaction.get(userBookingRef);
-
-        if (!bookingDoc.exists() || !userBookingDoc.exists()) {
-          throw new Error("Document does not exist!");
-        }
-
-        const bookingData = bookingDoc.data();
-        const userBookingData = userBookingDoc.data();
-
-        if (!bookingData.services || !userBookingData.services) {
-          throw new Error("Services array does not exist!");
-        }
-
-        const updatedServices = [...bookingData.services];
-        updatedServices[selectedService.serviceIndex].mechanic = selectedMechanic;
-
-        transaction.update(bookingRef, { services: updatedServices });
-        transaction.update(userBookingRef, { services: updatedServices });
-      });
-
-      console.log("Mechanic assignment updated successfully");
+      console.log("Mechanic assignment completed successfully");
     } catch (error) {
       console.error("Error updating mechanic assignment:", error);
+      // Revert local state if update failed
+      alert("Failed to update mechanic assignment. Please try again.");
     } finally {
       setShowMechanicDialog(false);
       setSelectedService(null);
@@ -886,10 +879,15 @@ const confirmStatusChange = () => {
 </AlertDialog>
 
 <AddServiceDialog
-          open={showAddServiceDialog}
-          onOpenChange={setShowAddServiceDialog}
-          onConfirm={handleAddServices}
-        />
+  open={showAddServiceDialog}
+  onOpenChange={setShowAddServiceDialog}
+  onConfirm={handleAddServices}
+  existingServices={
+    expandedRowId 
+      ? reservationData.find(r => r.id === expandedRowId)?.services?.map(s => s.service) || []
+      : []
+  }
+/>
     </div>
   );
 }
