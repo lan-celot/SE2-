@@ -10,7 +10,7 @@ import { AddServiceDialog } from "./add-service-dialog"
 import React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { db, auth } from "@/lib/firebase"
-import { collection, query, onSnapshot, where, doc, updateDoc } from "firebase/firestore"
+import { collection, query, onSnapshot, where, doc, updateDoc, getDoc } from "firebase/firestore"
 
 interface Service {
   mechanic: string
@@ -42,8 +42,8 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     const user = auth.currentUser;
     if (!user) return;
 
-    const userDocRef = doc(db, "users", user.uid);
-    const bookingsCollectionRef = collection(userDocRef, "bookings");
+    // Query the global bookings collection directly with a filter on userId
+    const bookingsCollectionRef = collection(db, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -88,11 +88,15 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
       setReservations((prev) =>
         prev.map((reservation) => {
           if (reservation.id === expandedRow) {
+            // Convert to Philippines time
+            const options = { timeZone: 'Asia/Manila' };
+            const createdDate = new Date().toLocaleDateString('en-CA', options);
+            
             const newServices: Service[] = selectedServices.map((service) => ({
               mechanic: "TO BE ASSIGNED",
               service: service.toUpperCase(),
               status: "Confirmed",
-              created: new Date().toISOString().split('T')[0],
+              created: createdDate,
               reservationDate: reservation.reservationDate,
             }));
 
@@ -105,23 +109,29 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         })
       );
 
-      // Update Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const bookingDocRef = doc(userDocRef, "bookings", expandedRow);
+      // Only update in the global bookings collection
+      const bookingDocRef = doc(db, "bookings", expandedRow);
 
       // Get the reservation to update
       const reservation = reservations.find(res => res.id === expandedRow);
       if (reservation) {
+        // Convert to Philippines time
+        const options = { timeZone: 'Asia/Manila' };
+        const createdDate = new Date().toLocaleDateString('en-CA', options);
+        
         const newServices = selectedServices.map((service) => ({
           mechanic: "TO BE ASSIGNED",
           service: service.toUpperCase(),
           status: "Confirmed",
-          created: new Date().toISOString().split('T')[0],
+          created: createdDate,
           reservationDate: reservation.reservationDate,
         }));
+        
+        const updatedServices = [...(Array.isArray(reservation.services) ? reservation.services : []), ...newServices];
 
+        // Update in global collection
         await updateDoc(bookingDocRef, {
-          services: [...(Array.isArray(reservation.services) ? reservation.services : []), ...newServices]
+          services: updatedServices
         });
       }
     } catch (error) {
@@ -151,9 +161,8 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         })
       );
 
-      // Update Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const bookingDocRef = doc(userDocRef, "bookings", serviceToDelete.reservationId);
+      // Only update in the global bookings collection
+      const bookingDocRef = doc(db, "bookings", serviceToDelete.reservationId);
 
       // Get the reservation to update
       const reservation = reservations.find(res => res.id === serviceToDelete.reservationId);
@@ -161,6 +170,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         const updatedServices = [...(Array.isArray(reservation.services) ? reservation.services : [])];
         updatedServices.splice(serviceToDelete.serviceIndex, 1);
 
+        // Update in global collection
         await updateDoc(bookingDocRef, {
           services: updatedServices
         });
@@ -258,12 +268,16 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                                 ACTION
                               </TableHead>
                               <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                <Button
-                                  className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
-                                  onClick={() => setShowAddService(true)}
-                                >
-                                  Add Service
-                                </Button>
+                                {reservation.status.toLowerCase() !== "repairing" ? (
+                                  <Button
+                                    className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+                                    onClick={() => setShowAddService(true)}
+                                  >
+                                    Add Service
+                                  </Button>
+                                ) : (
+                                  <span className="text-sm text-gray-500">Cannot modify during repairs</span>
+                                )}
                               </TableHead>
                             </tr>
                           </thead>
@@ -279,24 +293,28 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                                 <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
                                   {service.service}
                                 </TableCell>
-                                <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                                <TableCell className="px-6 py-x4 text-sm text-[#1A365D] text-center">
                                   {service.mechanic}
                                 </TableCell>
                                 <TableCell className="px-6 py-4 flex justify-center">
                                   <div className="inline-flex items-center justify-center gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        setServiceToDelete({
-                                          reservationId: reservation.id,
-                                          serviceIndex: index,
-                                        });
-                                        setShowDeleteDialog(true);
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-[#1A365D]" />
-                                    </Button>
+                                    {reservation.status.toLowerCase() !== "repairing" ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => {
+                                          setServiceToDelete({
+                                            reservationId: reservation.id,
+                                            serviceIndex: index,
+                                          });
+                                          setShowDeleteDialog(true);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-[#1A365D]" />
+                                      </Button>
+                                    ) : (
+                                      <span className="text-xs text-gray-500">Locked</span>
+                                    )}
                                   </div>
                                 </TableCell>
                                 <TableCell></TableCell>

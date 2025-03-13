@@ -1,30 +1,29 @@
-// ReviewDetails.tsx - Fixed Firestore query and date formatting issues
-import { Button } from "@/components/ui/button"
-import { db, auth } from "@/lib/firebase"
-import { collection, addDoc, query, where, getDocs, doc } from "firebase/firestore"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { db, auth } from "@/lib/firebase";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 interface FormData {
-  carBrand: any
-  firstName: string
-  lastName: string
-  gender: string
-  phoneNumber: string
-  dateOfBirth: string
-  streetAddress: string
-  city: string
-  province: string
-  zipCode: string
-  carModel: string
-  carFullName: string
-  yearModel: string
-  transmission: string
-  fuelType: string
-  odometer: string
-  generalServices: string[]
-  specificIssues: string
-  reservationDate: string
+  carBrand: any;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  streetAddress: string;
+  city: string;
+  province: string;
+  zipCode: string;
+  carModel: string;
+  carFullName: string;
+  yearModel: string;
+  transmission: string;
+  fuelType: string;
+  odometer: string;
+  generalServices: string[];
+  specificIssues: string;
+  reservationDate: string;
 }
 
 export function ReviewDetails({
@@ -32,12 +31,13 @@ export function ReviewDetails({
   onBack,
   onSubmit,
 }: {
-  formData: FormData
-  onBack: () => void
-  onSubmit: () => void
+  formData: FormData;
+  onBack: () => void;
+  onSubmit: () => void;
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async () => {
     if (isSubmitting) return; // Prevent multiple clicks
@@ -51,28 +51,23 @@ export function ReviewDetails({
         return;
       }
 
-      // Store bookings in the user's bookings subcollection
-      const userDocRef = doc(db, "users", user.uid);
-      const bookingsCollectionRef = collection(userDocRef, "bookings");
-
-      // Ensure consistent date format
-      const formattedDate = formData.reservationDate.split("T")[0]; // Store in ISO format
-
-      // Debugging logs
-      console.log("Checking for existing reservations...");
-      console.log("User ID:", user.uid);
-      console.log("Formatted Reservation Date:", formattedDate);
+      // Global bookings collection
+      const bookingsCollectionRef = collection(db, "bookings");
+      
+      // Convert reservation date to Philippines time (UTC+8)
+      const reservationDate = new Date(formData.reservationDate);
+      // Format date to YYYY-MM-DD in Philippines timezone
+      const options = { timeZone: 'Asia/Manila' };
+      const formattedDate = reservationDate.toLocaleDateString('en-CA', options); // en-CA uses YYYY-MM-DD format
 
       // Check for existing reservation on the same date
       const existingBookingsQuery = query(
         bookingsCollectionRef,
-        where("reservationDate", "==", formattedDate) // Query in the correct format
+        where("userId", "==", user.uid),
+        where("reservationDate", "==", formattedDate)
       );
 
       const querySnapshot = await getDocs(existingBookingsQuery);
-
-      // Log existing reservations
-      querySnapshot.forEach((doc) => console.log("Existing Booking Found:", doc.data()));
 
       if (!querySnapshot.empty) {
         alert("You already have a reservation for this date.");
@@ -94,23 +89,25 @@ export function ReviewDetails({
         transmission: formData.transmission,
         fuelType: formData.fuelType,
         odometer: formData.odometer,
-        reservationDate: formattedDate, // Store in ISO format
+        reservationDate: formattedDate, // Store in Philippines time
         completionDate: "Pending",
         status: "confirmed",
         services: formData.generalServices.map(service => ({
           mechanic: "TO BE ASSIGNED",
           service: service.split("_").join(" ").toUpperCase(),
-          status: "Confirmed"
+          status: "Confirmed",
+          created: new Date().toLocaleDateString('en-CA', options), // Current date in Philippines time
+          reservationDate: formattedDate
         })),
         specificIssues: formData.specificIssues,
         createdAt: new Date().toISOString()
       };
 
-      // Save to Firebase
+      // Save only to global bookings collection
       await addDoc(bookingsCollectionRef, bookingData);
 
-      // Proceed to the next step (confirmation page)
-      onSubmit();
+      // Set success state to navigate
+      setSubmissionSuccess(true);
 
     } catch (error) {
       console.error("Error submitting reservation:", error);
@@ -119,6 +116,13 @@ export function ReviewDetails({
       setIsSubmitting(false);
     }
   };
+
+  // Effect to handle navigation on success
+  useEffect(() => {
+    if (submissionSuccess) {
+      onSubmit();
+    }
+  }, [submissionSuccess]);
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-md">
@@ -152,15 +156,44 @@ export function ReviewDetails({
           <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-sm text-gray-500">Reservation Date</p>
-          <p className="font-medium">
-            {new Date(formData.reservationDate.split("T")[0]).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Reservation Date</p>
+            <p className="font-medium">
+              {new Date(formData.reservationDate).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                timeZone: "Asia/Manila"
+              })}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Car Model</p>
+            <p className="font-medium">{`${formData.carBrand} ${formData.carModel}`}</p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Year Model</p>
+            <p className="font-medium">{formData.yearModel}</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Transmission</p>
+            <p className="font-medium">{formData.transmission}</p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Fuel Type</p>
+            <p className="font-medium">{formData.fuelType}</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Odometer</p>
+            <p className="font-medium">{formData.odometer}</p>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -186,8 +219,8 @@ export function ReviewDetails({
         <Button type="button" variant="outline" onClick={onBack} className="border-[#1e4e8c] text-[#1e4e8c]">
           Back
         </Button>
-        <Button 
-          onClick={handleSubmit} 
+        <Button
+          onClick={handleSubmit}
           className="bg-[#1e4e8c] text-white"
           disabled={isSubmitting}
         >
@@ -195,5 +228,5 @@ export function ReviewDetails({
         </Button>
       </div>
     </div>
-  )
+  );
 }

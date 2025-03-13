@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -54,13 +52,13 @@ const locationHierarchy: LocationHierarchy = {
   "Region I (Ilocos Region)": {
     "provinces": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan", "Quezon City", "San Juan"],
     "cities": {
-"Ilocos Norte": ["Laoag", "Batac", "Paoay", "Pagudpud"],
-    "Ilocos Sur": ["Vigan", "Candon", "Bantay", "Narvacan"],
-    "La Union": ["San Fernando", "Agoo", "Bauang"],
-    "Pangasinan": ["Dagupan", "Alaminos", "San Carlos", "Urdaneta", "Lingayen", "Bayambang", "Binmaley", "Mangaldan", "Rosales"]
+      "Ilocos Norte": ["Laoag", "Batac", "Paoay", "Pagudpud"],
+      "Ilocos Sur": ["Vigan", "Candon", "Bantay", "Narvacan"],
+      "La Union": ["San Fernando", "Agoo", "Bauang"],
+      "Pangasinan": ["Dagupan", "Alaminos", "San Carlos", "Urdaneta", "Lingayen", "Bayambang", "Binmaley", "Mangaldan", "Rosales"]
     }
   },
-"Region II (Cagayan Valley)": {
+  "Region II (Cagayan Valley)": {
     "provinces": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
     "cities": {
       "Batanes": ["Basco", "Ivana", "Mahatao", "Sabtang", "Uyugan", "Itbayat"],
@@ -70,39 +68,38 @@ const locationHierarchy: LocationHierarchy = {
       "Quirino": ["Cabarroguis", "Diffun", "Maddela", "Nagtipunan", "Saguday"]
     }
   },
-
-"Region III (Central Luzon)": {
-  "provinces": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
-  "cities": {
-    "Aurora": ["Baler", "Casiguran", "Dilasag", "Dinalungan", "Dingalan", "Dipaculao", "Maria Aurora", "San Luis"],
-    "Bataan": ["Balanga", "Abucay", "Bagac", "Dinalupihan", "Hermosa", "Limay", "Mariveles", "Morong", "Orani", "Orion", "Pilar", "Samal"],
-    "Bulacan": ["Malolos", "Meycauayan", "San Jose del Monte", "Baliuag", "Plaridel", "Pulilan", "Santa Maria", "San Miguel", "Hagonoy", "Guiguinto"],
-    "Nueva Ecija": ["Cabanatuan", "Gapan", "Muñoz", "Palayan", "San Jose", "Aliaga", "Bongabon", "Guimba", "Jaen", "San Leonardo", "Zaragoza"],
-    "Pampanga": ["San Fernando", "Angeles", "Mabalacat", "Lubao", "Porac", "Mexico", "Arayat", "Floridablanca", "Macabebe", "Santa Rita"],
-    "Tarlac": ["Tarlac City", "Concepcion", "Capas", "Paniqui", "Gerona", "Victoria", "Bamban", "San Manuel", "Mayantoc", "Camiling"],
-    "Zambales": ["Olongapo", "Iba", "Subic", "San Antonio", "San Narciso", "San Marcelino", "Botolan", "Masinloc", "Palauig", "Candelaria"]
-  }
-},
+  "Region III (Central Luzon)": {
+    "provinces": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
+    "cities": {
+      "Aurora": ["Baler", "Casiguran", "Dilasag", "Dinalungan", "Dingalan", "Dipaculao", "Maria Aurora", "San Luis"],
+      "Bataan": ["Balanga", "Abucay", "Bagac", "Dinalupihan", "Hermosa", "Limay", "Mariveles", "Morong", "Orani", "Orion", "Pilar", "Samal"],
+      "Bulacan": ["Malolos", "Meycauayan", "San Jose del Monte", "Baliuag", "Plaridel", "Pulilan", "Santa Maria", "San Miguel", "Hagonoy", "Guiguinto"],
+      "Nueva Ecija": ["Cabanatuan", "Gapan", "Muñoz", "Palayan", "San Jose", "Aliaga", "Bongabon", "Guimba", "Jaen", "San Leonardo", "Zaragoza"],
+      "Pampanga": ["San Fernando", "Angeles", "Mabalacat", "Lubao", "Porac", "Mexico", "Arayat", "Floridablanca", "Macabebe", "Santa Rita"],
+      "Tarlac": ["Tarlac City", "Concepcion", "Capas", "Paniqui", "Gerona", "Victoria", "Bamban", "San Manuel", "Mayantoc", "Camiling"],
+      "Zambales": ["Olongapo", "Iba", "Subic", "San Antonio", "San Narciso", "San Marcelino", "Botolan", "Masinloc", "Palauig", "Candelaria"]
+    }
+  },
   "Region IV-A (CALABARZON)": {
     "provinces": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
     "cities": {
-    "Batangas": ["Batangas City", "Lipa", "Tanauan", "Santo Tomas", "Calaca", "Balayan", "Bauan", "Nasugbu"],
-    "Cavite": ["Cavite City", "Bacoor", "Dasmariñas", "Imus", "Tagaytay", "Trece Martires", "General Trias", "Tanza", "Noveleta", "Naic"],
-    "Laguna": ["Biñan", "Cabuyao", "Calamba", "San Pablo", "San Pedro", "Santa Rosa", "Los Baños", "Pagsanjan", "Liliw"],
-    "Quezon": ["Lucena", "Tayabas", "Sariaya", "Candelaria", "Gumaca"],
-    "Rizal": ["Antipolo", "Taytay", "Binangonan", "Cainta", "Rodriguez"]
+      "Batangas": ["Batangas City", "Lipa", "Tanauan", "Santo Tomas", "Calaca", "Balayan", "Bauan", "Nasugbu"],
+      "Cavite": ["Cavite City", "Bacoor", "Dasmariñas", "Imus", "Tagaytay", "Trece Martires", "General Trias", "Tanza", "Noveleta", "Naic"],
+      "Laguna": ["Biñan", "Cabuyao", "Calamba", "San Pablo", "San Pedro", "Santa Rosa", "Los Baños", "Pagsanjan", "Liliw"],
+      "Quezon": ["Lucena", "Tayabas", "Sariaya", "Candelaria", "Gumaca"],
+      "Rizal": ["Antipolo", "Taytay", "Binangonan", "Cainta", "Rodriguez"]
     }
   },
-    "Region IV-B (MIMAROPA)": {
-      "provinces": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
-      "cities": {
-        "Marinduque": ["Boac", "Mogpog", "Santa Cruz", "Torrijos", "Gasan", "Buenavista"],
-        "Occidental Mindoro": ["Mamburao", "Sablayan", "San Jose", "Rizal"],
-        "Oriental Mindoro": ["Calapan", "Pinamalayan", "Roxas", "Naujan", "Bansud"],
-        "Palawan": ["Puerto Princesa", "Coron", "El Nido", "Roxas", "Brooke's Point", "Narra"],
-        "Romblon": ["Odiongan", "Romblon", "Cajidiocan", "San Fernando", "Santa Fe"]
-      }
-    },
+  "Region IV-B (MIMAROPA)": {
+    "provinces": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
+    "cities": {
+      "Marinduque": ["Boac", "Mogpog", "Santa Cruz", "Torrijos", "Gasan", "Buenavista"],
+      "Occidental Mindoro": ["Mamburao", "Sablayan", "San Jose", "Rizal"],
+      "Oriental Mindoro": ["Calapan", "Pinamalayan", "Roxas", "Naujan", "Bansud"],
+      "Palawan": ["Puerto Princesa", "Coron", "El Nido", "Roxas", "Brooke's Point", "Narra"],
+      "Romblon": ["Odiongan", "Romblon", "Cajidiocan", "San Fernando", "Santa Fe"]
+    }
+  },
   "Region V (Bicol Region)": {
     provinces: ["Albay", "Camarines Norte", "Camarines Sur", "Catanduanes", "Masbate", "Sorsogon"],
     cities: {
@@ -126,12 +123,12 @@ const locationHierarchy: LocationHierarchy = {
     }
   },
   "Region VII (Central Visayas)": {
-      "provinces": ["Bohol", "Cebu", "Negros Oriental", "Siquijor"],
-      "cities": {
-        "Bohol": ["Tagbilaran", "Ubay", "Carmen", "Tubigon", "Jagna", "Talibon"],
-        "Cebu": ["Bogo", "Carcar", "Cebu City", "Danao", "Lapu-Lapu", "Mandaue", "Naga", "Talisay", "Toledo", "Daanbantayan", "Minglanilla", "Balamban", "Consolacion"],
-        "Negros Oriental": ["Bais", "Bayawan", "Canlaon", "Dumaguete", "Guihulngan", "Tanjay", "Sibulan", "Valencia", "Dauin", "Basay"],
-        "Siquijor": ["Siquijor", "Larena", "Lazi", "Maria", "Enrique Villanueva", "San Juan"]
+    "provinces": ["Bohol", "Cebu", "Negros Oriental", "Siquijor"],
+    "cities": {
+      "Bohol": ["Tagbilaran", "Ubay", "Carmen", "Tubigon", "Jagna", "Talibon"],
+      "Cebu": ["Bogo", "Carcar", "Cebu City", "Danao", "Lapu-Lapu", "Mandaue", "Naga", "Talisay", "Toledo", "Daanbantayan", "Minglanilla", "Balamban", "Consolacion"],
+      "Negros Oriental": ["Bais", "Bayawan", "Canlaon", "Dumaguete", "Guihulngan", "Tanjay", "Sibulan", "Valencia", "Dauin", "Basay"],
+      "Siquijor": ["Siquijor", "Larena", "Lazi", "Maria", "Enrique Villanueva", "San Juan"]
     }
   },
   "Region VIII (Eastern Visayas)": {
@@ -145,37 +142,36 @@ const locationHierarchy: LocationHierarchy = {
       "Southern Leyte": ["Maasin", "Sogod", "Hinunangan"]
     }
   },
-
   "Region IX (Zamboanga Peninsula)": {
     "provinces": ["Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay", "Others"],
     "cities": {
       "Zamboanga del Norte": [
-        "Bacungan", "Baliguian", "Dapitan", "Dipolog", "Godod", "Gutalac", "Jose Dalman", "Kalawit", "Katipunan", 
-        "La Libertad", "Labason", "Liloy", "Manukan", "Mutia", "Piñan", "Polanco", 
-        "Pres. Manuel A. Roxas", "Rizal", "Salug", "Sergio Osmeña Sr.", "Siayan", "Sibuco", 
+        "Bacungan", "Baliguian", "Dapitan", "Dipolog", "Godod", "Gutalac", "Jose Dalman", "Kalawit", "Katipunan",
+        "La Libertad", "Labason", "Liloy", "Manukan", "Mutia", "Piñan", "Polanco",
+        "Pres. Manuel A. Roxas", "Rizal", "Salug", "Sergio Osmeña Sr.", "Siayan", "Sibuco",
         "Sibutad", "Sindangan", "Siocon", "Sirawai", "Tampilisan"
       ],
       "Zamboanga del Sur": [
-        "Aurora", "Bayog", "Dimataling", "Dinas", "Dumalinao", "Dumingag", "Guipos", "Josefina", 
-        "Kumalarang", "Labangan", "Lakewood", "Lapuyan", "Mahayag", "Margosatubig", "Midsalip", 
-        "Molave", "Pagadian", "Pitogo", "Ramon Magsaysay", "San Miguel", "San Pablo", "Sominot", "Tabina", 
+        "Aurora", "Bayog", "Dimataling", "Dinas", "Dumalinao", "Dumingag", "Guipos", "Josefina",
+        "Kumalarang", "Labangan", "Lakewood", "Lapuyan", "Mahayag", "Margosatubig", "Midsalip",
+        "Molave", "Pagadian", "Pitogo", "Ramon Magsaysay", "San Miguel", "San Pablo", "Sominot", "Tabina",
         "Tambulig", "Tigbao", "Tukuran", "Vincenzo Sagun"
       ],
       "Zamboanga Sibugay": [
-      "Alicia", "Buug", "Diplahan", "Imelda", "Ipil", "Kabasalan", "Mabuhay", "Malangas", "Naga", 
-      "Olutanga", "Payao", "Roseller Lim", "Siay", "Talusan", "Titay", "Tungawan"
+        "Alicia", "Buug", "Diplahan", "Imelda", "Ipil", "Kabasalan", "Mabuhay", "Malangas", "Naga",
+        "Olutanga", "Payao", "Roseller Lim", "Siay", "Talusan", "Titay", "Tungawan"
       ],
       "Others": ["Isabela City", "Zamboanga City"]
     }
   },
-    "Region X (Northern Mindanao)": {
-      "provinces": ["Bukidnon", "Camiguin", "Lanao del Norte", "Misamis Occidental", "Misamis Oriental"],
-      "cities": {
-        "Bukidnon": ["Malaybalay", "Valencia"],
-        "Camiguin": [],
-        "Lanao del Norte": ["Iligan"],
-        "Misamis Occidental": ["Oroquieta", "Ozamiz", "Tangub"],
-        "Misamis Oriental": ["Gingoog", "El Salvador", "Cagayan de Oro"],
+  "Region X (Northern Mindanao)": {
+    "provinces": ["Bukidnon", "Camiguin", "Lanao del Norte", "Misamis Occidental", "Misamis Oriental"],
+    "cities": {
+      "Bukidnon": ["Malaybalay", "Valencia"],
+      "Camiguin": [],
+      "Lanao del Norte": ["Iligan"],
+      "Misamis Occidental": ["Oroquieta", "Ozamiz", "Tangub"],
+      "Misamis Oriental": ["Gingoog", "El Salvador", "Cagayan de Oro"],
     }
   },
   "Region XI (Davao Region)": {
@@ -228,19 +224,19 @@ const locationHierarchy: LocationHierarchy = {
       "Ifugao": [],
       "Kalinga": ["Tabuk"],
       "Mountain Province": []
-  }
-},
-"Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)": {
-  "provinces": ["Basilan", "Lanao del Sur", "Maguindanao del Norte", "Maguindanao del Sur", "Sulu", "Tawi-Tawi"],
-  "cities": {
-    "Basilan": ["Lamitan"],
-    "Lanao del Sur": ["Marawi"],
-    "Maguindanao del Norte": ["Cotabato"],
-    "Maguindanao del Sur": [],
-    "Sulu": [],
-    "Tawi-Tawi": []
-  }
-},
+    }
+  },
+  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)": {
+    "provinces": ["Basilan", "Lanao del Sur", "Maguindanao del Norte", "Maguindanao del Sur", "Sulu", "Tawi-Tawi"],
+    "cities": {
+      "Basilan": ["Lamitan"],
+      "Lanao del Sur": ["Marawi"],
+      "Maguindanao del Norte": ["Cotabato"],
+      "Maguindanao del Sur": [],
+      "Sulu": [],
+      "Tawi-Tawi": []
+    }
+  },
 };
 
 const formSchema = z.object({
@@ -265,7 +261,6 @@ const formSchema = z.object({
   path: ["city"],
 });
 
-
 interface PersonalDetailsFormProps {
   initialData: any
   onSubmit: (data: any) => void
@@ -274,13 +269,25 @@ interface PersonalDetailsFormProps {
 export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFormProps) {
   const auth = getAuth()
   const user = auth.currentUser
-  
+
   const [availableProvinces, setAvailableProvinces] = useState<string[]>([])
   const [availableCities, setAvailableCities] = useState<string[]>([])
-  
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
+  const [formDataLoaded, setFormDataLoaded] = useState(false)
+
+  // Initialize form with values from localStorage or initialData
+  const getInitialFormValues = () => {
+    // Try to get saved form data from localStorage first
+    const savedFormData = localStorage.getItem('personalDetailsForm')
+    if (savedFormData) {
+      try {
+        return JSON.parse(savedFormData)
+      } catch (e) {
+        console.error("Error parsing saved form data:", e)
+      }
+    }
+
+    // Fall back to initialData or empty values
+    return initialData || {
       firstName: "",
       lastName: "",
       gender: "",
@@ -291,71 +298,152 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       province: "",
       city: "",
       zipCode: "",
-    },
+    }
+  }
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: getInitialFormValues(),
   })
+
+  // Get the current values
+  const currentRegion = form.watch("region")
+  const currentProvince = form.watch("province")
 
   // Update provinces when region changes
   useEffect(() => {
-    const selectedRegion = form.watch("region")
-    
-    if (selectedRegion && selectedRegion in locationHierarchy) {
-      const provinces = locationHierarchy[selectedRegion].provinces
+    if (currentRegion && currentRegion in locationHierarchy) {
+      const provinces = locationHierarchy[currentRegion].provinces
       setAvailableProvinces([...provinces].sort())
-      
-      // Clear province and city when region changes
-      form.setValue("province", "")
-      form.setValue("city", "")
-      setAvailableCities([])
+
+      // Only clear province and city if we're not in the initial loading phase
+      if (formDataLoaded && !initialData?.region) {
+        form.setValue("province", "")
+        form.setValue("city", "")
+        setAvailableCities([])
+      }
     }
-  }, [form.watch("region")])
+  }, [currentRegion, form, formDataLoaded, initialData])
 
   // Update cities when province changes
   useEffect(() => {
-    const selectedRegion = form.watch("region")
-    const selectedProvince = form.watch("province")
-    
     if (
-      selectedRegion && 
-      selectedProvince && 
-      selectedRegion in locationHierarchy && 
-      selectedProvince in locationHierarchy[selectedRegion].cities
+      currentRegion &&
+      currentProvince &&
+      currentRegion in locationHierarchy &&
+      currentProvince in locationHierarchy[currentRegion].cities
     ) {
-      const cities = locationHierarchy[selectedRegion].cities[selectedProvince]
+      const cities = locationHierarchy[currentRegion].cities[currentProvince]
       setAvailableCities([...cities].sort())
-      
-      // Clear city when province changes
-      form.setValue("city", "")
+
+      // Only clear city if we're not in the initial loading phase
+      if (formDataLoaded && !initialData?.province) {
+        form.setValue("city", "")
+      }
     }
-  }, [form.watch("province")])
+  }, [currentProvince, currentRegion, form, formDataLoaded, initialData])
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    const subscription = form.watch((formValues) => {
+      if (formDataLoaded && formValues) {
+        localStorage.setItem('personalDetailsForm', JSON.stringify(formValues))
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [form, formDataLoaded])
 
   // Fetch user data from Firebase
   useEffect(() => {
     if (user) {
       const fetchUserData = async () => {
-        const userDoc = await getDoc(doc(db, "users", user.uid))
-        if (userDoc.exists()) {
-          const userData = userDoc.data()
-          form.reset({
-            firstName: userData.firstName || "",
-            lastName: userData.lastName || "",
-            gender: userData.gender || "",
-            phoneNumber: userData.phoneNumber || "",
-            dateOfBirth: userData.dateOfBirth || "",
-            streetAddress: userData.streetAddress || "",
-            region: userData.region || "",
-            province: userData.province || "",
-            city: userData.city || "",
-            zipCode: userData.zipCode || "",
-          })
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+
+            // Check if we already have form data in localStorage
+            const savedFormData = localStorage.getItem('personalDetailsForm')
+            if (!savedFormData) {
+              // Set form values from Firebase data if no localStorage data exists
+              const formData = {
+                firstName: userData.firstName || "",
+                lastName: userData.lastName || "",
+                gender: userData.gender || "",
+                phoneNumber: userData.phoneNumber || "",
+                dateOfBirth: userData.dateOfBirth || "",
+                streetAddress: userData.streetAddress || "",
+                region: userData.region || "",
+                province: userData.province || "",
+                city: userData.city || "",
+                zipCode: userData.zipCode || "",
+              }
+
+              form.reset(formData)
+              localStorage.setItem('personalDetailsForm', JSON.stringify(formData))
+            }
+
+            // Populate available provinces based on the retrieved region
+            if (userData.region && userData.region in locationHierarchy) {
+              setAvailableProvinces([...locationHierarchy[userData.region].provinces].sort())
+            }
+
+            // Populate available cities based on the retrieved province
+            if (
+              userData.region &&
+              userData.province &&
+              userData.region in locationHierarchy &&
+              userData.province in locationHierarchy[userData.region].cities
+            ) {
+              setAvailableCities([...locationHierarchy[userData.region].cities[userData.province]].sort())
+            }
+          }
+
+          // Mark form as loaded after data retrieval
+          setFormDataLoaded(true)
+        } catch (error) {
+          console.error("Error fetching user data:", error)
+          setFormDataLoaded(true)
         }
       }
+
       fetchUserData()
+    } else {
+      setFormDataLoaded(true)
     }
   }, [user, form])
 
+  // Prevent form submission if data hasn't been loaded yet
+  const handleSubmit = (data: z.infer<typeof formSchema>) => {
+    if (formDataLoaded) {
+      // Save form data to localStorage before submitting
+      localStorage.setItem('personalDetailsForm', JSON.stringify(data))
+      onSubmit(data)
+    }
+  }
+
+ // Function to reset the form
+const handleReset = () => {
+  // Explicitly reset specific fields
+  form.setValue("firstName", "")
+  form.setValue("lastName", "")
+  form.setValue("gender", "")
+  form.setValue("phoneNumber", "")
+  form.setValue("dateOfBirth", "")
+  form.setValue("streetAddress", "")
+  form.setValue("region", "")
+  form.setValue("province", "")
+  form.setValue("city", "")
+  form.setValue("zipCode", "")
+
+  // Clear localStorage
+  localStorage.removeItem('personalDetailsForm')
+}
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -533,7 +621,10 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
           )}
         />
 
-        <div className="flex justify-end">
+        <div className="flex justify-end space-x-4">
+          <Button type="button" onClick={handleReset} className="bg-gray-300 text-black">
+            Clear
+          </Button>
           <Button type="submit" className="bg-[#1e4e8c] text-white">
             Proceed
           </Button>

@@ -12,13 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useEffect, useState } from "react"
 
 // Firebase imports
-// import { collection, getDocs } from "firebase/firestore"
-// import { db } from "@/lib/firebase"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 const formSchema = z.object({
   carBrand: z.string().min(1, "Car brand is required"),
   carModel: z.string().min(1, "Car model is required"),
-  carFullName: z.string().optional(),
   yearModel: z.string().min(1, "Year model is required"),
   transmission: z.string().min(1, "Transmission is required"),
   fuelType: z.string().min(1, "Fuel type is required"),
@@ -48,12 +47,11 @@ Isuzu: ["D-Max", "MU-X", "Crosswind", "Trooper", "Panther", "VehiCROSS", "Fargo"
 Daihatsu: ["Terios", "Hijet", "Move", "Mira", "Copen", "Rocky", "Atrai", "Tanto", "Thor", "Wake", "Boon", 
       "Cast", "Sonica", "Materia"],
 Lexus: ["IS", "ES", "GS", "LS", "NX", "RX", "GX", "LX", "LC", "UX", "RC", "LM", "LBX", "RZ", "SC", "HS", "CT"]
-
 }
 
-const transmissionTypes = ["Automatic", "Manual", ]
+const transmissionTypes = ["Automatic", "Manual"]
 const fuelTypes = ["Gas", "Diesel", "Electric"]
-const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km"]
+const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km", "250000km+"]
 const services = [
   { id: "PAINT JOBS", label: "Paint Jobs" },
   { id: "BRAKE SHOES CLEAN", label: "Brake Shoes Clean" },
@@ -62,7 +60,7 @@ const services = [
   { id: "BRAKE SHOES REPLACE", label: "Brake Shoes Replace" },
   { id: "BRAKE CLEAN", label: "Brake Clean" },
   { id: "ENGINE TUNING", label: "Engine Tuning" },
-  { id: "AIR COONDITIONING", label: "Air Conditioning" },
+  { id: "AIR CONDITIONING", label: "Air Conditioning" },
   { id: "BRAKE REPLACE", label: "Brake Replace" },
   { id: "OIL CHANGE", label: "Oil Change" },
 ]
@@ -76,70 +74,31 @@ interface CarDetailsFormProps {
 export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsFormProps) {
   const [carBrands, setCarBrands] = useState<string[]>(Object.keys(carData))
   const [availableModels, setAvailableModels] = useState<string[]>([])
-  // const [carBrands, setCarBrands] = useState<string[]>([])
-  // const [availableModels, setAvailableModels] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      carBrand: initialData.carBrand || "",
-      carModel: initialData.carModel || "",
-      yearModel: initialData.yearModel || "",
-      transmission: initialData.transmission || "",
-      fuelType: initialData.fuelType || "",
-      odometer: initialData.odometer || "",
-      generalServices: initialData.generalServices || [],
-      specificIssues: initialData.specificIssues || "",
+      carBrand: initialData?.carBrand || "",
+      carModel: initialData?.carModel || "",
+      yearModel: initialData?.yearModel || "",
+      transmission: initialData?.transmission || "",
+      fuelType: initialData?.fuelType || "",
+      odometer: initialData?.odometer || "",
+      generalServices: initialData?.generalServices || [],
+      specificIssues: initialData?.specificIssues || "",
     },
   })
 
   const selectedBrand = form.watch("carBrand")
-  const [characterCount, setCharacterCount] = React.useState(initialData.specificIssues?.length || 0)
-
-  // Uncomment this to fetch actual data from Firebase
-  /*
-  useEffect(() => {
-    async function fetchCarBrands() {
-      setLoading(true)
-      try {
-        const brandsSnapshot = await getDocs(collection(db, "carBrands"))
-        const brandsList = brandsSnapshot.docs.map(doc => doc.id)
-        setCarBrands(brandsList)
-      } catch (error) {
-        console.error("Error fetching car brands:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchCarBrands()
-  }, [])
-  */
+  const specificIssues = form.watch("specificIssues")
+  const characterCount = specificIssues?.length || 0
 
   // Update available models when brand changes
   useEffect(() => {
     if (selectedBrand) {
       // Update available models based on the selected brand
       setAvailableModels(carData[selectedBrand] || []);
-      
-      // Uncomment for Firebase implementation
-      /*
-      async function fetchCarModels() {
-        setLoading(true)
-        try {
-          const modelsSnapshot = await getDocs(collection(db, "carBrands", selectedBrand, "models"))
-          const modelsList = modelsSnapshot.docs.map(doc => doc.id)
-          setAvailableModels(modelsList)
-        } catch (error) {
-          console.error("Error fetching car models:", error)
-        } finally {
-          setLoading(false)
-        }
-      }
-      
-      fetchCarModels()
-      */
       
       // Keep the selected model if it exists in the new brand's models
       if (!carData[selectedBrand]?.includes(form.getValues("carModel"))) {
@@ -231,7 +190,7 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                   </FormControl>
                   <SelectContent>
                   {Array.from({ length: new Date().getFullYear() - 1949 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-              <SelectItem key={year} value={year.toString()}>
+                      <SelectItem key={year} value={year.toString()}>
                         {year}
                       </SelectItem>
                     ))}
@@ -372,10 +331,6 @@ export function CarDetailsForm({ initialData, onSubmit, onBack }: CarDetailsForm
                     className="min-h-[100px] bg-white/50 resize-none"
                     maxLength={1000}
                     {...field}
-                    onChange={(e) => {
-                      field.onChange(e)
-                      setCharacterCount(e.target.value.length)
-                    }}
                   />
                   <div className="absolute bottom-2 right-2 text-xs text-gray-400">{characterCount}/1000</div>
                 </div>
