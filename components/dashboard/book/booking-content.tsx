@@ -121,7 +121,7 @@ export function BookingContent() {
         // Generate a unique booking ID with a predictable format
         const timestamp = Date.now().toString();
         const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        const bookingId = `BK${timestamp}${randomNum}`;
+        const bookingId = `RE${timestamp}${randomNum}`;
   
         // Generate reference number
         const referenceNumber = `R${timestamp}${Math.floor(Math.random() * 1000)}`;
