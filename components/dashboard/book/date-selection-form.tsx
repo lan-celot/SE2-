@@ -41,8 +41,14 @@ export function DateSelectionForm({ initialData, onSubmit, onBack }: DateSelecti
 
   const handleSubmit = () => {
     if (selectedDate) {
+      // Format date as YYYY-MM-DD
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+      
       onSubmit({
-        reservationDate: selectedDate.toISOString().split("T")[0],
+        reservationDate: formattedDate,
       })
     }
   }
@@ -105,7 +111,6 @@ export function DateSelectionForm({ initialData, onSubmit, onBack }: DateSelecti
           Proceed
         </Button>
       </div>
-    </div>
+    </div>  
   )
 }
-

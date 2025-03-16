@@ -26,28 +26,32 @@ interface FormData {
   reservationDate: string;
 }
 
+interface ReviewDetailsProps {
+  formData: FormData;
+  onSubmit: () => void;
+  onBack: () => void;
+  isSubmitting: boolean;
+}
+
 export function ReviewDetails({
   formData,
   onBack,
   onSubmit,
-}: {
-  formData: FormData;
-  onBack: () => void;
-  onSubmit: () => void;
-}) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  isSubmitting
+}: ReviewDetailsProps) {
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async () => {
-    if (isSubmitting) return; // Prevent multiple clicks
-    setIsSubmitting(true);
+    if (isSubmittingLocal) return; // Prevent multiple clicks
+    setIsSubmittingLocal(true);
 
     try {
       const user = auth.currentUser;
       if (!user) {
         alert("You must be logged in to make a reservation");
-        setIsSubmitting(false);
+        setIsSubmittingLocal(false);
         return;
       }
 
@@ -57,7 +61,7 @@ export function ReviewDetails({
       // Convert reservation date to Philippines time (UTC+8)
       const reservationDate = new Date(formData.reservationDate);
       // Format date to YYYY-MM-DD in Philippines timezone
-      const options = { timeZone: 'Asia/Manila' };
+      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
       const formattedDate = reservationDate.toLocaleDateString('en-CA', options); // en-CA uses YYYY-MM-DD format
 
       // Check for existing reservation on the same date
@@ -71,7 +75,7 @@ export function ReviewDetails({
 
       if (!querySnapshot.empty) {
         alert("You already have a reservation for this date.");
-        setIsSubmitting(false);
+        setIsSubmittingLocal(false);
         return;
       }
 
@@ -89,14 +93,14 @@ export function ReviewDetails({
         transmission: formData.transmission,
         fuelType: formData.fuelType,
         odometer: formData.odometer,
-        reservationDate: formattedDate, // Store in Philippines time
+        reservationDate: formattedDate,
         completionDate: "Pending",
         status: "confirmed",
         services: formData.generalServices.map(service => ({
           mechanic: "TO BE ASSIGNED",
           service: service.split("_").join(" ").toUpperCase(),
           status: "Confirmed",
-          created: new Date().toLocaleDateString('en-CA', options), // Current date in Philippines time
+          created: new Date().toLocaleDateString('en-CA', options),
           reservationDate: formattedDate
         })),
         specificIssues: formData.specificIssues,
@@ -113,7 +117,7 @@ export function ReviewDetails({
       console.error("Error submitting reservation:", error);
       alert("There was an error submitting your reservation. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingLocal(false);
     }
   };
 
@@ -122,7 +126,7 @@ export function ReviewDetails({
     if (submissionSuccess) {
       onSubmit();
     }
-  }, [submissionSuccess]);
+  }, [submissionSuccess, onSubmit]);
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-md">
@@ -222,9 +226,9 @@ export function ReviewDetails({
         <Button
           onClick={handleSubmit}
           className="bg-[#1e4e8c] text-white"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isSubmittingLocal}
         >
-          {isSubmitting ? "Processing..." : "Reserve"}
+          {isSubmitting || isSubmittingLocal ? "Processing..." : "Reserve"}
         </Button>
       </div>
     </div>

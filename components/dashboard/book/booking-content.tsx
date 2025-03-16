@@ -8,7 +8,7 @@ import { ReviewDetails } from "@/components/dashboard/book/review-details";
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page";
 import { cn } from "@/lib/utils";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 
 type BookingStep = 1 | 2 | 3 | 4 | 5;
 
@@ -34,6 +34,8 @@ interface FormData {
   reservationDate: string;
   completionDate: string;
   status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
+  bookingId?: string;
+  referenceNumber?: string;
 }
 
 export function BookingContent() {
@@ -63,13 +65,29 @@ export function BookingContent() {
     completionDate: "",
   });
 
-  const handleNext = async (data: Partial<FormData>) => {
-    if (isSubmitting) return; // Prevent multiple submissions
-    setIsSubmitting(true);
+  // Convert any date format to YYYY-MM-DD string
+  const formatDateToYYYYMMDD = (dateString: string): string => {
+    if (!dateString) return "";
+    
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch (e) {
+      console.error("Date formatting error:", e);
+      return dateString;
+    }
+  };
 
+  const handleNext = async (data: Partial<FormData>) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+  
     const updatedFormData = { ...formData, ...data };
     setFormData(updatedFormData);
-
+  
     if (currentStep === 4) {
       try {
         const user = auth.currentUser;
@@ -78,42 +96,90 @@ export function BookingContent() {
           setIsSubmitting(false);
           return;
         }
-
-        // Format reservation date to ISO
-        const formattedReservationDate = new Date(updatedFormData.reservationDate).toISOString();
-
-        // Prepare services array
+  
+        // Normalize dates to YYYY-MM-DD format
+        const normalizedReservationDate = formatDateToYYYYMMDD(updatedFormData.reservationDate);
+        const normalizedCompletionDate = updatedFormData.completionDate
+          ? formatDateToYYYYMMDD(updatedFormData.completionDate)
+          : "";
+  
+        // Check for existing bookings
+        const bookingsCollectionRef = collection(db, "bookings");
+        const userBookingsQuery = query(
+          bookingsCollectionRef,
+          where("userId", "==", user.uid)
+        );
+  
+        const bookingsSnapshot = await getDocs(userBookingsQuery);
+  
+        // Check for duplicates using normalized dates
+        let isDuplicate = false;
+        bookingsSnapshot.forEach((bookingDoc) => {
+          const existingBooking = bookingDoc.data();
+  
+          if (existingBooking.carFullName === updatedFormData.carFullName) {
+            // Ensure existing date is also normalized for comparison
+            const existingDate = formatDateToYYYYMMDD(existingBooking.reservationDate);
+            if (existingDate === normalizedReservationDate) {
+              isDuplicate = true;
+            }
+          }
+        });
+  
+        if (isDuplicate) {
+          throw new Error("A booking already exists for this car on the selected date");
+        }
+  
+        // Generate a unique ID once
+        const bookingId = doc(collection(db, "bookings")).id;
+  
+        // Generate reference number
+        const referenceNumber = `R${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  
+        // Prepare services with consistent date format
         const services = updatedFormData.generalServices.map((serviceId, index) => ({
           mechanic: "TO BE ASSIGNED",
           service: serviceId,
-          createdAt: new Date().toISOString(),
-          reservationId: `RES-${index + 1}`,
-          reservationDate: formattedReservationDate,
+          createdAt: formatDateToYYYYMMDD(new Date().toISOString()),
+          reservationId: `${referenceNumber}-${index + 1}`,
+          reservationDate: normalizedReservationDate,
         }));
-
-        // Prepare booking data
+  
+        // Prepare booking data (including bookingId)
         const bookingData = {
           ...updatedFormData,
-          reservationDate: formattedReservationDate,
-          referenceNumber: `R${Math.floor(Math.random() * 1000000)}`,
+          bookingId,
+          reservationDate: normalizedReservationDate,
+          completionDate: normalizedCompletionDate,
+          referenceNumber,
           createdAt: serverTimestamp(),
           userId: user.uid,
           services,
         };
-
-        // Save to Firestore Global Collection
-        const bookingRef = await addDoc(collection(db, "bookings"), bookingData);
-        const bookingId = bookingRef.id;
-
-        // Save to User's Subcollection
-        await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), {
-          ...bookingData,
-          bookingId, // Ensure same ID in user collection
+  
+        // Save to Firestore Global Collection with the same ID
+        await setDoc(doc(db, "bookings", bookingId), bookingData);
+  
+        // Save to User's Subcollection with the same ID
+        await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), bookingData);
+  
+        // Update form data with the new booking ID and reference number
+        setFormData({
+          ...updatedFormData,
+          bookingId,
+          referenceNumber,
+          reservationDate: normalizedReservationDate,
+          completionDate: normalizedCompletionDate,
         });
-
+  
         setCurrentStep(5);
       } catch (error) {
         console.error("Error saving booking: ", error);
+        if (error instanceof Error) {
+          alert(error.message || "Error saving booking");
+        } else {
+          alert("Error saving booking");
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -122,6 +188,7 @@ export function BookingContent() {
       setIsSubmitting(false);
     }
   };
+  
 
   const handleBack = () => {
     setCurrentStep((prev) => (prev - 1) as BookingStep);
@@ -195,6 +262,7 @@ export function BookingContent() {
               if (!isSubmitting) handleNext({});
             }}
             onBack={handleBack}
+            isSubmitting={isSubmitting}
           />
         )}
         {currentStep === 5 && <ConfirmationPage formData={formData} onBookAgain={handleRestart} />}

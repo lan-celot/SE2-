@@ -51,7 +51,7 @@ Lexus: ["IS", "ES", "GS", "LS", "NX", "RX", "GX", "LX", "LC", "UX", "RC", "LM", 
 
 const transmissionTypes = ["Automatic", "Manual"]
 const fuelTypes = ["Gas", "Diesel", "Electric"]
-const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km", "250000km+"]
+const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km", "250,000km+"]
 const services = [
   { id: "PAINT JOBS", label: "Paint Jobs" },
   { id: "BRAKE SHOES CLEAN", label: "Brake Shoes Clean" },

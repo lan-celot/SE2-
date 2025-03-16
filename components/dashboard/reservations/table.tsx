@@ -41,11 +41,11 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-
+  
     // Query the global bookings collection directly with a filter on userId
     const bookingsCollectionRef = collection(db, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
-
+  
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => {
         const booking = doc.data();
@@ -59,24 +59,47 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           services: Array.isArray(booking.services) ? booking.services : [],
         } as Reservation;
       });
-      setReservations(data);
+  
+      // Filter out duplicates based on reservation ID
+      const uniqueReservations = data.filter((reservation, index, self) =>
+        index === self.findIndex((r) => r.id === reservation.id)
+      );
+  
+      setReservations(uniqueReservations);
     });
-
+  
     return () => unsubscribe();
   }, []);
+  
 
   // Add event listener for status filter changes
   useEffect(() => {
-    const handleStatusFilter = (event: CustomEvent) => {
-      setStatusFilter(event.detail);
-    };
-
-    window.addEventListener('filterStatus', handleStatusFilter as EventListener);
-
-    return () => {
-      window.removeEventListener('filterStatus', handleStatusFilter as EventListener);
-    };
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    // Query the user's subcollection directly
+    const userBookingsCollectionRef = collection(db, `users/${user.uid}/bookings`);
+  
+    const unsubscribe = onSnapshot(userBookingsCollectionRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => {
+        const booking = doc.data();
+        return {
+          id: doc.id,
+          userId: booking.userId,
+          reservationDate: booking.reservationDate || "N/A",
+          carModel: booking.carModel || "Unknown",
+          completionDate: booking.completionDate || "Pending",
+          status: booking.status.toUpperCase() || "CONFIRMED",
+          services: Array.isArray(booking.services) ? booking.services : [],
+        } as Reservation;
+      });
+  
+      setReservations(data);
+    });
+  
+    return () => unsubscribe();
   }, []);
+  
 
   const handleAddServices = async (selectedServices: string[]) => {
     if (!expandedRow) return;
