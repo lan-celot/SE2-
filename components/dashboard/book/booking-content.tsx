@@ -107,34 +107,24 @@ export function BookingContent() {
         const bookingsCollectionRef = collection(db, "bookings");
         const userBookingsQuery = query(
           bookingsCollectionRef,
-          where("userId", "==", user.uid)
+          where("userId", "==", user.uid),
+          where("carFullName", "==", updatedFormData.carFullName),
+          where("reservationDate", "==", normalizedReservationDate)
         );
   
         const bookingsSnapshot = await getDocs(userBookingsQuery);
-  
-        // Check for duplicates using normalized dates
-        let isDuplicate = false;
-        bookingsSnapshot.forEach((bookingDoc) => {
-          const existingBooking = bookingDoc.data();
-  
-          if (existingBooking.carFullName === updatedFormData.carFullName) {
-            // Ensure existing date is also normalized for comparison
-            const existingDate = formatDateToYYYYMMDD(existingBooking.reservationDate);
-            if (existingDate === normalizedReservationDate) {
-              isDuplicate = true;
-            }
-          }
-        });
-  
-        if (isDuplicate) {
+        
+        if (!bookingsSnapshot.empty) {
           throw new Error("A booking already exists for this car on the selected date");
         }
   
-        // Generate a unique ID once
-        const bookingId = doc(collection(db, "bookings")).id;
+        // Generate a unique booking ID with a predictable format
+        const timestamp = Date.now().toString();
+        const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        const bookingId = `BK${timestamp}${randomNum}`;
   
         // Generate reference number
-        const referenceNumber = `R${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        const referenceNumber = `R${timestamp}${Math.floor(Math.random() * 1000)}`;
   
         // Prepare services with consistent date format
         const services = updatedFormData.generalServices.map((serviceId, index) => ({
@@ -145,10 +135,10 @@ export function BookingContent() {
           reservationDate: normalizedReservationDate,
         }));
   
-        // Prepare booking data (including bookingId)
+        // Prepare booking data
         const bookingData = {
           ...updatedFormData,
-          bookingId,
+          bookingId, // Store the ID in the document itself
           reservationDate: normalizedReservationDate,
           completionDate: normalizedCompletionDate,
           referenceNumber,
@@ -157,11 +147,15 @@ export function BookingContent() {
           services,
         };
   
-        // Save to Firestore Global Collection with the same ID
-        await setDoc(doc(db, "bookings", bookingId), bookingData);
+        // CRITICAL CHANGE: Remove the old approach completely
+        // DO NOT use doc(collection(db, "bookings"))
+        // DO NOT use bookingRef.id
   
-        // Save to User's Subcollection with the same ID
+        // Create documents with explicit IDs
+        await setDoc(doc(db, "bookings", bookingId), bookingData);
         await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), bookingData);
+  
+        console.log(`Created booking with ID: ${bookingId}`);
   
         // Update form data with the new booking ID and reference number
         setFormData({
