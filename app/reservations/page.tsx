@@ -136,12 +136,12 @@ const handleStatusChange = async (reservationId: string, userId: string, newStat
     const globalDocRef = doc(db, "bookings", reservationId);
     const userDocRef = doc(db, "users", userId, "bookings", reservationId);
     
-    // Use Firestore batch to update both documents atomically
-    const batch = writeBatch(db);
-    batch.update(globalDocRef, { status: normalizedStatus });
-    batch.update(userDocRef, { status: normalizedStatus });
-    
-    await batch.commit(); // Apply both updates together
+    // Use setDoc with merge option instead of updateDoc
+    // This will create the document if it doesn't exist or update it if it does
+    await Promise.all([
+      setDoc(globalDocRef, { status: normalizedStatus }, { merge: true }),
+      setDoc(userDocRef, { status: normalizedStatus }, { merge: true })
+    ]);
     
     console.log("Status updated successfully in both Firestore locations");
     
@@ -278,82 +278,88 @@ const handleMechanicChange = async () => {
   }
 };
 
-  const handleAddServices = async (selectedServices: any[]) => {
-    if (expandedRowId) {
-      const reservation = reservationData.find((res) => res.id === expandedRowId);
-      if (reservation) {
-        // Check if status is restricted
-        if (
-          reservation.status === "COMPLETED" || 
-          reservation.status === "CANCELLED" || 
-          reservation.status === "REPAIRING"
-        ) {
-          alert("Cannot add services: reservation status is " + reservation.status);
-          return;
-        }
-        const now = new Date();
-        const formattedNow = now.toLocaleString("en-US", {
-          month: "2-digit",
-          day: "2-digit",
-          year: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }).replace(",", "").toLowerCase().replace(/\//g, "-");
+const handleAddServices = async (selectedServices: any[]) => {
+  if (expandedRowId) {
+    const reservation = reservationData.find((res) => res.id === expandedRowId);
+    if (reservation) {
+      // Check if status is restricted
+      if (
+        reservation.status === "COMPLETED" || 
+        reservation.status === "CANCELLED" || 
+        reservation.status === "REPAIRING"
+      ) {
+        alert("Cannot add services: reservation status is " + reservation.status);
+        return;
+      }
+      const now = new Date();
+      const formattedNow = now.toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }).replace(",", "").toLowerCase().replace(/\//g, "-");
 
-        const newServices = selectedServices.map((service) => ({
-          created: formattedNow,
-          reservationDate: reservation.reservationDate.toLowerCase(),
-          service: service,
-          mechanic: "TO BE ASSIGNED",
-        }));
+      const newServices = selectedServices.map((service) => ({
+        created: formattedNow,
+        reservationDate: reservation.reservationDate.toLowerCase(),
+        service: service,
+        mechanic: "TO BE ASSIGNED",
+      }));
 
-        const updatedServices = [...(reservation.services || []), ...newServices];
+      const updatedServices = [...(reservation.services || []), ...newServices];
 
-        const globalDocRef = doc(db, "bookings", reservation.id);
-        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
+      const globalDocRef = doc(db, "bookings", reservation.id);
+      const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
 
-        const batch = writeBatch(db);
-        batch.update(globalDocRef, { services: updatedServices });
-        batch.update(userDocRef, { services: updatedServices });
-
-        await batch.commit();
+      // Use setDoc instead of batch.update
+      try {
+        await Promise.all([
+          setDoc(globalDocRef, { services: updatedServices }, { merge: true }),
+          setDoc(userDocRef, { services: updatedServices }, { merge: true })
+        ]);
 
         setReservationData((prevData) =>
           prevData.map((res) =>
             res.id === reservation.id ? { ...res, services: updatedServices } : res
           )
         );
+      } catch (error) {
+        console.error("Error adding services:", error);
       }
     }
-  };
+  }
+};
 
-  const handleDeleteService = async () => {
-    if (selectedService) {
-      const reservation = reservationData.find((res) => res.id === selectedService.reservationId);
-      if (reservation) {
- // Check if status is restricted
- if (
-  reservation.status === "COMPLETED" || 
-  reservation.status === "CANCELLED" || 
-  reservation.status === "REPAIRING"
-) {
-  alert("Cannot delete services: reservation status is " + reservation.status);
-  return;
-}
+// Update handleDeleteService as well
+const handleDeleteService = async () => {
+  if (selectedService) {
+    const reservation = reservationData.find((res) => res.id === selectedService.reservationId);
+    if (reservation) {
+      // Check if status is restricted
+      if (
+        reservation.status === "COMPLETED" || 
+        reservation.status === "CANCELLED" || 
+        reservation.status === "REPAIRING"
+      ) {
+        alert("Cannot delete services: reservation status is " + reservation.status);
+        return;
+      }
 
-        const updatedServices = (reservation.services || []).filter(
-          (_, index) => index !== selectedService.serviceIndex
-        );
+      const updatedServices = (reservation.services || []).filter(
+        (_, index) => index !== selectedService.serviceIndex
+      );
 
-        const globalDocRef = doc(db, "bookings", reservation.id);
-        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
+      const globalDocRef = doc(db, "bookings", reservation.id);
+      const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
 
-        const batch = writeBatch(db);
-        batch.update(globalDocRef, { services: updatedServices });
-        batch.update(userDocRef, { services: updatedServices });
-
-        await batch.commit();
+      try {
+        // Use setDoc instead of batch.update
+        await Promise.all([
+          setDoc(globalDocRef, { services: updatedServices }, { merge: true }),
+          setDoc(userDocRef, { services: updatedServices }, { merge: true })
+        ]);
 
         setReservationData((prevData) =>
           prevData.map((res) =>
@@ -363,9 +369,12 @@ const handleMechanicChange = async () => {
 
         setShowDeleteDialog(false);
         setSelectedService(null);
+      } catch (error) {
+        console.error("Error deleting service:", error);
       }
     }
-  };
+  }
+};
 
   const handleSort = (field: keyof Omit<Reservation, "services" | "status">) => {
     if (sortField === field) {
@@ -414,19 +423,19 @@ const handleMechanicChange = async () => {
       try {
         console.log("Starting status update process...");
   
-        // Prepare the batch update for Firestore
+        // References to both locations in Firestore
         const globalDocRef = doc(db, "bookings", reservationId);
         const userDocRef = doc(db, "users", userId, "bookings", reservationId);
   
-        const batch = writeBatch(db);
-        batch.update(globalDocRef, { status: selectedStatus });
-        batch.update(userDocRef, { status: selectedStatus });
-  
-        // Commit the batch to update the database
-        await batch.commit();
+        // Use setDoc with merge option instead of updateDoc
+        await Promise.all([
+          setDoc(globalDocRef, { status: selectedStatus }, { merge: true }),
+          setDoc(userDocRef, { status: selectedStatus }, { merge: true })
+        ]);
+        
         console.log("Database update successful for reservation ID:", reservationId);
   
-        // Update local state to reflect the change only after successful database update
+        // Update local state to reflect the change
         setReservationData(prevData => {
           console.log("Updating local state...");
           return prevData.map(reservation =>
@@ -442,7 +451,6 @@ const handleMechanicChange = async () => {
   
       } catch (error) {
         console.error("Error updating status:", error instanceof Error ? error.message : "Unknown error");
-        // Optionally, handle the error (e.g., show an error message to the user)
       }
     }
   };
