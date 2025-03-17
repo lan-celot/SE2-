@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, setDoc, doc, getDoc, documentId } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 interface FormData {
-  carBrand: any;
+  carBrand: string;
   firstName: string;
   lastName: string;
   gender: string;
@@ -16,7 +16,6 @@ interface FormData {
   province: string;
   zipCode: string;
   carModel: string;
-  carFullName: string;
   yearModel: string;
   transmission: string;
   fuelType: string;
@@ -43,10 +42,27 @@ export function ReviewDetails({
   const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async () => {
-    if (isSubmittingLocal) return; // Prevent multiple clicks
-    setIsSubmittingLocal(true);
+  const formatTime = (date: Date) => {
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
 
+  const normalizeDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return; // Prevent duplicate submissions
+    setIsSubmittingLocal(true);
+  
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -73,46 +89,67 @@ export function ReviewDetails({
 
       const querySnapshot = await getDocs(existingBookingsQuery);
 
-      if (!querySnapshot.empty) {
-        alert("You already have a reservation for this date.");
-        setIsSubmittingLocal(false);
-        return;
-      }
-
-      // Booking data
-      const bookingData = {
-        userId: user.uid,
-        customerName: `${formData.firstName} ${formData.lastName}`,
-        gender: formData.gender,
-        phoneNumber: formData.phoneNumber,
-        dateOfBirth: formData.dateOfBirth,
-        address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
-        carModel: formData.carModel,
-        carBrand: formData.carBrand,
-        yearModel: formData.yearModel,
-        transmission: formData.transmission,
-        fuelType: formData.fuelType,
-        odometer: formData.odometer,
-        reservationDate: formattedDate,
-        completionDate: "Pending",
-        status: "confirmed",
-        services: formData.generalServices.map(service => ({
-          mechanic: "TO BE ASSIGNED",
-          service: service.split("_").join(" ").toUpperCase(),
-          status: "Confirmed",
-          created: new Date().toLocaleDateString('en-CA', options),
-          reservationDate: formattedDate
-        })),
-        specificIssues: formData.specificIssues,
-        createdAt: new Date().toISOString()
-      };
-
-      // Save only to global bookings collection
-      await addDoc(bookingsCollectionRef, bookingData);
-
-      // Set success state to navigate
+        if (!querySnapshot.empty) {
+          alert("You already have a reservation for this date.");
+          setIsSubmittingLocal(false);
+          return;
+        }
+    
+        const normalizedDate = normalizeDate(formData.reservationDate);
+        const newBookingRef = doc(collection(db, "bookings"));
+        const docRef = newBookingRef;
+    
+        // Check if a document already exists to prevent overwriting
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          alert("You already have a reservation for this date.");
+          setIsSubmittingLocal(false);
+          return;
+        }
+    
+        const now = new Date();
+        const createdDateTime = formatTime(now);
+        const displayCarModel = formData.carModel.includes(formData.carBrand)
+          ? formData.carModel
+          : `${formData.carBrand} ${formData.carModel}`;
+    
+        const bookingData = {
+          userId: user.uid,
+          carBrand: formData.carBrand,
+          carModel: displayCarModel,
+          yearModel: formData.yearModel,
+          transmission: formData.transmission,
+          fuelType: formData.fuelType,
+          odometer: formData.odometer,
+          reservationDate: formattedDate,
+          status: "CONFIRMED",
+          generalServices: formData.generalServices,
+          specificIssues: formData.specificIssues,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          fullName: `${formData.firstName} ${formData.lastName}`,
+          gender: formData.gender,
+          phoneNumber: formData.phoneNumber,
+          dateOfBirth: formData.dateOfBirth,
+          address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
+          completionDate: "Pending",
+          services: formData.generalServices.map((service) => ({
+            service,
+            mechanic: "TO BE ASSIGNED",
+            status: "Confirmed",
+            created: normalizedDate,
+            createdTime: createdDateTime,
+            reservationDate: normalizedDate,
+            serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+          })),
+          createdAt: createdDateTime,
+          lastUpdated: now.toISOString()
+        };
+    
+      await setDoc(docRef, bookingData);
+      console.log("Reservation submitted with ID:", documentId);
+  
       setSubmissionSuccess(true);
-
     } catch (error) {
       console.error("Error submitting reservation:", error);
       alert("There was an error submitting your reservation. Please try again.");
@@ -120,18 +157,23 @@ export function ReviewDetails({
       setIsSubmittingLocal(false);
     }
   };
-
-  // Effect to handle navigation on success
+  
   useEffect(() => {
     if (submissionSuccess) {
       onSubmit();
     }
   }, [submissionSuccess, onSubmit]);
 
+  const displayCarModel = React.useMemo(() => {
+    if (formData.carModel.includes(formData.carBrand)) {
+      return formData.carModel;
+    }
+    return `${formData.carBrand} ${formData.carModel}`;
+  }, [formData.carBrand, formData.carModel]);
+
   return (
     <div className="p-4 bg-white rounded-lg shadow-md">
       <h2 className="text-xl font-bold mb-4">Review Your Booking</h2>
-
       <div className="space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -143,7 +185,6 @@ export function ReviewDetails({
             <p className="font-medium">{formData.gender}</p>
           </div>
         </div>
-
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Phone Number</p>
@@ -154,12 +195,10 @@ export function ReviewDetails({
             <p className="font-medium">{formData.dateOfBirth}</p>
           </div>
         </div>
-
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Address</p>
           <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
         </div>
-
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Reservation Date</p>
@@ -167,17 +206,15 @@ export function ReviewDetails({
               {new Date(formData.reservationDate).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
-                day: "numeric",
-                timeZone: "Asia/Manila"
+                day: "numeric"
               })}
             </p>
           </div>
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Car Model</p>
-            <p className="font-medium">{`${formData.carBrand} ${formData.carModel}`}</p>
+            <p className="font-medium">{displayCarModel}</p>
           </div>
         </div>
-
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Year Model</p>
@@ -188,7 +225,6 @@ export function ReviewDetails({
             <p className="font-medium">{formData.transmission}</p>
           </div>
         </div>
-
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Fuel Type</p>
@@ -199,7 +235,6 @@ export function ReviewDetails({
             <p className="font-medium">{formData.odometer}</p>
           </div>
         </div>
-
         <div className="space-y-2">
           <p className="text-sm text-gray-500">General Services</p>
           <div className="flex flex-wrap gap-2">
@@ -210,7 +245,6 @@ export function ReviewDetails({
             ))}
           </div>
         </div>
-
         {formData.specificIssues && (
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Specific Issues</p>
@@ -218,7 +252,6 @@ export function ReviewDetails({
           </div>
         )}
       </div>
-
       <div className="flex justify-between mt-6">
         <Button type="button" variant="outline" onClick={onBack} className="border-[#1e4e8c] text-[#1e4e8c]">
           Back

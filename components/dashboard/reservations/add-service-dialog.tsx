@@ -9,7 +9,7 @@ interface Service {
   id: string
   label: string
 }
-/* FOR ADDING MORE SERVICES SA RESERVATION PAGE*/
+
 const services: Service[] = [
   { id: "paint_jobs", label: "PAINT JOBS" },
   { id: "brake_shoes_clean", label: "BRAKE SHOES CLEAN" },
@@ -82,4 +82,3 @@ export function AddServiceDialog({ open, onOpenChange, onConfirm }: AddServiceDi
     </Dialog>
   )
 }
-
