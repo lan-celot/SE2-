@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { db, auth } from "@/lib/firebase";
-import { collection, query, where, getDocs, setDoc, doc, getDoc, documentId } from "firebase/firestore";
+import { collection, doc, runTransaction } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 interface FormData {
@@ -59,10 +59,16 @@ export function ReviewDetails({
     return date.toISOString().split('T')[0];
   };
 
+  const getDisplayCarModel = (brand: string, model: string): string => {
+    // Remove any duplicate brand mentions and clean up spaces
+    const cleanModel = model.replace(brand, '').trim();
+    return cleanModel ? `${brand} ${cleanModel}` : model;
+  };
+
   const handleSubmit = async () => {
-    if (isSubmitting) return; // Prevent duplicate submissions
+    if (isSubmitting || isSubmittingLocal) return;
     setIsSubmittingLocal(true);
-  
+
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -71,59 +77,41 @@ export function ReviewDetails({
         return;
       }
 
-      // Global bookings collection
-      const bookingsCollectionRef = collection(db, "bookings");
-      
       // Convert reservation date to Philippines time (UTC+8)
       const reservationDate = new Date(formData.reservationDate);
-      // Format date to YYYY-MM-DD in Philippines timezone
       const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
-      const formattedDate = reservationDate.toLocaleDateString('en-CA', options); // en-CA uses YYYY-MM-DD format
+      const formattedDate = reservationDate.toLocaleDateString('en-CA', options);
 
-      // Check for existing reservation on the same date
-      const existingBookingsQuery = query(
-        bookingsCollectionRef,
-        where("userId", "==", user.uid),
-        where("reservationDate", "==", formattedDate)
-      );
+      // Use the new displayCarModel function
+      const displayCarModel = getDisplayCarModel(formData.carBrand, formData.carModel);
+      
+      // Create a deterministic document ID based on user and date
+      const bookingId = `${user.uid}_${formattedDate}_${displayCarModel}`;
+      const bookingRef = doc(db, "bookings", bookingId);
 
-      const querySnapshot = await getDocs(existingBookingsQuery);
-
-        if (!querySnapshot.empty) {
-          alert("You already have a reservation for this date.");
-          setIsSubmittingLocal(false);
-          return;
+      // Use transaction to ensure atomicity
+      await runTransaction(db, async (transaction) => {
+        const existingDoc = await transaction.get(bookingRef);
+        
+        if (existingDoc.exists()) {
+          throw new Error("You already have a reservation for this date.");
         }
-    
-        const normalizedDate = normalizeDate(formData.reservationDate);
-        const newBookingRef = doc(collection(db, "bookings"));
-        const docRef = newBookingRef;
-    
-        // Check if a document already exists to prevent overwriting
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          alert("You already have a reservation for this date.");
-          setIsSubmittingLocal(false);
-          return;
-        }
-    
+
         const now = new Date();
         const createdDateTime = formatTime(now);
-        const displayCarModel = formData.carModel.includes(formData.carBrand)
-          ? formData.carModel
-          : `${formData.carBrand} ${formData.carModel}`;
-    
+        const normalizedDate = normalizeDate(formData.reservationDate);
+
         const bookingData = {
           userId: user.uid,
           carBrand: formData.carBrand,
-          carModel: displayCarModel,
+          carModel: displayCarModel, // Using the fixed display car model
           yearModel: formData.yearModel,
           transmission: formData.transmission,
           fuelType: formData.fuelType,
           odometer: formData.odometer,
           reservationDate: formattedDate,
           status: "CONFIRMED",
-          generalServices: formData.generalServices,
+          generalServices: formData.generalServices || [],
           specificIssues: formData.specificIssues,
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -133,7 +121,7 @@ export function ReviewDetails({
           dateOfBirth: formData.dateOfBirth,
           address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
           completionDate: "Pending",
-          services: formData.generalServices.map((service) => ({
+          services: (formData.generalServices || []).map((service) => ({
             service,
             mechanic: "TO BE ASSIGNED",
             status: "Confirmed",
@@ -145,19 +133,19 @@ export function ReviewDetails({
           createdAt: createdDateTime,
           lastUpdated: now.toISOString()
         };
-    
-      await setDoc(docRef, bookingData);
-      console.log("Reservation submitted with ID:", documentId);
-  
+
+        transaction.set(bookingRef, bookingData);
+      });
+
       setSubmissionSuccess(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting reservation:", error);
-      alert("There was an error submitting your reservation. Please try again.");
+      alert(error.message || "There was an error submitting your reservation. Please try again.");
     } finally {
       setIsSubmittingLocal(false);
     }
   };
-  
+
   useEffect(() => {
     if (submissionSuccess) {
       onSubmit();
@@ -165,10 +153,7 @@ export function ReviewDetails({
   }, [submissionSuccess, onSubmit]);
 
   const displayCarModel = React.useMemo(() => {
-    if (formData.carModel.includes(formData.carBrand)) {
-      return formData.carModel;
-    }
-    return `${formData.carBrand} ${formData.carModel}`;
+    return getDisplayCarModel(formData.carBrand, formData.carModel);
   }, [formData.carBrand, formData.carModel]);
 
   return (
@@ -238,9 +223,9 @@ export function ReviewDetails({
         <div className="space-y-2">
           <p className="text-sm text-gray-500">General Services</p>
           <div className="flex flex-wrap gap-2">
-            {formData.generalServices.map((service: string) => (
+            {(formData.generalServices || []).map((service: string) => (
               <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
-                {service.split("_").join(" ").toUpperCase()}
+                {(service || "").split("_").join(" ").toUpperCase()}
               </span>
             ))}
           </div>

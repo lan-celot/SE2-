@@ -7,8 +7,6 @@ import { DateSelectionForm } from "@/components/dashboard/book/date-selection-fo
 import { ReviewDetails } from "@/components/dashboard/book/review-details";
 import { ConfirmationPage } from "@/components/dashboard/book/confirmation-page";
 import { cn } from "@/lib/utils";
-import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, doc, setDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 
 type BookingStep = 1 | 2 | 3 | 4 | 5;
 
@@ -34,8 +32,6 @@ interface FormData {
   reservationDate: string;
   completionDate: string;
   status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
-  bookingId?: string;
-  referenceNumber?: string;
 }
 
 export function BookingContent() {
@@ -65,124 +61,11 @@ export function BookingContent() {
     completionDate: "",
   });
 
-  // Convert any date format to YYYY-MM-DD string
-  const formatDateToYYYYMMDD = (dateString: string): string => {
-    if (!dateString) return "";
-    
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch (e) {
-      console.error("Date formatting error:", e);
-      return dateString;
-    }
-  };
-
-  const handleNext = async (data: Partial<FormData>) => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-  
+  const handleNext = (data: Partial<FormData>) => {
     const updatedFormData = { ...formData, ...data };
     setFormData(updatedFormData);
-  
-    if (currentStep === 4) {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          console.error("No user is logged in");
-          setIsSubmitting(false);
-          return;
-        }
-  
-        // Normalize dates to YYYY-MM-DD format
-        const normalizedReservationDate = formatDateToYYYYMMDD(updatedFormData.reservationDate);
-        const normalizedCompletionDate = updatedFormData.completionDate
-          ? formatDateToYYYYMMDD(updatedFormData.completionDate)
-          : "";
-  
-        // Check for existing bookings
-        const bookingsCollectionRef = collection(db, "bookings");
-        const userBookingsQuery = query(
-          bookingsCollectionRef,
-          where("userId", "==", user.uid),
-          where("carFullName", "==", updatedFormData.carFullName),
-          where("reservationDate", "==", normalizedReservationDate)
-        );
-  
-        const bookingsSnapshot = await getDocs(userBookingsQuery);
-        
-        if (!bookingsSnapshot.empty) {
-          throw new Error("A booking already exists for this car on the selected date");
-        }
-  
-        // Generate a unique booking ID with a predictable format
-        const timestamp = Date.now().toString();
-        const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        const bookingId = `RE${timestamp}${randomNum}`;
-  
-        // Generate reference number
-        const referenceNumber = `R${timestamp}${Math.floor(Math.random() * 1000)}`;
-  
-        // Prepare services with consistent date format
-        const services = updatedFormData.generalServices.map((serviceId, index) => ({
-          mechanic: "TO BE ASSIGNED",
-          service: serviceId,
-          createdAt: formatDateToYYYYMMDD(new Date().toISOString()),
-          reservationId: `${referenceNumber}-${index + 1}`,
-          reservationDate: normalizedReservationDate,
-        }));
-  
-        // Prepare booking data
-        const bookingData = {
-          ...updatedFormData,
-          bookingId, // Store the ID in the document itself
-          reservationDate: normalizedReservationDate,
-          completionDate: normalizedCompletionDate,
-          referenceNumber,
-          createdAt: serverTimestamp(),
-          userId: user.uid,
-          services,
-        };
-  
-        // CRITICAL CHANGE: Remove the old approach completely
-        // DO NOT use doc(collection(db, "bookings"))
-        // DO NOT use bookingRef.id
-  
-        // Create documents with explicit IDs
-        await setDoc(doc(db, "bookings", bookingId), bookingData);
-        await setDoc(doc(db, `users/${user.uid}/bookings`, bookingId), bookingData);
-  
-        console.log(`Created booking with ID: ${bookingId}`);
-  
-        // Update form data with the new booking ID and reference number
-        setFormData({
-          ...updatedFormData,
-          bookingId,
-          referenceNumber,
-          reservationDate: normalizedReservationDate,
-          completionDate: normalizedCompletionDate,
-        });
-  
-        setCurrentStep(5);
-      } catch (error) {
-        console.error("Error saving booking: ", error);
-        if (error instanceof Error) {
-          alert(error.message || "Error saving booking");
-        } else {
-          alert("Error saving booking");
-        }
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else {
-      setCurrentStep((prev) => (prev + 1) as BookingStep);
-      setIsSubmitting(false);
-    }
+    setCurrentStep((prev) => (prev + 1) as BookingStep);
   };
-  
 
   const handleBack = () => {
     setCurrentStep((prev) => (prev - 1) as BookingStep);
@@ -213,6 +96,11 @@ export function BookingContent() {
       status: "CONFIRMED",
       completionDate: "",
     });
+  };
+
+  const handleReservationSuccess = () => {
+    setCurrentStep(5);
+    setIsSubmitting(false);
   };
 
   return (
@@ -252,9 +140,7 @@ export function BookingContent() {
         {currentStep === 4 && (
           <ReviewDetails
             formData={formData}
-            onSubmit={() => {
-              if (!isSubmitting) handleNext({});
-            }}
+            onSubmit={handleReservationSuccess}
             onBack={handleBack}
             isSubmitting={isSubmitting}
           />
