@@ -7,7 +7,7 @@ import { BookingSection } from "@/components/booking-section"
 import { BrandLogoScroll } from "@/components/brand-logo-scroll"
 import { AboutUsSection } from "@/components/about-us-section"
 import { FAQSection } from "@/components/faq-section"
-import { Footer } from "@/components/footer"
+import { Footer } from "@/components/Footer"
 
 export default function Home() {
   return (
