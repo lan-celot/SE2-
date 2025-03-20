@@ -1,33 +1,33 @@
 "use client"
-
-import { useState } from "react"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
-import { Pencil, Trash2, ChevronUp, ChevronDown, Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import { parseISO, compareDesc } from "date-fns"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import useLocalStorage from '@/hooks/useLocalStorage';
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { Pencil, Trash2, ChevronUp, ChevronDown, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { parseISO, compareDesc } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Employee {
-  id: string
-  name: string
-  username: string
-  avatar: string
-  role: string
-  workingOn: string
-  firstName?: string
-  lastName?: string
-  gender?: string
-  phone?: string
-  dateOfBirth?: string
-  streetAddress?: string
-  city?: string
-  province?: string
-  zipCode?: string
-  dateAdded?: string
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  role: string;
+  workingOn: string;
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  streetAddress?: string;
+  city?: string;
+  province?: string;
+  zipCode?: string;
+  dateAdded?: string;
 }
 
 const initialEmployees: Employee[] = [
@@ -121,120 +121,125 @@ const initialEmployees: Employee[] = [
     workingOn: "#R00098",
     dateAdded: "2024-03-06T04:00:00Z",
   },
-]
+];
 
 interface EmployeesTableProps {
-  searchQuery: string
+  searchQuery: string;
 }
 
 export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
-  const router = useRouter()
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
-  const [sortField, setSortField] = useState<keyof Employee>("id")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [showPassword, setShowPassword] = useState(false)
-  const [password, setPassword] = useState("")
-  const [wrongPassword, setWrongPassword] = useState(false)
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const savedEmployees = localStorage.getItem("employees")
-    const parsedEmployees = savedEmployees ? JSON.parse(savedEmployees) : []
-    return [...parsedEmployees, ...initialEmployees].sort((a, b) =>
-      compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01")),
-    )
-  })
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
-  const [newRole, setNewRole] = useState("")
+  const router = useRouter();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [sortField, setSortField] = useState<keyof Employee>("id");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [wrongPassword, setWrongPassword] = useState(false);
+  const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [newRole, setNewRole] = useState("");
+
+  useEffect(() => {
+    // Ensure employees are sorted by dateAdded when the component mounts
+    setEmployees((prevEmployees) =>
+      [...prevEmployees].sort((a, b) =>
+        compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
+      )
+    );
+  }, [setEmployees]);
 
   const handleSort = (field: keyof Employee) => {
     if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
-      setSortField(field)
-      setSortOrder("asc")
+      setSortField(field);
+      setSortOrder("asc");
     }
     setEmployees((prevEmployees) => {
       return [...prevEmployees].sort((a, b) => {
         if (field === "dateAdded") {
           return sortOrder === "asc"
             ? compareDesc(parseISO(b.dateAdded || "1970-01-01"), parseISO(a.dateAdded || "1970-01-01"))
-            : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
+            : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"));
         }
         if (field === "id") {
           return sortOrder === "asc"
             ? Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))
-            : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1))
+            : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1));
         }
-        if (a[field] < b[field]) return sortOrder === "asc" ? -1 : 1
-        if (a[field] > b[field]) return sortOrder === "asc" ? 1 : -1
-        return 0
-      })
-    })
-  }
+        const valueA = a[field] ?? '';
+        const valueB = b[field] ?? '';
+        if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
+        if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    });
+  };
 
   const filteredEmployees = employees
     .filter((employee) => {
-      if (!searchQuery) return true
-      const searchLower = searchQuery.toLowerCase()
+      if (!searchQuery) return true;
+      const searchLower = searchQuery.toLowerCase();
       return (
         employee.name.toLowerCase().includes(searchLower) ||
         employee.username.toLowerCase().includes(searchLower) ||
         employee.role.toLowerCase().includes(searchLower) ||
         employee.id.toLowerCase().includes(searchLower) ||
         employee.workingOn.toLowerCase().includes(searchLower)
-      )
+      );
     })
     .sort((a, b) => {
-      if (a[sortField] < b[sortField]) return sortOrder === "asc" ? -1 : 1
-      if (a[sortField] > b[sortField]) return sortOrder === "asc" ? 1 : -1
-      return 0
-    })
+      const valueA = a[sortField] ?? '';
+      const valueB = b[sortField] ?? '';
+      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
+      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
 
   const handleDelete = () => {
     if (password === "password123") {
       if (selectedEmployee) {
-        setEmployees(employees.filter((emp) => emp.id !== selectedEmployee.id))
-        setShowDeleteDialog(false)
-        setSelectedEmployee(null)
-        setPassword("")
-        setWrongPassword(false)
-        // Show success message
-        setShowSuccessMessage(true)
-        // Hide success message after 2 seconds
+        setEmployees(employees.filter((emp) => emp.id !== selectedEmployee.id));
+        setShowDeleteDialog(false);
+        setSelectedEmployee(null);
+        setPassword("");
+        setWrongPassword(false);
+        setShowSuccessMessage(true);
         setTimeout(() => {
-          setShowSuccessMessage(false)
-        }, 2000)
+          setShowSuccessMessage(false);
+        }, 2000);
       }
     } else {
-      setWrongPassword(true)
+      setWrongPassword(true);
     }
-  }
+  };
 
   const handleViewDetails = (employeeId: string) => {
-    const formattedId = employeeId.replace("#", "").toLowerCase()
-    router.push(`/employees/${formattedId}`)
-  }
+    const formattedId = employeeId.replace("#", "").toLowerCase();
+    router.push(`/employees/${formattedId}`);
+  };
 
   const handleRoleChange = () => {
     if (password === "password123" && editingEmployee) {
       setEmployees((prevEmployees) =>
-        prevEmployees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp)),
-      )
-      setShowEditDialog(false)
-      setEditingEmployee(null)
-      setNewRole("")
-      setPassword("")
-      setWrongPassword(false)
-      setShowSuccessMessage(true)
+        prevEmployees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp))
+      );
+      setShowEditDialog(false);
+      setEditingEmployee(null);
+      setNewRole("");
+      setPassword("");
+      setWrongPassword(false);
+      setShowSuccessMessage(true);
       setTimeout(() => {
-        setShowSuccessMessage(false)
-      }, 2000)
+        setShowSuccessMessage(false);
+      }, 2000);
     } else {
-      setWrongPassword(true)
+      setWrongPassword(true);
     }
-  }
+  };
 
   return (
     <>
@@ -259,7 +264,7 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                   key={column.key}
                   className={cn(
                     "px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider",
-                    column.key === "action" ? "text-center" : "text-left",
+                    column.key === "action" ? "text-center" : "text-left"
                   )}
                 >
                   {column.key !== "action" ? (
@@ -272,13 +277,13 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                         <ChevronUp
                           className={cn(
                             "h-3 w-3",
-                            sortField === column.key && sortOrder === "asc" ? "text-[#1A365D]" : "text-[#8B909A]",
+                            sortField === column.key && sortOrder === "asc" ? "text-[#1A365D]" : "text-[#8B909A]"
                           )}
                         />
                         <ChevronDown
                           className={cn(
                             "h-3 w-3",
-                            sortField === column.key && sortOrder === "desc" ? "text-[#1A365D]" : "text-[#8B909A]",
+                            sortField === column.key && sortOrder === "desc" ? "text-[#1A365D]" : "text-[#8B909A]"
                           )}
                         />
                       </div>
@@ -332,9 +337,9 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setEditingEmployee(employee)
-                        setNewRole(employee.role)
-                        setShowEditDialog(true)
+                        setEditingEmployee(employee);
+                        setNewRole(employee.role);
+                        setShowEditDialog(true);
                       }}
                     >
                       <Pencil className="h-4 w-4 text-[#1A365D]" />
@@ -343,8 +348,8 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setSelectedEmployee(employee)
-                        setShowDeleteDialog(true)
+                        setSelectedEmployee(employee);
+                        setShowDeleteDialog(true);
                       }}
                     >
                       <Trash2 className="h-4 w-4 text-[#1A365D]" />
@@ -372,12 +377,12 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 placeholder="Confirm password"
                 value={password}
                 onChange={(e) => {
-                  setPassword(e.target.value)
-                  setWrongPassword(false)
+                  setPassword(e.target.value);
+                  setWrongPassword(false);
                 }}
                 className={cn(
                   "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]",
+                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]"
                 )}
               />
               <button
@@ -392,9 +397,9 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
           <div className="flex justify-center gap-4">
             <button
               onClick={() => {
-                setShowDeleteDialog(false)
-                setPassword("")
-                setWrongPassword(false)
+                setShowDeleteDialog(false);
+                setPassword("");
+                setWrongPassword(false);
               }}
               className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
             >
@@ -435,12 +440,12 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 placeholder="Confirm password"
                 value={password}
                 onChange={(e) => {
-                  setPassword(e.target.value)
-                  setWrongPassword(false)
+                  setPassword(e.target.value);
+                  setWrongPassword(false);
                 }}
                 className={cn(
                   "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]",
+                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]"
                 )}
               />
               <button
@@ -455,9 +460,9 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
           <div className="flex justify-center gap-4">
             <button
               onClick={() => {
-                setShowEditDialog(false)
-                setPassword("")
-                setWrongPassword(false)
+                setShowEditDialog(false);
+                setPassword("");
+                setWrongPassword(false);
               }}
               className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
             >
@@ -473,6 +478,5 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
-

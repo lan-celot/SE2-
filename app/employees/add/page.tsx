@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import useLocalStorage from '@/hooks/useLocalStorage'; // Ensure this path is correct
 
 interface EmployeeData {
   id: string
@@ -50,6 +51,8 @@ export default function AddEmployeePage() {
     zipCode: "",
   })
 
+  const [employees, setEmployees] = useLocalStorage<EmployeeData[]>("employees", [])
+
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -62,12 +65,11 @@ export default function AddEmployeePage() {
   }
 
   const generateEmployeeId = () => {
-    const lastId = localStorage.getItem("lastEmployeeId") || "E00010"
-    const numericPart = Number.parseInt(lastId.replace("E", ""))
+    const lastId = employees.length > 0 ? employees[employees.length - 1].id : "E00000"
+    const numericPart = Number.parseInt(lastId.slice(1))
     const newNumericId = numericPart + 1
     const newId = `E${newNumericId.toString().padStart(5, "0")}`
-    localStorage.setItem("lastEmployeeId", newId)
-    return `#${newId}`
+    return newId
   }
 
   const handleConfirm = () => {
@@ -77,22 +79,12 @@ export default function AddEmployeePage() {
         name: `${formData.firstName} ${formData.lastName}`,
         username: formData.firstName.toLowerCase(),
         avatar: "/placeholder.svg?height=40&width=40",
-        role:
-          formData.role === "Administrator"
-            ? "Administrator"
-            : formData.role === "Lead Mechanic"
-              ? "Lead Mechanic"
-              : formData.role === "Assistant Mechanic"
-                ? "Assistant Mechanic"
-                : "Helper Mechanic",
         workingOn: "Not assigned",
         dateAdded: new Date().toISOString(), // Add this line
         ...formData,
       }
 
-      const existingEmployees = JSON.parse(localStorage.getItem("employees") || "[]")
-      const updatedEmployees = [newEmployee, ...existingEmployees]
-      localStorage.setItem("employees", JSON.stringify(updatedEmployees))
+      setEmployees([...employees, newEmployee])
 
       setShowConfirmDialog(false)
       setShowSuccessMessage(true)
@@ -113,7 +105,9 @@ export default function AddEmployeePage() {
         </div>
 
         {showSuccessMessage && (
-          <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">Employee added</div>
+          <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
+            Employee added
+          </div>
         )}
 
         <div className="mx-auto max-w-4xl rounded-xl bg-white p-8 shadow-sm">
@@ -270,4 +264,3 @@ export default function AddEmployeePage() {
     </div>
   )
 }
-

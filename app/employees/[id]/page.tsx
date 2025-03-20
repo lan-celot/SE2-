@@ -7,7 +7,8 @@ import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import React from "react" // Added import for React
+import React from "react"
+import useLocalStorage from '@/hooks/useLocalStorage'; // Ensure this path is correct
 
 interface Employee {
   id: string
@@ -267,7 +268,7 @@ export default function EmployeeDetailsPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const itemsPerPage = 5
   // Add new state for managing services
-  const [reservationsData, setReservationsData] = useState(marcialReservations)
+  const [reservationsData, setReservationsData] = useLocalStorage<Reservation[]>("reservations", marcialReservations)
 
   useEffect(() => {
     const fullId = `#${params.id}`.toUpperCase()
@@ -346,7 +347,7 @@ export default function EmployeeDetailsPage() {
           }
         }
         return reservation
-      }),
+      })
     )
   }
 
@@ -720,4 +721,3 @@ export default function EmployeeDetailsPage() {
     </div>
   )
 }
-
