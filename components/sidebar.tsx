@@ -3,11 +3,39 @@
 import Link from "next/link"
 import { Home, ClipboardList, BarChart2, Users, LogOut, Receipt, UserCog } from "lucide-react"
 import type React from "react" // Import React
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { auth } from "@/lib/firebase"
+import { signOut } from "firebase/auth"
+import { toast } from "@/components/ui/use-toast"
 
 export function Sidebar() {
-  //const pathname = usePathname() // Removed as per update
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      // Sign out from Firebase
+      await signOut(auth)
+
+      // Show success toast
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+        variant: "default"
+      })
+
+      // Redirect to login page
+      router.push("/login")
+    } catch (error) {
+      // Handle any logout errors
+      console.error("Logout error:", error)
+      toast({
+        title: "Logout Error",
+        description: "An error occurred while logging out.",
+        variant: "destructive"
+      })
+    }
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#1A365D] text-white flex flex-col">
@@ -37,7 +65,13 @@ export function Sidebar() {
           <p className="px-2 text-xs font-semibold text-[#8B909A] uppercase mb-2">USER</p>
           <NavLink href="/employees" icon={UserCog} label="Employees" />
           <NavLink href="/customers" icon={Users} label="Customers" />
-          <NavLink href="/logout" icon={LogOut} label="Logout" />
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-2 py-2 text-sm rounded-lg text-[#8B909A] hover:text-white hover:bg-white/5 w-full text-left"
+          >
+            <LogOut className="h-5 w-5" />
+            Logout
+          </button>
         </div>
       </div>
     </aside>
@@ -61,4 +95,3 @@ function NavLink({ href, icon: Icon, label }: { href: string; icon: React.Elemen
     </Link>
   )
 }
-

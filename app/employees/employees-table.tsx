@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { parseISO, compareDesc } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "@/components/ui/use-toast";
 
 interface Employee {
   id: string;
@@ -129,6 +130,8 @@ interface EmployeesTableProps {
 
 export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
   const router = useRouter();
+  const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees);
+  const [sortedEmployees, setSortedEmployees] = useState<Employee[]>(employees);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [sortField, setSortField] = useState<keyof Employee>("id");
@@ -136,20 +139,18 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [wrongPassword, setWrongPassword] = useState(false);
-  const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [newRole, setNewRole] = useState("");
 
+  // Sort employees when they change
   useEffect(() => {
-    // Ensure employees are sorted by dateAdded when the component mounts
-    setEmployees((prevEmployees) =>
-      [...prevEmployees].sort((a, b) =>
-        compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
-      )
+    const sorted = [...employees].sort((a, b) =>
+      compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
     );
-  }, [setEmployees]);
+    
+    setSortedEmployees(sorted);
+  }, [employees]);
 
   const handleSort = (field: keyof Employee) => {
     if (sortField === field) {
@@ -158,28 +159,29 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
       setSortField(field);
       setSortOrder("asc");
     }
-    setEmployees((prevEmployees) => {
-      return [...prevEmployees].sort((a, b) => {
-        if (field === "dateAdded") {
-          return sortOrder === "asc"
-            ? compareDesc(parseISO(b.dateAdded || "1970-01-01"), parseISO(a.dateAdded || "1970-01-01"))
-            : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"));
-        }
-        if (field === "id") {
-          return sortOrder === "asc"
-            ? Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))
-            : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1));
-        }
-        const valueA = a[field] ?? '';
-        const valueB = b[field] ?? '';
-        if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
-        if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
-        return 0;
-      });
+
+    const sortedArray = [...sortedEmployees].sort((a, b) => {
+      if (field === "dateAdded") {
+        return sortOrder === "asc"
+          ? compareDesc(parseISO(b.dateAdded || "1970-01-01"), parseISO(a.dateAdded || "1970-01-01"))
+          : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"));
+      }
+      if (field === "id") {
+        return sortOrder === "asc"
+          ? Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))
+          : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1));
+      }
+      const valueA = a[field] ?? '';
+      const valueB = b[field] ?? '';
+      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
+      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
     });
+
+    setSortedEmployees(sortedArray);
   };
 
-  const filteredEmployees = employees
+  const filteredEmployees = sortedEmployees
     .filter((employee) => {
       if (!searchQuery) return true;
       const searchLower = searchQuery.toLowerCase();
@@ -190,30 +192,34 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
         employee.id.toLowerCase().includes(searchLower) ||
         employee.workingOn.toLowerCase().includes(searchLower)
       );
-    })
-    .sort((a, b) => {
-      const valueA = a[sortField] ?? '';
-      const valueB = b[sortField] ?? '';
-      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
-      return 0;
     });
 
   const handleDelete = () => {
     if (password === "password123") {
       if (selectedEmployee) {
-        setEmployees(employees.filter((emp) => emp.id !== selectedEmployee.id));
+        const updatedEmployees = employees.filter((emp) => emp.id !== selectedEmployee.id);
+        setEmployees(updatedEmployees);
+        
+        // Show success toast
+        toast({
+          title: "Employee Deleted",
+          description: `${selectedEmployee.name} has been removed from the employee list.`,
+          variant: "default"
+        });
+
+        // Reset dialogs and state
         setShowDeleteDialog(false);
         setSelectedEmployee(null);
         setPassword("");
         setWrongPassword(false);
-        setShowSuccessMessage(true);
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-        }, 2000);
       }
     } else {
       setWrongPassword(true);
+      toast({
+        title: "Incorrect Password",
+        description: "The password you entered is incorrect.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -224,31 +230,37 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
 
   const handleRoleChange = () => {
     if (password === "password123" && editingEmployee) {
-      setEmployees((prevEmployees) =>
-        prevEmployees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp))
+      const updatedEmployees = employees.map((emp) => 
+        emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp
       );
+      
+      setEmployees(updatedEmployees);
+      
+      // Show success toast
+      toast({
+        title: "Role Updated",
+        description: `${editingEmployee.name}'s role has been changed to ${newRole}.`,
+        variant: "default"
+      });
+
+      // Reset dialogs and state
       setShowEditDialog(false);
       setEditingEmployee(null);
       setNewRole("");
       setPassword("");
       setWrongPassword(false);
-      setShowSuccessMessage(true);
-      setTimeout(() => {
-        setShowSuccessMessage(false);
-      }, 2000);
     } else {
       setWrongPassword(true);
+      toast({
+        title: "Incorrect Password",
+        description: "The password you entered is incorrect.",
+        variant: "destructive"
+      });
     }
   };
 
   return (
     <>
-      {showSuccessMessage && (
-        <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
-          Role edited successfully
-        </div>
-      )}
-
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -362,6 +374,7 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
         </table>
       </div>
 
+      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -370,7 +383,9 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            {wrongPassword && <div className="mb-4 text-center text-[#EA5455]">Wrong password</div>}
+          {wrongPassword && (
+              <div className="mb-4 text-center text-[#EA5455]">Wrong password</div>
+            )}
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
@@ -414,6 +429,8 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Role Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -433,7 +450,9 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 <SelectItem value="Helper Mechanic">Helper Mechanic</SelectItem>
               </SelectContent>
             </Select>
-            {wrongPassword && <div className="mt-4 text-center text-[#EA5455]">Wrong password</div>}
+            {wrongPassword && (
+              <div className="mt-4 text-center text-[#EA5455]">Wrong password</div>
+            )}
             <div className="relative mt-4">
               <Input
                 type={showPassword ? "text" : "password"}
