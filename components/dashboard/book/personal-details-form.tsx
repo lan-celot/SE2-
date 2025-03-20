@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
+import useLocalStorage from '@/hooks/useLocalStorage'; // Ensure this path is correct
+
 
 // Type definitions for location data
 type City = string;
@@ -266,64 +268,81 @@ interface PersonalDetailsFormProps {
   onSubmit: (data: any) => void
 }
 
+// Inside your component
 export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFormProps) {
-  const auth = getAuth()
-  const user = auth.currentUser
+  const auth = getAuth();
+  const user = auth.currentUser;
 
-  const [availableProvinces, setAvailableProvinces] = useState<string[]>([])
-  const [availableCities, setAvailableCities] = useState<string[]>([])
-  const [formDataLoaded, setFormDataLoaded] = useState(false)
+  const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [formDataLoaded, setFormDataLoaded] = useState(false);
 
-  // Initialize form with values from localStorage or initialData
-  const getInitialFormValues = () => {
-    // Try to get saved form data from localStorage first
-    const savedFormData = localStorage.getItem('personalDetailsForm')
-    if (savedFormData) {
-      try {
-        return JSON.parse(savedFormData)
-      } catch (e) {
-        console.error("Error parsing saved form data:", e)
-      }
-    }
-
-    // Fall back to initialData or empty values
-    return initialData || {
-      firstName: "",
-      lastName: "",
-      gender: "",
-      phoneNumber: "",
-      dateOfBirth: "",
-      streetAddress: "",
-      region: "",
-      province: "",
-      city: "",
-      zipCode: "",
-    }
-  }
+  // Use the custom hook to manage localStorage
+  const [formData, setFormData] = useLocalStorage('personalDetailsForm', initialData || {
+    firstName: "",
+    lastName: "",
+    gender: "",
+    phoneNumber: "",
+    dateOfBirth: "",
+    streetAddress: "",
+    region: "",
+    province: "",
+    city: "",
+    zipCode: "",
+  });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: getInitialFormValues(),
-  })
+    defaultValues: formData,
+  });
 
   // Get the current values
-  const currentRegion = form.watch("region")
-  const currentProvince = form.watch("province")
-
+  const currentRegion = form.watch("region");
+  const currentProvince = form.watch("province");
+  
   // Update provinces when region changes
   useEffect(() => {
     if (currentRegion && currentRegion in locationHierarchy) {
-      const provinces = locationHierarchy[currentRegion].provinces
-      setAvailableProvinces([...provinces].sort())
+      const provinces = locationHierarchy[currentRegion].provinces;
+      setAvailableProvinces([...provinces].sort());
 
       // Only clear province and city if we're not in the initial loading phase
       if (formDataLoaded && !initialData?.region) {
-        form.setValue("province", "")
-        form.setValue("city", "")
-        setAvailableCities([])
+        form.setValue("province", "");
+        form.setValue("city", "");
+        setAvailableCities([]);
       }
     }
-  }, [currentRegion, form, formDataLoaded, initialData])
+  }, [currentRegion, form, formDataLoaded, initialData]);
+
+  // Update cities when province changes
+  useEffect(() => {
+    if (
+      currentRegion &&
+      currentProvince &&
+      currentRegion in locationHierarchy &&
+      currentProvince in locationHierarchy[currentRegion].cities
+    ) {
+      const cities = locationHierarchy[currentRegion].cities[currentProvince];
+      setAvailableCities([...cities].sort());
+
+      // Only clear city if we're not in the initial loading phase
+      if (formDataLoaded && !initialData?.province) {
+        form.setValue("city", "");
+      }
+    }
+  }, [currentProvince, currentRegion, form, formDataLoaded, initialData]);
+
+    // Save form data to localStorage whenever it changes
+    useEffect(() => {
+      const subscription = form.watch((formValues) => {
+        if (formDataLoaded && formValues) {
+          setFormData(formValues);
+        }
+      });
+  
+      return () => subscription.unsubscribe();
+    }, [form, formDataLoaded, setFormData]);
 
   // Update cities when province changes
   useEffect(() => {
@@ -354,92 +373,107 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     return () => subscription.unsubscribe()
   }, [form, formDataLoaded])
 
-  // Fetch user data from Firebase
-  useEffect(() => {
-    if (user) {
-      const fetchUserData = async () => {
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid))
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
-
-            // Check if we already have form data in localStorage
-            const savedFormData = localStorage.getItem('personalDetailsForm')
-            if (!savedFormData) {
-              // Set form values from Firebase data if no localStorage data exists
-              const formData = {
-                firstName: userData.firstName || "",
-                lastName: userData.lastName || "",
-                gender: userData.gender || "",
-                phoneNumber: userData.phoneNumber || "",
-                dateOfBirth: userData.dateOfBirth || "",
-                streetAddress: userData.streetAddress || "",
-                region: userData.region || "",
-                province: userData.province || "",
-                city: userData.city || "",
-                zipCode: userData.zipCode || "",
+    // Fetch user data from Firebase
+    useEffect(() => {
+      if (user) {
+        const fetchUserData = async () => {
+          try {
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+  
+              // Check if we already have form data in localStorage
+              const savedFormData = localStorage.getItem('personalDetailsForm');
+              if (!savedFormData) {
+                // Set form values from Firebase data if no localStorage data exists
+                const formData = {
+                  firstName: userData.firstName || "",
+                  lastName: userData.lastName || "",
+                  gender: userData.gender || "",
+                  phoneNumber: userData.phoneNumber || "",
+                  dateOfBirth: userData.dateOfBirth || "",
+                  streetAddress: userData.streetAddress || "",
+                  region: userData.region || "",
+                  province: userData.province || "",
+                  city: userData.city || "",
+                  zipCode: userData.zipCode || "",
+                };
+  
+                form.reset(formData);
+                setFormData(formData);
               }
-
-              form.reset(formData)
-              localStorage.setItem('personalDetailsForm', JSON.stringify(formData))
+  
+              // Populate available provinces based on the retrieved region
+              if (userData.region && userData.region in locationHierarchy) {
+                setAvailableProvinces([...locationHierarchy[userData.region].provinces].sort());
+              }
+  
+              // Populate available cities based on the retrieved province
+              if (
+                userData.region &&
+                userData.province &&
+                userData.region in locationHierarchy &&
+                userData.province in locationHierarchy[userData.region].cities
+              ) {
+                setAvailableCities([...locationHierarchy[userData.region].cities[userData.province]].sort());
+              }
             }
-
-            // Populate available provinces based on the retrieved region
-            if (userData.region && userData.region in locationHierarchy) {
-              setAvailableProvinces([...locationHierarchy[userData.region].provinces].sort())
-            }
-
-            // Populate available cities based on the retrieved province
-            if (
-              userData.region &&
-              userData.province &&
-              userData.region in locationHierarchy &&
-              userData.province in locationHierarchy[userData.region].cities
-            ) {
-              setAvailableCities([...locationHierarchy[userData.region].cities[userData.province]].sort())
-            }
+  
+            // Mark form as loaded after data retrieval
+            setFormDataLoaded(true);
+          } catch (error) {
+            console.error("Error fetching user data:", error);
+            setFormDataLoaded(true);
           }
-
-          // Mark form as loaded after data retrieval
-          setFormDataLoaded(true)
-        } catch (error) {
-          console.error("Error fetching user data:", error)
-          setFormDataLoaded(true)
-        }
+        };
+  
+        fetchUserData();
+      } else {
+        setFormDataLoaded(true);
       }
-
-      fetchUserData()
-    } else {
-      setFormDataLoaded(true)
-    }
-  }, [user, form])
+    }, [user, form, setFormData]);
 
   // Prevent form submission if data hasn't been loaded yet
   const handleSubmit = (data: z.infer<typeof formSchema>) => {
     if (formDataLoaded) {
       // Save form data to localStorage before submitting
-      localStorage.setItem('personalDetailsForm', JSON.stringify(data))
-      onSubmit(data)
+      setFormData(data);
+      onSubmit(data);
     }
-  }
+  };
+
 
  // Function to reset the form
-const handleReset = () => {
+ // Function to reset the form
+ const handleReset = () => {
   // Explicitly reset specific fields
-  form.setValue("firstName", "")
-  form.setValue("lastName", "")
-  form.setValue("gender", "")
-  form.setValue("phoneNumber", "")
-  form.setValue("dateOfBirth", "")
-  form.setValue("streetAddress", "")
-  form.setValue("region", "")
-  form.setValue("province", "")
-  form.setValue("city", "")
-  form.setValue("zipCode", "")
+  form.setValue("firstName", "");
+  form.setValue("lastName", "");
+  form.setValue("gender", "");
+  form.setValue("phoneNumber", "");
+  form.setValue("dateOfBirth", "");
+  form.setValue("streetAddress", "");
+  form.setValue("region", "");
+  form.setValue("province", "");
+  form.setValue("city", "");
+  form.setValue("zipCode", "");
 
   // Clear localStorage
-  localStorage.removeItem('personalDetailsForm')
-}
+ 
+    // Clear localStorage
+    setFormData({
+      firstName: "",
+      lastName: "",
+      gender: "",
+      phoneNumber: "",
+      dateOfBirth: "",
+      streetAddress: "",
+      region: "",
+      province: "",
+      city: "",
+      zipCode: "",
+    });
+  };
 
   return (
     <Form {...form}>
@@ -631,5 +665,5 @@ const handleReset = () => {
         </div>
       </form>
     </Form>
-  )
+  );
 }

@@ -7,39 +7,35 @@ import { useState } from "react"
 import { Menu, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type React from "react" // Added import for React
+import useLocalStorage from '@/hooks/useLocalStorage'; // Ensure this path is correct
 
 interface NavBarProps {
   isLoggedIn?: boolean
 }
 
 export function NavBar({ isLoggedIn = false }: NavBarProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const router = useRouter()
+  const [isMenuOpen, setIsMenuOpen] = useLocalStorage('navMenuState', false);
+  const router = useRouter();
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
-    e.preventDefault()
-    const section = document.getElementById(id)
+    e.preventDefault();
+    const section = document.getElementById(id);
     if (section) {
-      section.scrollIntoView({ behavior: "smooth" })
+      section.scrollIntoView({ behavior: "smooth" });
     }
-    setIsMenuOpen(false)
-  }
+    setIsMenuOpen(false);
+  };
 
   const scrollToTop = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault()
-    window.scrollTo({ top: 0, behavior: "smooth" })
-    setIsMenuOpen(false)
-  }
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setIsMenuOpen(false);
+  };
 
   const handleLogout = () => {
-    // In a real app, you would clear the authentication token here
-    // For example:
-    // localStorage.removeItem('authToken');
-    // Or make an API call to invalidate the session on the server
-
-    // Redirect to the homepage
-    router.push("/")
-  }
+    // Clear authentication token or invalidate session
+    router.push("/");
+  };
 
   return (
     <nav className="bg-[#ebf8ff] sticky top-0 z-50 border-primary/10">
@@ -207,6 +203,5 @@ export function NavBar({ isLoggedIn = false }: NavBarProps) {
         </div>
       )}
     </nav>
-  )
+  );
 }
-
