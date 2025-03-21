@@ -8,7 +8,7 @@ import { Sidebar } from "@/components/sidebar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import React from "react"
-import useLocalStorage from '@/hooks/useLocalStorage'; // Ensure this path is correct
+import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
 
 interface Employee {
   id: string
@@ -347,7 +347,7 @@ export default function EmployeeDetailsPage() {
           }
         }
         return reservation
-      })
+      }),
     )
   }
 
@@ -493,20 +493,21 @@ export default function EmployeeDetailsPage() {
           <div className="rounded-xl bg-white p-6 shadow-sm">
             {employee.id === "#E00001" ? (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full table-fixed">
                   <thead>
                     <tr className="border-b border-gray-200">
                       {[
-                        { key: "id", label: "RESERVATION ID" },
-                        { key: "date", label: "RESERVATION DATE" },
-                        { key: "customerName", label: "CUSTOMER NAME" },
-                        { key: "carModel", label: "CAR MODEL" },
-                        { key: "status", label: "STATUS" },
-                        { key: "action", label: "ACTION" },
+                        { key: "id", label: "RESERVATION ID", width: "15%" },
+                        { key: "date", label: "RESERVATION DATE", width: "20%" },
+                        { key: "customerName", label: "CUSTOMER NAME", width: "20%" },
+                        { key: "carModel", label: "CAR MODEL", width: "20%" },
+                        { key: "status", label: "STATUS", width: "15%" },
+                        { key: "action", label: "ACTION", width: "10%" },
                       ].map((column) => (
                         <th
                           key={column.key}
-                          className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                          className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                          style={{ width: column.width }}
                         >
                           {column.key !== "action" && column.key !== "status" ? (
                             <button
@@ -550,10 +551,27 @@ export default function EmployeeDetailsPage() {
                             "transition-opacity duration-200",
                           )}
                         >
-                          <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.id}</td>
-                          <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.date}</td>
-                          <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.customerName}</td>
-                          <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.carModel}</td>
+                          <td className="px-3 py-2 text-sm text-[#1A365D] text-center truncate" title={reservation.id}>
+                            {reservation.id}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                            title={reservation.date}
+                          >
+                            {reservation.date}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                            title={reservation.customerName}
+                          >
+                            {reservation.customerName}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                            title={reservation.carModel}
+                          >
+                            {reservation.carModel}
+                          </td>
                           <td className="px-6 py-4 text-center">
                             <span
                               className={cn(
@@ -592,19 +610,31 @@ export default function EmployeeDetailsPage() {
                           <tr>
                             <td colSpan={6} className="bg-gray-50">
                               <div className="px-4 py-2">
-                                <table className="w-full">
+                                <table className="w-full table-fixed">
                                   <thead>
                                     <tr>
-                                      <th className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                      <th
+                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                                        style={{ width: "25%" }}
+                                      >
                                         Customer ID
                                       </th>
-                                      <th className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                      <th
+                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                                        style={{ width: "25%" }}
+                                      >
                                         Service
                                       </th>
-                                      <th className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                      <th
+                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                                        style={{ width: "25%" }}
+                                      >
                                         Mechanic
                                       </th>
-                                      <th className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                      <th
+                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                                        style={{ width: "25%" }}
+                                      >
                                         Status
                                       </th>
                                     </tr>
@@ -637,13 +667,22 @@ export default function EmployeeDetailsPage() {
                                                 serviceStatusStyles[service.status],
                                               )}
                                             >
-                                              <option value="Confirmed" className="bg-[#EBF8FF] text-[#63B3ED] py-1">
+                                              <option
+                                                value="Confirmed"
+                                                className="bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0] py-1"
+                                              >
                                                 Confirmed
                                               </option>
-                                              <option value="Repairing" className="bg-[#FFF5E0] text-[#FFC600] py-1">
+                                              <option
+                                                value="Repairing"
+                                                className="bg-[#FFF5E0] text-[#FFC600] hover:bg-[#FEEBC8] hover:text-[#D97706] py-1"
+                                              >
                                                 Repairing
                                               </option>
-                                              <option value="Completed" className="bg-[#E6FFF3] text-[#28C76F] py-1">
+                                              <option
+                                                value="Completed"
+                                                className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366] py-1"
+                                              >
                                                 Completed
                                               </option>
                                             </select>
@@ -673,7 +712,7 @@ export default function EmployeeDetailsPage() {
                 </table>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between px-2 py-3 mt-4">
+                <div className="flex justify-end px-2 py-3 mt-4">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -721,3 +760,4 @@ export default function EmployeeDetailsPage() {
     </div>
   )
 }
+

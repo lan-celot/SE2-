@@ -141,6 +141,8 @@ export default function CustomerDetailsPage() {
   const [sortField, setSortField] = useState<keyof Omit<Reservation, "services">>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc") // Update 1: Initial sort order is "desc"
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 5
 
   useEffect(() => {
     const customerId = `#${params.id}`.toUpperCase()
@@ -189,6 +191,9 @@ export default function CustomerDetailsPage() {
       }
       return 0
     })
+
+  const totalPages = Math.ceil(filteredReservations.length / itemsPerPage)
+  const currentItems = filteredReservations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   return (
     <div className="flex min-h-screen bg-[#EBF8FF]">
@@ -309,20 +314,21 @@ export default function CustomerDetailsPage() {
           {/* Reservations Table */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
                 <thead>
                   <tr className="border-b border-gray-200">
                     {[
-                      { key: "id", label: "RESERVATION ID" },
-                      { key: "date", label: "RESERVATION DATE" },
-                      { key: "carModel", label: "CAR MODEL" },
-                      { key: "status", label: "STATUS" },
-                      { key: "completionDate", label: "COMPLETION DATE" },
-                      { key: "action", label: "ACTION" },
+                      { key: "id", label: "RESERVATION ID", width: "15%" },
+                      { key: "date", label: "RESERVATION DATE", width: "20%" },
+                      { key: "carModel", label: "CAR MODEL", width: "20%" },
+                      { key: "status", label: "STATUS", width: "15%" },
+                      { key: "completionDate", label: "COMPLETION DATE", width: "20%" },
+                      { key: "action", label: "ACTION", width: "10%" },
                     ].map((column) => (
                       <th
                         key={column.key}
-                        className="px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center"
+                        className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center"
+                        style={{ width: column.width }}
                       >
                         {column.key !== "action" && column.key !== "status" ? (
                           <button
@@ -355,7 +361,7 @@ export default function CustomerDetailsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredReservations.map((reservation) => (
+                  {currentItems.map((reservation) => (
                     <React.Fragment key={reservation.id}>
                       <tr
                         className={cn(
@@ -364,20 +370,39 @@ export default function CustomerDetailsPage() {
                           "transition-opacity duration-200",
                         )}
                       >
-                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.id}</td>
-                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.date}</td>
-                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">{reservation.carModel}</td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-3 py-2 text-sm text-[#1A365D] text-center truncate" title={reservation.id}>
+                          {reservation.id}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-[#1A365D] text-center truncate" title={reservation.date}>
+                          {reservation.date}
+                        </td>
+                        <td
+                          className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                          title={reservation.carModel}
+                        >
+                          {reservation.carModel}
+                        </td>
+                        <td className="px-3 py-2 text-center">
                           <span
                             className={cn(
                               "inline-flex items-center justify-center h-7 w-[100px] text-sm font-medium rounded-lg",
                               statusStyles[reservation.status],
+                              reservation.status === "Confirmed"
+                                ? "hover:bg-[#BEE3F8] hover:text-[#2B6CB0]"
+                                : reservation.status === "Repairing"
+                                  ? "hover:bg-[#FEEBC8] hover:text-[#D97706]"
+                                  : reservation.status === "Completed"
+                                    ? "hover:bg-[#C6F6D5] hover:text-[#22A366]"
+                                    : "hover:bg-[#FED7D7] hover:text-[#C53030]",
                             )}
                           >
                             {reservation.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                        <td
+                          className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                          title={reservation.completionDate || "-"}
+                        >
                           {reservation.completionDate || "-"}
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -400,19 +425,31 @@ export default function CustomerDetailsPage() {
                         <tr>
                           <td colSpan={6} className="bg-gray-50">
                             <div className="px-4 py-2">
-                              <table className="w-full">
+                              <table className="w-full table-fixed">
                                 <thead>
                                   <tr>
-                                    <th className="px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center">
+                                    <th
+                                      className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center"
+                                      style={{ width: "25%" }}
+                                    >
                                       Employee ID
                                     </th>
-                                    <th className="px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center">
+                                    <th
+                                      className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center"
+                                      style={{ width: "25%" }}
+                                    >
                                       Mechanic
                                     </th>
-                                    <th className="px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center">
+                                    <th
+                                      className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center"
+                                      style={{ width: "25%" }}
+                                    >
                                       Service
                                     </th>
-                                    <th className="px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center">
+                                    <th
+                                      className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-center"
+                                      style={{ width: "25%" }}
+                                    >
                                       Status
                                     </th>
                                   </tr>
@@ -434,6 +471,9 @@ export default function CustomerDetailsPage() {
                                           className={cn(
                                             "inline-flex items-center justify-center h-7 w-[100px] text-sm font-medium rounded-lg",
                                             statusStyles[service.status === "Confirmed" ? "Confirmed" : "Completed"],
+                                            service.status === "Confirmed"
+                                              ? "hover:bg-[#BEE3F8] hover:text-[#2B6CB0]"
+                                              : "hover:bg-[#C6F6D5] hover:text-[#22A366]",
                                           )}
                                         >
                                           {service.status}
@@ -451,6 +491,45 @@ export default function CustomerDetailsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination */}
+            <div className="flex justify-end px-2 py-3 mt-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-sm",
+                    currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                  )}
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={cn(
+                      "px-3 py-1 rounded-md text-sm",
+                      currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                    )}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-sm",
+                    currentPage === totalPages
+                      ? "text-[#8B909A] cursor-not-allowed"
+                      : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                  )}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         </div>

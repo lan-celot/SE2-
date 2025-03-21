@@ -114,7 +114,9 @@ export function SalesReportTable() {
   const [sortField, setSortField] = useState<SortField>("datePaid")
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = 5
+
+  const [sortedReports, setSortedReports] = useState([...initialReports])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -123,31 +125,44 @@ export function SalesReportTable() {
       setSortField(field)
       setSortOrder("asc")
     }
+
+    // Get the current page data before sorting
+    const currentPageData = sortedReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+    // Sort only the current page data
+    const sortedPageData = [...currentPageData].sort((a, b) => {
+      const aValue = a[field]
+      const bValue = b[field]
+      const modifier = sortOrder === "asc" ? 1 : -1
+
+      if (field === "datePaid") {
+        return new Date(b.datePaid).getTime() - new Date(a.datePaid).getTime()
+      }
+
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return aValue.localeCompare(bValue) * modifier
+      }
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return (aValue - bValue) * modifier
+      }
+
+      return 0
+    })
+
+    // Create a new sorted reports array with the sorted page
+    const newSortedReports = [...sortedReports]
+    for (let i = 0; i < sortedPageData.length; i++) {
+      newSortedReports[(currentPage - 1) * itemsPerPage + i] = sortedPageData[i]
+    }
+
+    // Update the state
+    setSortedReports(newSortedReports)
   }
 
   const formatCurrency = (amount: number) => {
     return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
-
-  const sortedReports = [...initialReports].sort((a, b) => {
-    const aValue = a[sortField]
-    const bValue = b[sortField]
-    const modifier = sortOrder === "asc" ? 1 : -1
-
-    if (sortField === "datePaid") {
-      return new Date(b.datePaid).getTime() - new Date(a.datePaid).getTime()
-    }
-
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return aValue.localeCompare(bValue) * modifier
-    }
-
-    if (typeof aValue === "number" && typeof bValue === "number") {
-      return (aValue - bValue) * modifier
-    }
-
-    return 0
-  })
 
   const totalPages = Math.ceil(sortedReports.length / itemsPerPage)
   const currentItems = sortedReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
@@ -187,26 +202,27 @@ export function SalesReportTable() {
           Print
         </button>
       </div>
-      <div className="rounded-lg border bg-white">
+      <div className="rounded-lg border bg-white overflow-x-auto">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-gray-200">
                 {[
-                  { key: "referenceNo", label: "REFERENCE NO." },
-                  { key: "customerId", label: "CUSTOMER ID" },
-                  { key: "reservationId", label: "RESERVATION ID" },
-                  { key: "carModel", label: "CAR MODEL" },
-                  { key: "datePaid", label: "DATE PAID" },
-                  { key: "paymentMethod", label: "PAYMENT METHOD" },
-                  { key: "totalPrice", label: "TOTAL PRICE" },
+                  { key: "referenceNo", label: "REFERENCE NO.", width: "15%" },
+                  { key: "customerId", label: "CUSTOMER ID", width: "12%" },
+                  { key: "reservationId", label: "RESERVATION ID", width: "15%" },
+                  { key: "carModel", label: "CAR MODEL", width: "18%" },
+                  { key: "datePaid", label: "DATE PAID", width: "15%" },
+                  { key: "paymentMethod", label: "PAYMENT METHOD", width: "12%" },
+                  { key: "totalPrice", label: "TOTAL PRICE", width: "13%" },
                 ].map((column) => (
                   <th
                     key={column.key}
                     className={cn(
-                      "px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider",
+                      "px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider",
                       column.key === "action" ? "text-center" : "text-left",
                     )}
+                    style={{ width: column.width }}
                   >
                     <button
                       className="flex items-center gap-1 hover:text-[#1A365D]"
@@ -234,20 +250,34 @@ export function SalesReportTable() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {currentItems.map((report) => (
-                <tr key={report.referenceNo} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{report.referenceNo}</td>
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{report.customerId}</td>
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{report.reservationId}</td>
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{report.carModel}</td>
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{report.datePaid}</td>
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{report.paymentMethod}</td>
-                  <td className="px-6 py-4 text-sm text-[#1A365D]">{formatCurrency(report.totalPrice)}</td>
+                <tr key={report.referenceNo} className="hover:bg-gray-50 h-[4.5rem]">
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.referenceNo}>
+                    {report.referenceNo}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.customerId}>
+                    {report.customerId}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.reservationId}>
+                    {report.reservationId}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.carModel}>
+                    {report.carModel}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.datePaid}>
+                    {report.datePaid}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.paymentMethod}>
+                    {report.paymentMethod}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={formatCurrency(report.totalPrice)}>
+                    {formatCurrency(report.totalPrice)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
+        <div className="flex justify-end px-3 py-2 border-t border-gray-200">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
