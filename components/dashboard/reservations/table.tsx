@@ -48,34 +48,39 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
+      console.log("User is not authenticated");
       setIsLoading(false);
       return;
     }
 
+    console.log("User is authenticated, fetching reservations...");
     setIsLoading(true);
     const bookingsCollectionRef = collection(db, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
-  
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Process each document directly without composite ID checks
+      if (snapshot.empty) {
+        console.log("No reservations found");
+        setReservations([]);
+        setIsLoading(false);
+        return;
+      }
+
       const reservationList: Reservation[] = snapshot.docs.map((doc) => {
         const booking = doc.data();
         const id = doc.id;
         const reservationDate = booking.reservationDate || "";
-        
-        // Format the dates
         const formattedReservationDate = reservationDate ? formatDate(reservationDate) : "N/A";
         const completionDate = booking.completionDate && booking.completionDate !== "Pending"
           ? formatDateTime(booking.completionDate)
           : "Pending";
-
         const createdDateTime = booking.createdAt ? formatDateTime(booking.createdAt) : "N/A";
 
         return {
           id: id,
           userId: booking.userId,
           reservationDate: formattedReservationDate,
-          carModel: `${booking.carBrand} ${booking.carModel}`.replace(/\s+/g, ' '),
+          carModel: `${booking.carModel}`.replace(/\s+/g, ' '),
           completionDate: completionDate,
           status: (booking.status || "CONFIRMED").toUpperCase(),
           services: Array.isArray(booking.services)
@@ -89,42 +94,36 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           createdAt: createdDateTime
         };
       });
-  
-      // Filter out duplicates based on reservation ID
-      const uniqueReservations = reservationList.filter((reservation: { id: any; }, index: any, self: any[]) =>
-        index === self.findIndex((r: { id: any; }) => r.id === reservation.id)
+
+      const uniqueReservations = reservationList.filter((reservation, index, self) =>
+        index === self.findIndex((r) => r.id === reservation.id)
       );
-  
+
+      console.log("Fetched reservations:", uniqueReservations);
       setReservations(uniqueReservations);
 
-      // Process status updates for notifications
-      reservationList.forEach(newReservation => {
+      uniqueReservations.forEach(newReservation => {
         const prevStatus = lastStatusUpdate[newReservation.id];
-
         if (prevStatus && prevStatus !== newReservation.status) {
-          // Your status notification logic
           setShowStatusNotification({
             message: `Your booking status has been updated to ${newReservation.status}`,
             type: newReservation.status.toLowerCase()
           });
         }
-
         setLastStatusUpdate(prev => ({
           ...prev,
           [newReservation.id]: newReservation.status
         }));
       });
 
-      setReservations(reservationList);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching reservations:", error);
       setIsLoading(false);
     });
-  
+
     return () => unsubscribe();
   }, []);
-  
 
   useEffect(() => {
     if (showStatusNotification) {
@@ -134,34 +133,6 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
       return () => clearTimeout(timer);
     }
   }, [showStatusNotification]);
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-  
-    // Query the user's subcollection directly
-    const userBookingsCollectionRef = collection(db, `users/${user.uid}/bookings`);
-  
-    const unsubscribe = onSnapshot(userBookingsCollectionRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => {
-        const booking = doc.data();
-        return {
-          id: doc.id,
-          userId: booking.userId,
-          reservationDate: booking.reservationDate || "N/A",
-          carModel: booking.carModel || "Unknown",
-          completionDate: booking.completionDate || "Pending",
-          status: booking.status.toUpperCase() || "CONFIRMED",
-          services: Array.isArray(booking.services) ? booking.services : [],
-        } as Reservation;
-      });
-  
-      setReservations(data);
-    });
-  
-    return () => unsubscribe();
-  }, []);
-  
 
   const handleAddServices = async (selectedServices: string[]) => {
     if (!expandedRow) return;
@@ -179,7 +150,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          hour12: true // Use 12-hour format
+          hour12: true
         });
 
         const newServices = selectedServices.map((service) => ({
@@ -189,11 +160,10 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           created: createdDate,
           createdTime: createdTime,
           reservationDate: reservation.reservationDate,
-          serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}` // Add unique serviceId
+          serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
         }));
 
         const updateTimestamp = now.toISOString();
-
         const bookingDocRef = doc(db, "bookings", expandedRow);
         await updateDoc(bookingDocRef, {
           services: arrayUnion(...newServices),
@@ -220,7 +190,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         const bookingDocRef = doc(db, "bookings", serviceToDelete.reservationId);
         await updateDoc(bookingDocRef, {
           services: updatedServices,
-          lastUpdated: new Date().toISOString() // Add timestamp to trigger update
+          lastUpdated: new Date().toISOString()
         });
       }
 

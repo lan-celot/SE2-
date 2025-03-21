@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { db, auth } from "@/lib/firebase";
-import { collection, doc, runTransaction } from "firebase/firestore";
+import { collection, doc, runTransaction, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 interface FormData {
@@ -60,7 +60,6 @@ export function ReviewDetails({
   };
 
   const getDisplayCarModel = (brand: string, model: string): string => {
-    // Remove any duplicate brand mentions and clean up spaces
     const cleanModel = model.replace(brand, '').trim();
     return cleanModel ? `${brand} ${cleanModel}` : model;
   };
@@ -77,22 +76,18 @@ export function ReviewDetails({
         return;
       }
 
-      // Convert reservation date to Philippines time (UTC+8)
       const reservationDate = new Date(formData.reservationDate);
       const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
       const formattedDate = reservationDate.toLocaleDateString('en-CA', options);
 
-      // Use the new displayCarModel function
       const displayCarModel = getDisplayCarModel(formData.carBrand, formData.carModel);
-      
-      // Create a deterministic document ID based on user and date
-      const bookingId = `${user.uid}_${formattedDate}_${displayCarModel}`;
+
+      const bookingId = `${user.uid}_${formattedDate}`;
       const bookingRef = doc(db, "bookings", bookingId);
 
-      // Use transaction to ensure atomicity
       await runTransaction(db, async (transaction) => {
         const existingDoc = await transaction.get(bookingRef);
-        
+
         if (existingDoc.exists()) {
           throw new Error("You already have a reservation for this date.");
         }
@@ -104,7 +99,7 @@ export function ReviewDetails({
         const bookingData = {
           userId: user.uid,
           carBrand: formData.carBrand,
-          carModel: displayCarModel, // Using the fixed display car model
+          carModel: displayCarModel,
           yearModel: formData.yearModel,
           transmission: formData.transmission,
           fuelType: formData.fuelType,
@@ -135,6 +130,10 @@ export function ReviewDetails({
         };
 
         transaction.set(bookingRef, bookingData);
+
+        // Add the booking to the user's subcollection
+        const userBookingsRef = doc(collection(db, `users/${user.uid}/bookings`), bookingId);
+        transaction.set(userBookingsRef, bookingData);
       });
 
       setSubmissionSuccess(true);
