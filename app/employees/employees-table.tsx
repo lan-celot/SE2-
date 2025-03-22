@@ -672,28 +672,16 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 <SelectValue placeholder="Select new status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem
-                  value="Active"
-                  className={cn("bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366]")}
-                >
+                <SelectItem value="Active" className={cn(statusStyles.Active.bg, statusStyles.Active.text)}>
                   Active
                 </SelectItem>
-                <SelectItem
-                  value="Inactive"
-                  className={cn("bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0]")}
-                >
+                <SelectItem value="Inactive" className={cn(statusStyles.Inactive.bg, statusStyles.Inactive.text)}>
                   Inactive
                 </SelectItem>
-                <SelectItem
-                  value="Working"
-                  className={cn("bg-[#FFF5E0] text-[#FFC600] hover:bg-[#FEEBC8] hover:text-[#D97706]")}
-                >
+                <SelectItem value="Working" className={cn(statusStyles.Working.bg, statusStyles.Working.text)}>
                   Working
                 </SelectItem>
-                <SelectItem
-                  value="Terminated"
-                  className={cn("bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FED7D7] hover:text-[#C53030]")}
-                >
+                <SelectItem value="Terminated" className={cn(statusStyles.Terminated.bg, statusStyles.Terminated.text)}>
                   Terminated
                 </SelectItem>
               </SelectContent>

@@ -891,7 +891,9 @@ export default function ReservationsPage() {
                                     className={cn(
                                       statusStyles[status as Status].bg,
                                       statusStyles[status as Status].text,
-                                      "py-1 hover:bg-opacity-80",
+                                      statusStyles[status as Status].hoverBg,
+                                      statusStyles[status as Status].hoverText,
+                                      "py-1",
                                     )}
                                   >
                                     {statusStyles[status as Status].display}
