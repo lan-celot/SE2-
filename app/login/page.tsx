@@ -17,47 +17,63 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+  
     // Basic validation
     if (!email || !password) {
       toast({
         title: "Error",
         description: "Please enter both email and password",
         variant: "destructive"
-      })
-      setIsLoading(false)
-      return
+      });
+      setIsLoading(false);
+      return;
     }
-
+  
     try {
       // Attempt to login
-      await loginUser(email, password)
-
-      // Show success toast
-      toast({
-        title: "Success",
-        description: "Login successful! Redirecting to dashboard...",
-        variant: "default"
-      })
-
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
-    } catch (error: any) {
+      const user = await loginUser(email, password);
+  
+      // Check if the user's email is in the adminUsers collection
+      const db = getFirestore(getApp());
+      const adminUsersRef = collection(db, "adminUsers");
+      const q = query(adminUsersRef, where("email", "==", user.email));
+      const querySnapshot = await getDocs(q);
+  
+      if (!querySnapshot.empty) {
+        // Show success toast
+        toast({
+          title: "Success",
+          description: "Login successful! Redirecting to dashboard...",
+          variant: "default"
+        });
+  
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
+      } else {
+        // Handle unauthorized access
+        toast({
+          title: "Unauthorized",
+          description: "You do not have admin access.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+      }
+    } catch (error) {
       // Handle login errors
-      const errorMessage = error.message || "Login failed"
+      const errorMessage = error.message || "Login failed";
       toast({
         title: "Login Error",
         description: errorMessage,
         variant: "destructive"
-      })
-      setIsLoading(false)
+      });
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[#ebf8ff] flex flex-col">
