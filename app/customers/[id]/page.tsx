@@ -496,7 +496,10 @@ export default function CustomerDetailsPage() {
             <div className="flex justify-end px-2 py-3 mt-4">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  onClick={() => {
+                    setCurrentPage(Math.max(1, currentPage - 1))
+                    setExpandedRow(null) // Reset expanded row when changing pages
+                  }}
                   disabled={currentPage === 1}
                   className={cn(
                     "px-3 py-1 rounded-md text-sm",
@@ -508,7 +511,10 @@ export default function CustomerDetailsPage() {
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => {
+                      setCurrentPage(page)
+                      setExpandedRow(null) // Reset expanded row when changing pages
+                    }}
                     className={cn(
                       "px-3 py-1 rounded-md text-sm",
                       currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
@@ -518,7 +524,10 @@ export default function CustomerDetailsPage() {
                   </button>
                 ))}
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  onClick={() => {
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    setExpandedRow(null) // Reset expanded row when changing pages
+                  }}
                   disabled={currentPage === totalPages}
                   className={cn(
                     "px-3 py-1 rounded-md text-sm",

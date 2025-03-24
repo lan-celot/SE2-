@@ -1,5 +1,4 @@
 "use client"
-
 import { useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -280,7 +279,10 @@ export function SalesReportTable() {
         <div className="flex justify-end px-3 py-2 border-t border-gray-200">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => {
+                setCurrentPage(Math.max(1, currentPage - 1))
+                // If there's an expanded row state, reset it here
+              }}
               disabled={currentPage === 1}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
@@ -292,7 +294,10 @@ export function SalesReportTable() {
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
-                onClick={() => setCurrentPage(page)}
+                onClick={() => {
+                  setCurrentPage(page)
+                  // If there's an expanded row state, reset it here
+                }}
                 className={cn(
                   "px-3 py-1 rounded-md text-sm",
                   currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
@@ -302,7 +307,10 @@ export function SalesReportTable() {
               </button>
             ))}
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              onClick={() => {
+                setCurrentPage(Math.min(totalPages, currentPage + 1))
+                // If there's an expanded row state, reset it here
+              }}
               disabled={currentPage === totalPages}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
