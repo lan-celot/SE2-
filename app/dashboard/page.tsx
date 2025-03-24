@@ -1,107 +1,264 @@
 "use client"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DashboardHeader } from "@/components/header"
 import { ReservationCalendar } from "@/components/reservation-calendar"
-import { Sidebar } from "@/components/sidebar"
+import { DashboardLayout } from "@/components/dashboard-layout"
+import { collection, query, getDocs, orderBy } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import Loading from "@/components/loading"
 
 export default function DashboardPage() {
+  const [pendingCount, setPendingCount] = useState(0)
+  const [completedToday, setCompletedToday] = useState(0)
+  const [repairingToday, setRepairingToday] = useState(0)
+  const [confirmedToday, setConfirmedToday] = useState(0)
+  const [newClientsCount, setNewClientsCount] = useState(0)
+  const [returningClientsCount, setReturningClientsCount] = useState(0)
+  const [arrivingToday, setArrivingToday] = useState<any[]>([])
+  const [logs, setLogs] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+
+      // Get today's date at midnight
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      // Get tomorrow's date for comparison
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      // Get first day of current month
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+      // Fetch all bookings to calculate counts
+      const bookingsQuery = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
+      const bookingsSnapshot = await getDocs(bookingsQuery)
+      const bookings = bookingsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+
+      // Calculate counts based on status
+      const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
+      setPendingCount(pendingBookings.length)
+
+      // For today's stats, filter by date
+      const todayBookings = bookings.filter((booking) => {
+        const bookingDate = new Date(booking.reservationDate)
+        return bookingDate >= today && bookingDate < tomorrow
+      })
+
+      const completedTodayCount = todayBookings.filter((booking) => booking.status === "COMPLETED").length
+      setCompletedToday(completedTodayCount)
+
+      const repairingTodayCount = todayBookings.filter((booking) => booking.status === "REPAIRING").length
+      setRepairingToday(repairingTodayCount)
+
+      const confirmedTodayCount = todayBookings.filter((booking) => booking.status === "CONFIRMED").length
+      setConfirmedToday(confirmedTodayCount)
+
+      // Get arriving today (bookings for today with status PENDING or CONFIRMED)
+      const arrivingTodayBookings = todayBookings
+        .filter((booking) => booking.status === "PENDING" || booking.status === "CONFIRMED")
+        .slice(0, 5) // Limit to 5 for display
+
+      setArrivingToday(
+        arrivingTodayBookings.map((booking) => ({
+          id: booking.id,
+          customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
+          carModel: booking.carModel,
+        })),
+      )
+
+      // For clients this month, we'll use a simplified approach
+      // In a real app, you'd have more sophisticated client tracking
+      const thisMonthBookings = bookings.filter((booking) => {
+        const bookingDate = new Date(booking.reservationDate)
+        return bookingDate >= firstDayOfMonth
+      })
+
+      // Count unique customer IDs for this month
+      const uniqueCustomerIds = new Set()
+      thisMonthBookings.forEach((booking) => {
+        if (booking.userId) uniqueCustomerIds.add(booking.userId)
+      })
+
+      // For demo purposes, split these into new and returning
+      // In a real app, you'd track first visit date
+      setNewClientsCount(Math.ceil(uniqueCustomerIds.size * 0.6)) // 60% new
+      setReturningClientsCount(Math.floor(uniqueCustomerIds.size * 0.4)) // 40% returning
+
+      // For logs, we'll use a simplified approach with dummy data
+      // In a real app, you'd have a dedicated logs collection
+      const dummyLogs = [
+        {
+          id: 1,
+          message: "Transaction #T1234 completed for Andrea Salazar",
+          timestamp: new Date(Date.now() - 15 * 60000),
+        },
+        {
+          id: 2,
+          message: "New reservation #R00101 created for John Doe",
+          timestamp: new Date(Date.now() - 28 * 60000),
+        },
+        { id: 3, message: "Employee Mark Johnson logged in", timestamp: new Date(Date.now() - 35 * 60000) },
+        { id: 4, message: "Inventory update: 5 oil filters added", timestamp: new Date(Date.now() - 50 * 60000) },
+        {
+          id: 5,
+          message: "Customer feedback received for service #S0098",
+          timestamp: new Date(Date.now() - 58 * 60000),
+        },
+        { id: 6, message: "Employee Sarah Lee logged out", timestamp: new Date(Date.now() - 75 * 60000) },
+        {
+          id: 7,
+          message: "Reservation #R00100 status changed to 'In Progress'",
+          timestamp: new Date(Date.now() - 90 * 60000),
+        },
+      ]
+      setLogs(dummyLogs)
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return ""
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+    return date
+      .toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+      .replace(",", "")
+  }
+
   return (
-    <div className="flex min-h-screen bg-[#EBF8FF]">
-      <Sidebar />
-      {/* Main Content */}
-      <main className="ml-64 flex-1 p-8">
-        <div className="mb-8">
-          <DashboardHeader />
-        </div>
-
-        <div className="grid gap-8 lg:grid-cols-2">
+    <DashboardLayout>
+      <div className="grid gap-4">
+        {/* First row: Calendar and Logs */}
+        <div className="grid gap-4 lg:grid-cols-3">
           {/* Calendar */}
-          <ReservationCalendar />
-
-          {/* Pending Reservations */}
-          <div className="rounded-xl bg-white p-8 shadow-sm flex flex-col">
-            <h3 className="text-2xl font-semibold text-[#2a69ac] mb-6">Pending Reservations</h3>
-            <div className="flex items-center justify-start h-[calc(100%-3rem)]">
-              <span className="text-[100px] leading-none font-bold text-[#1A365D] text-left">5</span>
-            </div>
+          <div className="lg:col-span-2">
+            <ReservationCalendar />
           </div>
 
           {/* Logs */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-xl font-bold text-[#2A69AC]">Logs</h2>
-            <div className="space-y-2">
-              <div className="text-sm text-[#8B909A]">Nor logged in at 11-9-24 2:32 PM</div>
-              <div className="text-sm text-[#8B909A]">Mar logged out at 11-9-24 2:00 PM</div>
+          <div className="rounded-xl bg-white p-4 shadow-sm flex flex-col">
+            <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Logs</h3>
+            <div className="flex-1 overflow-auto text-sm">
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div key={log.id} className="text-[#8B909A]">
+                    {log.message} at {formatDate(log.timestamp)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Second row: Pending Reservations, Clients, Today */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Pending Reservations */}
+          <div className="rounded-xl bg-white p-4 shadow-sm flex flex-col">
+            <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Pending Reservations</h3>
+            <div className="flex items-start justify-start flex-1">
+              {isLoading && <Loading />}
+              <span className="text-6xl leading-none font-bold text-[#1A365D]">{isLoading ? "..." : pendingCount}</span>
             </div>
           </div>
 
           {/* Clients */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-xl font-bold text-[#2A69AC]">Clients</h2>
-            <div className="grid grid-cols-2 gap-8">
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Clients</h2>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="mb-2 text-sm font-medium text-[#8B909A]">New This Month</h3>
-                <p className="text-6xl font-bold text-[#1A365D]">10</p>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">New This Month</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : newClientsCount}</p>
               </div>
               <div>
-                <h3 className="mb-2 text-sm font-medium text-[#8B909A]">Returning This Month</h3>
-                <p className="text-6xl font-bold text-[#1A365D]">8</p>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Returning This Month</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : returningClientsCount}</p>
               </div>
             </div>
           </div>
 
           {/* Today's Stats */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-xl font-bold text-[#2A69AC]">Today</h2>
-            <div className="grid grid-cols-3 gap-4">
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Today</h2>
+            <div className="grid grid-cols-3 gap-2">
               <div>
-                <h3 className="mb-2 text-sm font-medium text-[#8B909A]">Completed</h3>
-                <p className="text-6xl font-bold text-[#1A365D]">1</p>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Completed</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : completedToday}</p>
               </div>
               <div>
-                <h3 className="mb-2 text-sm font-medium text-[#8B909A]">Repairing</h3>
-                <p className="text-6xl font-bold text-[#1A365D]">2</p>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Repairing</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : repairingToday}</p>
               </div>
               <div>
-                <h3 className="mb-2 text-sm font-medium text-[#8B909A]">Confirmed</h3>
-                <p className="text-6xl font-bold text-[#1A365D]">6</p>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Confirmed</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : confirmedToday}</p>
               </div>
             </div>
           </div>
-
-          {/* Arriving Today */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-xl font-bold text-[#2A69AC]">Arriving Today</h2>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-[#8B909A]">Reservation ID</TableHead>
-                  <TableHead className="text-[#8B909A]">Customer</TableHead>
-                  <TableHead className="text-[#8B909A]">Car Model</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="text-[#1A365D]">#R00100</TableCell>
-                  <TableCell className="text-[#1A365D]">ANDREA SALAZAR</TableCell>
-                  <TableCell className="text-[#1A365D]">HONDA CIVIC</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-[#1A365D]">#R00099</TableCell>
-                  <TableCell className="text-[#1A365D]">BLAINE RAMOS</TableCell>
-                  <TableCell className="text-[#1A365D]">FORD RAPTOR</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-[#1A365D]">#R00098</TableCell>
-                  <TableCell className="text-[#1A365D]">LEO MACAYA</TableCell>
-                  <TableCell className="text-[#1A365D]">TOYOTA VIOS</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
         </div>
-      </main>
-    </div>
+
+        {/* Third row: Arriving Today */}
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Arriving Today</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[#8B909A]">Reservation ID</TableHead>
+                <TableHead className="text-[#8B909A]">Customer</TableHead>
+                <TableHead className="text-[#8B909A]">Car Model</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && <Loading />}
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-[#8B909A]">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : arrivingToday.length > 0 ? (
+                arrivingToday.map((reservation) => (
+                  <TableRow key={reservation.id}>
+                    <TableCell className="text-[#1A365D]">#{reservation.id}</TableCell>
+                    <TableCell className="text-[#1A365D]">{reservation.customerName}</TableCell>
+                    <TableCell className="text-[#1A365D]">{reservation.carModel}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-[#8B909A]">
+                    No reservations arriving today
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </DashboardLayout>
   )
 }
 

@@ -31,11 +31,11 @@ interface AddServiceDialogProps {
   existingServices?: string[] // Add this prop to receive existing services
 }
 
-export function AddServiceDialog({ 
-  open, 
-  onOpenChange, 
+export function AddServiceDialog({
+  open,
+  onOpenChange,
   onConfirm,
-  existingServices = [] // Default to empty array if not provided
+  existingServices = [], // Default to empty array if not provided
 }: AddServiceDialogProps) {
   const [selectedServices, setSelectedServices] = React.useState<string[]>([])
 
@@ -47,42 +47,40 @@ export function AddServiceDialog({
           title: "Service already exists",
           description: "This service is already added to the reservation.",
           variant: "destructive",
-        });
-        return;
+        })
+        return
       }
-      
-      setSelectedServices((prev) => [...prev, serviceId]);
+
+      setSelectedServices((prev) => [...prev, serviceId])
     } else {
-      setSelectedServices((prev) => prev.filter((id) => id !== serviceId));
+      setSelectedServices((prev) => prev.filter((id) => id !== serviceId))
     }
-  };
+  }
 
   const handleConfirm = () => {
     // Additional check before confirming
-    const duplicates = selectedServices.filter(service => 
-      existingServices.includes(service)
-    );
+    const duplicates = selectedServices.filter((service) => existingServices.includes(service))
 
     if (duplicates.length > 0) {
       toast({
         title: "Duplicate services found",
         description: "Some selected services are already in the reservation.",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
 
-    onConfirm(selectedServices.map((id) => id.split("_").join(" ").toUpperCase()));
-    setSelectedServices([]);
-    onOpenChange(false);
-  };
+    onConfirm(selectedServices.map((id) => id.split("_").join(" ").toUpperCase()))
+    setSelectedServices([])
+    onOpenChange(false)
+  }
 
   // Reset selected services when dialog opens/closes
   React.useEffect(() => {
     if (!open) {
-      setSelectedServices([]);
+      setSelectedServices([])
     }
-  }, [open]);
+  }, [open])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -97,14 +95,14 @@ export function AddServiceDialog({
                 id={service.id}
                 checked={selectedServices.includes(service.id)}
                 onCheckedChange={(checked) => {
-                  handleServiceSelection(service.id, checked as boolean);
+                  handleServiceSelection(service.id, checked as boolean)
                 }}
                 disabled={existingServices.includes(service.id)} // Disable checkbox if service already exists
               />
-              <label 
-                htmlFor={service.id} 
+              <label
+                htmlFor={service.id}
                 className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed ${
-                  existingServices.includes(service.id) ? 'text-gray-400' : ''
+                  existingServices.includes(service.id) ? "text-gray-400" : ""
                 }`}
               >
                 {service.label}
@@ -113,18 +111,18 @@ export function AddServiceDialog({
             </div>
           ))}
         </div>
-        <div className="flex justify-center space-x-2">
+        <div className="flex justify-center space-x-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="bg-[#FFE5E5] hover:bg-[#EA5455]/30 text-[#EA5455] hover:text-[#EA5455]"
+            className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
           >
             Back
           </Button>
           <Button
             variant="outline"
             onClick={handleConfirm}
-            className="bg-[#E6FFF3] hover:bg-[#28C76F]/30 text-[#28C76F] hover:text-[#28C76F]"
+            className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             disabled={selectedServices.length === 0}
           >
             Confirm
@@ -134,3 +132,4 @@ export function AddServiceDialog({
     </Dialog>
   )
 }
+

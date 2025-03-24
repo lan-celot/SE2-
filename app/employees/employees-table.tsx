@@ -1,33 +1,63 @@
 "use client"
-import useLocalStorage from '@/hooks/useLocalStorage';
-import { useState, useEffect } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Pencil, Trash2, ChevronUp, ChevronDown, Eye } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { parseISO, compareDesc } from "date-fns";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import useLocalStorage from "@/hooks/useLocalStorage"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
+import { parseISO, compareDesc } from "date-fns"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/use-toast"
+import Loading from "@/components/loading"
+import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 
 interface Employee {
-  id: string;
-  name: string;
-  username: string;
-  avatar: string;
-  role: string;
-  workingOn: string;
-  firstName?: string;
-  lastName?: string;
-  gender?: string;
-  phone?: string;
-  dateOfBirth?: string;
-  streetAddress?: string;
-  city?: string;
-  province?: string;
-  zipCode?: string;
-  dateAdded?: string;
+  id: string
+  name: string
+  username: string
+  avatar: string
+  role: string
+  workingOn: string
+  status: "Active" | "Inactive" | "Working" | "Terminated"
+  firstName?: string
+  lastName?: string
+  gender?: string
+  phone?: string
+  dateOfBirth?: string
+  streetAddress?: string
+  city?: string
+  province?: string
+  zipCode?: string
+  dateAdded?: string
+}
+
+const statusStyles: Record<string, { bg: string; text: string; borderColor: string }> = {
+  Active: {
+    bg: "bg-[#E6FFF3]",
+    text: "text-[#28C76F]",
+    borderColor: "border-[#28C76F]",
+  },
+  Inactive: {
+    bg: "bg-[#EBF8FF]",
+    text: "text-[#63B3ED]",
+    borderColor: "border-[#63B3ED]",
+  },
+  Working: {
+    bg: "bg-[#FFF5E0]",
+    text: "text-[#FFC600]",
+    borderColor: "border-[#FFC600]",
+  },
+  Terminated: {
+    bg: "bg-[#FFE5E5]",
+    text: "text-[#EA5455]",
+    borderColor: "border-[#EA5455]",
+  },
+  default: {
+    bg: "bg-gray-100",
+    text: "text-gray-600",
+    borderColor: "border-gray-400",
+  },
 }
 
 const initialEmployees: Employee[] = [
@@ -38,6 +68,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Helper Mechanic",
     workingOn: "#R00109",
+    status: "Active",
     dateAdded: "2024-03-15T10:00:00Z",
   },
   {
@@ -47,6 +78,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Helper Mechanic",
     workingOn: "#R00108",
+    status: "Working",
     dateAdded: "2024-03-14T12:00:00Z",
   },
   {
@@ -56,6 +88,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Assistant Mechanic",
     workingOn: "#R00107",
+    status: "Active",
     dateAdded: "2024-03-13T14:00:00Z",
   },
   {
@@ -65,6 +98,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Assistant Mechanic",
     workingOn: "#R00106",
+    status: "Inactive",
     dateAdded: "2024-03-12T16:00:00Z",
   },
   {
@@ -74,6 +108,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Assistant Mechanic",
     workingOn: "#R00105",
+    status: "Working",
     dateAdded: "2024-03-11T18:00:00Z",
   },
   {
@@ -83,6 +118,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Lead Mechanic",
     workingOn: "#R00104",
+    status: "Active",
     dateAdded: "2024-03-10T20:00:00Z",
   },
   {
@@ -92,6 +128,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Lead Mechanic",
     workingOn: "#R00103",
+    status: "Inactive",
     dateAdded: "2024-03-09T22:00:00Z",
   },
   {
@@ -101,6 +138,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Lead Mechanic",
     workingOn: "#R00102",
+    status: "Terminated",
     dateAdded: "2024-03-08T00:00:00Z",
   },
   {
@@ -110,6 +148,7 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Administrator",
     workingOn: "#R00101",
+    status: "Active",
     dateAdded: "2024-03-07T02:00:00Z",
   },
   {
@@ -119,153 +158,217 @@ const initialEmployees: Employee[] = [
     avatar: "/placeholder.svg?height=40&width=40",
     role: "Administrator",
     workingOn: "#R00098",
+    status: "Active",
     dateAdded: "2024-03-06T04:00:00Z",
   },
-];
+]
 
+// Update the EmployeesTableProps interface to include activeTab
 interface EmployeesTableProps {
-  searchQuery: string;
+  searchQuery: string
+  activeTab: string
 }
 
-export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
-  const router = useRouter();
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [sortField, setSortField] = useState<keyof Employee>("id");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [showPassword, setShowPassword] = useState(false);
-  const [password, setPassword] = useState("");
-  const [wrongPassword, setWrongPassword] = useState(false);
-  const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [newRole, setNewRole] = useState("");
+// Update the function signature to accept activeTab
+export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) {
+  const router = useRouter()
+  const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees)
+  const [sortedEmployees, setSortedEmployees] = useState<Employee[]>([])
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDeletePasswordDialog, setShowDeletePasswordDialog] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [sortField, setSortField] = useState<keyof Employee>("id")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showEditPasswordDialog, setShowEditPasswordDialog] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
+  const [newRole, setNewRole] = useState("")
+  const [showStatusDialog, setShowStatusDialog] = useState(false)
+  const [showStatusPasswordDialog, setShowStatusPasswordDialog] = useState(false)
+  const [newStatus, setNewStatus] = useState<Employee["status"]>("Active")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 5
 
+  // Sort employees when they change
   useEffect(() => {
-    // Ensure employees are sorted by dateAdded when the component mounts
-    setEmployees((prevEmployees) =>
-      [...prevEmployees].sort((a, b) =>
-        compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
-      )
-    );
-  }, [setEmployees]);
+    const sorted = [...employees].sort((a, b) =>
+      compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01")),
+    )
+
+    setSortedEmployees(sorted)
+  }, [employees])
 
   const handleSort = (field: keyof Employee) => {
     if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
     } else {
-      setSortField(field);
-      setSortOrder("asc");
+      setSortField(field)
+      setSortOrder("asc")
     }
-    setEmployees((prevEmployees) => {
-      return [...prevEmployees].sort((a, b) => {
-        if (field === "dateAdded") {
-          return sortOrder === "asc"
-            ? compareDesc(parseISO(b.dateAdded || "1970-01-01"), parseISO(a.dateAdded || "1970-01-01"))
-            : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"));
-        }
-        if (field === "id") {
-          return sortOrder === "asc"
-            ? Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))
-            : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1));
-        }
-        const valueA = a[field] ?? '';
-        const valueB = b[field] ?? '';
-        if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
-        if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
-        return 0;
-      });
-    });
-  };
 
-  const filteredEmployees = employees
-    .filter((employee) => {
-      if (!searchQuery) return true;
-      const searchLower = searchQuery.toLowerCase();
-      return (
-        employee.name.toLowerCase().includes(searchLower) ||
-        employee.username.toLowerCase().includes(searchLower) ||
-        employee.role.toLowerCase().includes(searchLower) ||
-        employee.id.toLowerCase().includes(searchLower) ||
-        employee.workingOn.toLowerCase().includes(searchLower)
-      );
+    // Get the current page data before sorting
+    const currentPageData = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+    // Sort only the current page data
+    const sortedPageData = [...currentPageData].sort((a, b) => {
+      if (field === "dateAdded") {
+        return sortOrder === "asc"
+          ? compareDesc(parseISO(b.dateAdded || "1970-01-01"), parseISO(a.dateAdded || "1970-01-01"))
+          : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
+      }
+      if (field === "id") {
+        return sortOrder === "asc"
+          ? Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))
+          : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1))
+      }
+      const valueA = a[field] ?? ""
+      const valueB = b[field] ?? ""
+      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1
+      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1
+      return 0
     })
-    .sort((a, b) => {
-      const valueA = a[sortField] ?? '';
-      const valueB = b[sortField] ?? '';
-      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
-      return 0;
-    });
+
+    // Replace only the current page in the sorted employees
+    const newSortedEmployees = [...sortedEmployees]
+    for (let i = 0; i < sortedPageData.length; i++) {
+      newSortedEmployees[(currentPage - 1) * itemsPerPage + i] = sortedPageData[i]
+    }
+
+    setSortedEmployees(newSortedEmployees)
+  }
+
+  // Update the filteredEmployees function to filter by activeTab
+  const filteredEmployees = sortedEmployees.filter((employee) => {
+    // First filter by tab
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "active" && employee.status === "Active") ||
+      (activeTab === "inactive" && employee.status === "Inactive") ||
+      (activeTab === "terminated" && employee.status === "Terminated")
+
+    if (!matchesTab) return false
+
+    // Then filter by search query
+    if (!searchQuery) return true
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      employee.name.toLowerCase().includes(searchLower) ||
+      employee.username.toLowerCase().includes(searchLower) ||
+      employee.role.toLowerCase().includes(searchLower) ||
+      employee.id.toLowerCase().includes(searchLower) ||
+      employee.workingOn.toLowerCase().includes(searchLower) ||
+      employee.status.toLowerCase().includes(searchLower)
+    )
+  })
+
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
+  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const handleDelete = () => {
-    if (password === "password123") {
-      if (selectedEmployee) {
-        setEmployees(employees.filter((emp) => emp.id !== selectedEmployee.id));
-        setShowDeleteDialog(false);
-        setSelectedEmployee(null);
-        setPassword("");
-        setWrongPassword(false);
-        setShowSuccessMessage(true);
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-        }, 2000);
-      }
-    } else {
-      setWrongPassword(true);
+    if (selectedEmployee) {
+      const updatedEmployees = employees.filter((emp) => emp.id !== selectedEmployee.id)
+      setEmployees(updatedEmployees)
+
+      // Show success toast
+      toast({
+        title: "Employee Deleted",
+        description: `${selectedEmployee.name} has been removed from the employee list.`,
+        variant: "default",
+      })
+
+      // Reset dialogs and state
+      setShowDeleteDialog(false)
+      setSelectedEmployee(null)
     }
-  };
+  }
 
   const handleViewDetails = (employeeId: string) => {
-    const formattedId = employeeId.replace("#", "").toLowerCase();
-    router.push(`/employees/${formattedId}`);
-  };
+    const formattedId = employeeId.replace("#", "").toLowerCase()
+    router.push(`/employees/${formattedId}`)
+  }
 
   const handleRoleChange = () => {
-    if (password === "password123" && editingEmployee) {
-      setEmployees((prevEmployees) =>
-        prevEmployees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp))
-      );
-      setShowEditDialog(false);
-      setEditingEmployee(null);
-      setNewRole("");
-      setPassword("");
-      setWrongPassword(false);
-      setShowSuccessMessage(true);
-      setTimeout(() => {
-        setShowSuccessMessage(false);
-      }, 2000);
-    } else {
-      setWrongPassword(true);
+    if (editingEmployee) {
+      const updatedEmployees = employees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp))
+
+      setEmployees(updatedEmployees)
+
+      // Show success toast
+      toast({
+        title: "Role Updated",
+        description: `${editingEmployee.name}'s role has been changed to ${newRole}.`,
+        variant: "default",
+      })
+
+      // Reset dialogs and state
+      setShowEditDialog(false)
+      setEditingEmployee(null)
+      setNewRole("")
     }
-  };
+  }
+
+  const handleStatusChange = () => {
+    if (editingEmployee) {
+      const updatedEmployees = employees.map((emp) =>
+        emp.id === editingEmployee.id ? { ...emp, status: newStatus } : emp,
+      )
+
+      setEmployees(updatedEmployees)
+
+      // Show success toast
+      toast({
+        title: "Status Updated",
+        description: `${editingEmployee.name}'s status has been changed to ${newStatus}.`,
+        variant: "default",
+      })
+
+      // Reset dialogs and state
+      setShowStatusDialog(false)
+      setEditingEmployee(null)
+      setNewStatus("Active")
+    }
+  }
+
+  // Prevent hydration errors by rendering only after component is mounted
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) {
+    return <Loading />
+  }
+
+  // Update the getStatusStyle function to default to 'Active' status
+  const getStatusStyle = (status: string | undefined) => {
+    // If status is undefined or null, treat as 'Active'
+    if (!status) {
+      return statusStyles.Active
+    }
+
+    // Normalize the status to handle case sensitivity
+    const normalizedStatus = status.trim()
+    return statusStyles[normalizedStatus] || statusStyles.Active // Default to Active instead of default
+  }
 
   return (
     <>
-      {showSuccessMessage && (
-        <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
-          Role edited successfully
-        </div>
-      )}
-
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
               {[
-                { key: "name", label: "NAME" },
-                { key: "role", label: "ROLE" },
-                { key: "id", label: "EMPLOYEE ID" },
-                { key: "workingOn", label: "WORKING ON" },
-                { key: "action", label: "ACTION" },
+                { key: "name", label: "NAME", width: "20%" },
+                { key: "role", label: "ROLE", width: "15%" },
+                { key: "id", label: "EMPLOYEE ID", width: "12%" },
+                { key: "workingOn", label: "WORKING ON", width: "15%" },
+                { key: "status", label: "STATUS", width: "15%" },
+                { key: "action", label: "ACTION", width: "10%" },
               ].map((column) => (
                 <th
                   key={column.key}
-                  className={cn(
-                    "px-6 py-3 text-xs font-medium text-[#8B909A] uppercase tracking-wider",
-                    column.key === "action" ? "text-center" : "text-left"
-                  )}
+                  className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-left"
+                  style={{ width: column.width }}
                 >
                   {column.key !== "action" ? (
                     <button
@@ -277,13 +380,13 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                         <ChevronUp
                           className={cn(
                             "h-3 w-3",
-                            sortField === column.key && sortOrder === "asc" ? "text-[#1A365D]" : "text-[#8B909A]"
+                            sortField === column.key && sortOrder === "asc" ? "text-[#1A365D]" : "text-[#8B909A]",
                           )}
                         />
                         <ChevronDown
                           className={cn(
                             "h-3 w-3",
-                            sortField === column.key && sortOrder === "desc" ? "text-[#1A365D]" : "text-[#8B909A]"
+                            sortField === column.key && sortOrder === "desc" ? "text-[#1A365D]" : "text-[#8B909A]",
                           )}
                         />
                       </div>
@@ -296,50 +399,98 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredEmployees.map((employee) => (
-              <tr key={employee.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
+            {paginatedEmployees.map((employee) => (
+              <tr key={employee.id} className="hover:bg-gray-50 h-[4.5rem]">
+                <td className="px-3 py-4">
                   <div className="flex items-center">
-                    <button
+                    <img
+                      src={employee.avatar || `https://i.pravatar.cc/40?u=${employee.username}`}
+                      alt={employee.name}
+                      className="h-8 w-8 rounded-full mr-2 flex-shrink-0 cursor-pointer"
                       onClick={() => handleViewDetails(employee.id)}
-                      className="rounded-full overflow-hidden hover:ring-2 hover:ring-[#1A365D] transition-all"
+                    />
+                    <span
+                      className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC]"
+                      title={employee.name}
+                      onClick={() => handleViewDetails(employee.id)}
                     >
-                      <Image
-                        src={`https://i.pravatar.cc/40?u=${employee.username}`}
-                        alt={employee.name}
-                        width={40}
-                        height={40}
-                        className="h-10 w-10 object-cover"
-                      />
-                    </button>
-                    <div className="ml-4">
-                      <button
-                        onClick={() => handleViewDetails(employee.id)}
-                        className="text-sm font-medium text-[#1A365D] hover:text-[#2a69ac]"
-                      >
-                        {employee.name}
-                      </button>
-                      <button
-                        onClick={() => handleViewDetails(employee.id)}
-                        className="text-sm text-[#8B909A] hover:text-[#1A365D] block"
-                      >
-                        {employee.username}
-                      </button>
-                    </div>
+                      {employee.name}
+                    </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-[#1A365D]">{employee.role}</td>
-                <td className="px-6 py-4 text-sm text-[#1A365D]">{employee.id}</td>
-                <td className="px-6 py-4 text-sm text-[#1A365D]">{employee.workingOn}</td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-center space-x-2">
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={employee.role}>
+                  {employee.role}
+                </td>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={employee.id}>
+                  {employee.id}
+                </td>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={employee.workingOn}>
+                  {employee.workingOn}
+                </td>
+                <td className="px-3 py-4">
+                  <div className="relative inline-block">
+                    <Select
+                      value={employee.status}
+                      onValueChange={(value) => {
+                        const newStatus = value as Employee["status"]
+                        const updatedEmployees = employees.map((emp) =>
+                          emp.id === employee.id ? { ...emp, status: newStatus } : emp,
+                        )
+                        setEmployees(updatedEmployees)
+                      }}
+                    >
+                      {/* Also update the Select component to ensure it shows 'Active' when status is undefined */}
+                      <SelectTrigger
+                        className={cn(
+                          "w-[140px] h-8 px-3 py-1 text-sm font-medium rounded-md",
+                          getStatusStyle(employee.status).bg,
+                          getStatusStyle(employee.status).text,
+                          "border-transparent", // Default transparent border
+                          "focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:ring-0",
+                          "data-[state=open]:border-2", // Only show border when open
+                          {
+                            "data-[state=open]:border-[#28C76F]": employee.status === "Active" || !employee.status,
+                            "data-[state=open]:border-[#63B3ED]": employee.status === "Inactive",
+                            "data-[state=open]:border-[#FFC600]": employee.status === "Working",
+                            "data-[state=open]:border-[#EA5455]": employee.status === "Terminated",
+                            [`data-[state=open]:${getStatusStyle(employee.status).borderColor}`]: true,
+                          },
+                        )}
+                      >
+                        <SelectValue>{employee.status || "Active"}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value="Active"
+                          className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366] py-1.5"
+                        >
+                          Active
+                        </SelectItem>
+                        <SelectItem
+                          value="Inactive"
+                          className="bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0] py-1.5"
+                        >
+                          Inactive
+                        </SelectItem>
+                        <SelectItem
+                          value="Terminated"
+                          className="bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FED7D7] hover:text-[#C53030] py-1.5"
+                        >
+                          Terminated
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </td>
+                <td className="px-3 py-4">
+                  <div className="flex items-center space-x-2">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setEditingEmployee(employee);
-                        setNewRole(employee.role);
-                        setShowEditDialog(true);
+                        setEditingEmployee(employee)
+                        setNewRole(employee.role)
+                        setShowEditDialog(true)
                       }}
                     >
                       <Pencil className="h-4 w-4 text-[#1A365D]" />
@@ -348,8 +499,8 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setSelectedEmployee(employee);
-                        setShowDeleteDialog(true);
+                        setSelectedEmployee(employee)
+                        setShowDeleteDialog(true)
                       }}
                     >
                       <Trash2 className="h-4 w-4 text-[#1A365D]" />
@@ -362,6 +513,45 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
         </table>
       </div>
 
+      {/* Pagination */}
+      <div className="flex justify-end mt-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className={cn(
+              "px-3 py-1 rounded-md text-sm",
+              currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+            )}
+          >
+            Previous
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={cn(
+                "px-3 py-1 rounded-md text-sm",
+                currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+              )}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className={cn(
+              "px-3 py-1 rounded-md text-sm",
+              currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+            )}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -369,51 +559,38 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
               Are you sure to delete <span className="text-[#2A69AC]">{selectedEmployee?.name}</span>?
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            {wrongPassword && <div className="mb-4 text-center text-[#EA5455]">Wrong password</div>}
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setWrongPassword(false);
-                }}
-                className={cn(
-                  "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]"
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <Eye className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={() => {
-                setShowDeleteDialog(false);
-                setPassword("");
-                setWrongPassword(false);
-              }}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+          <div className="flex justify-center gap-4 py-4">
+            <Button
+              onClick={() => setShowDeleteDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               No, go back
-            </button>
-            <button
-              onClick={handleDelete}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setShowDeletePasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
-              Yes, delete
-            </button>
+              Yes, continue
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showDeletePasswordDialog}
+        onOpenChange={setShowDeletePasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the deletion of this employee."
+        onVerified={handleDelete}
+        cancelButtonText="Cancel"
+        confirmButtonText="Delete"
+      />
+
+      {/* Edit Role Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -433,50 +610,95 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 <SelectItem value="Helper Mechanic">Helper Mechanic</SelectItem>
               </SelectContent>
             </Select>
-            {wrongPassword && <div className="mt-4 text-center text-[#EA5455]">Wrong password</div>}
-            <div className="relative mt-4">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setWrongPassword(false);
-                }}
-                className={cn(
-                  "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]"
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <Eye className="h-5 w-5" />
-              </button>
-            </div>
+          </div>
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={() => setShowEditDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowEditDialog(false)
+                setShowEditPasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+            >
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Role Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showEditPasswordDialog}
+        onOpenChange={setShowEditPasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the role change."
+        onVerified={handleRoleChange}
+        cancelButtonText="Cancel"
+        confirmButtonText="Update Role"
+      />
+
+      {/* Edit Status Dialog */}
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">
+              Change status for <span className="text-[#2A69AC]">{editingEmployee?.name}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={newStatus} onValueChange={setNewStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select new status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active" className={cn(statusStyles.Active.bg, statusStyles.Active.text)}>
+                  Active
+                </SelectItem>
+                <SelectItem value="Inactive" className={cn(statusStyles.Inactive.bg, statusStyles.Inactive.text)}>
+                  Inactive
+                </SelectItem>
+                <SelectItem value="Terminated" className={cn(statusStyles.Terminated.bg, statusStyles.Terminated.text)}>
+                  Terminated
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex justify-center gap-4">
             <button
-              onClick={() => {
-                setShowEditDialog(false);
-                setPassword("");
-                setWrongPassword(false);
-              }}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+              onClick={() => setShowStatusDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               Cancel
             </button>
             <button
-              onClick={handleRoleChange}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+              onClick={() => {
+                setShowStatusDialog(false)
+                setShowStatusPasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Confirm
             </button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Status Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showStatusPasswordDialog}
+        onOpenChange={setShowStatusPasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the status change."
+        onVerified={handleStatusChange}
+        cancelButtonText="Cancel"
+        confirmButtonText="Update Status"
+      />
     </>
-  );
+  )
 }
+

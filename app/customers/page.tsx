@@ -1,5 +1,4 @@
 "use client"
-
 import { Search } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"

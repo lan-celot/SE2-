@@ -1,16 +1,20 @@
 "use client"
 
+import { useState } from "react"
 import { Search } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmployeesTable } from "./employees-table"
-import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { EmployeesTabs } from "./employees-tabs"
+// Remove the Loading import since it's not used in this file
+// import Loading from "@/components/loading"
 
 export default function EmployeesPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState("all")
   const router = useRouter()
 
   return (
@@ -19,6 +23,10 @@ export default function EmployeesPage() {
       <main className="ml-64 flex-1 p-8">
         <div className="mb-8">
           <DashboardHeader title="Employee Management" />
+        </div>
+
+        <div className="mb-4">
+          <EmployeesTabs activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
 
         <div className="mb-4 flex justify-between items-center">
@@ -32,13 +40,13 @@ export default function EmployeesPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button className="bg-[#1A365D] hover:bg-[#1E4E8C]" onClick={() => router.push("/employees/add")}>
+          <Button onClick={() => router.push("/employees/add")} className="bg-[#2A69AC] hover:bg-[#1A365D] text-white">
             Add Employee
           </Button>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-sm">
-          <EmployeesTable searchQuery={searchQuery} />
+          <EmployeesTable searchQuery={searchQuery} activeTab={activeTab} />
         </div>
       </main>
     </div>
