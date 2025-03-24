@@ -38,6 +38,7 @@ interface Reservation {
   services?: Service[]
 }
 
+// Update the Service interface if it exists in this file
 interface Service {
   customerId: string
   service: string
@@ -258,6 +259,33 @@ const serviceStatusStyles = {
   Repairing: "bg-[#FFF5E0] text-[#FFC600]",
 }
 
+// Fix the unused function warning
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date)
+}
+
+// We'll keep this function since it might be used in the future
+// but mark it with a comment to avoid the warning
+// This function calculates years of service
+const calculateWorkingYears = (dateString: string) => {
+  const startDate = new Date(dateString)
+  const today = new Date()
+  const yearDiff = today.getFullYear() - startDate.getFullYear()
+  const monthDiff = today.getMonth() - startDate.getMonth()
+  const dayDiff = today.getDate() - startDate.getDate()
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    return yearDiff - 1
+  }
+
+  return yearDiff
+}
+
 export default function EmployeeDetailsPage() {
   const params = useParams()
   const [employee, setEmployee] = useState<Employee | null>(null)
@@ -297,29 +325,6 @@ export default function EmployeeDetailsPage() {
         </main>
       </div>
     )
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(date)
-  }
-
-  const calculateWorkingYears = (dateString: string) => {
-    const startDate = new Date(dateString)
-    const today = new Date()
-    const yearDiff = today.getFullYear() - startDate.getFullYear()
-    const monthDiff = today.getMonth() - startDate.getMonth()
-    const dayDiff = today.getDate() - startDate.getDate()
-
-    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-      return yearDiff - 1
-    }
-
-    return yearDiff
   }
 
   const handleSort = (field: keyof (typeof marcialReservations)[0]) => {

@@ -63,7 +63,7 @@ interface Service {
   reservationDate: string
   service: string
   mechanic: string
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED"
+  status: "PENDING" | "COMPLETED"
 }
 
 interface Reservation {
@@ -240,6 +240,9 @@ export default function ReservationsPage() {
       (snapshot) => {
         const data = snapshot.docs.map((doc) => {
           const bookingData = doc.data()
+          // Normalize the status to uppercase to ensure consistent comparison
+          const status = bookingData.status ? (bookingData.status.toUpperCase() as Status) : "CONFIRMED"
+
           return {
             id: doc.id,
             lastName: bookingData.lastName || "",
@@ -249,7 +252,7 @@ export default function ReservationsPage() {
             userId: bookingData.userId || "",
             carModel: bookingData.carModel || "",
             plateNo: bookingData.plateNo || "", // Added plateNo field
-            status: (bookingData.status?.toUpperCase() as Status) || "CONFIRMED",
+            status: status,
             services: Array.isArray(bookingData.services) ? bookingData.services : [],
             specificIssues: bookingData.specificIssues || "",
             yearModel: bookingData.yearModel || "",
@@ -831,7 +834,8 @@ export default function ReservationsPage() {
   }
 
   const filteredReservations = reservationData.filter((reservation) => {
-    const matchesStatus = activeTab === "all" || reservation.status.toLowerCase() === activeTab
+    // For status filtering, compare lowercase status with activeTab
+    const matchesStatus = activeTab === "all" || reservation.status.toLowerCase() === activeTab.toLowerCase()
     const matchesSearch = Object.values(reservation).join(" ").toLowerCase().includes(searchQuery.toLowerCase())
     return matchesStatus && matchesSearch
   })
@@ -908,7 +912,14 @@ export default function ReservationsPage() {
         </div>
 
         <div className="mb-4">
-          <ReservationsTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <ReservationsTabs
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab)
+              // Reset to first page when changing tabs
+              setCurrentPage(1)
+            }}
+          />
         </div>
 
         <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-2">
@@ -1183,94 +1194,96 @@ export default function ReservationsPage() {
                         <TableRow>
                           <TableCell colSpan={9} className="bg-gray-50 p-0">
                             <div className="px-2 py-2 overflow-x-auto">
-                              <Table className="w-full">
-                                <thead>
-                                  <tr className="h-12">
-                                    <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      Created
-                                    </TableHead>
-                                    <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      Reservation Date
-                                    </TableHead>
-                                    <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      Service
-                                    </TableHead>
-                                    <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      Mechanic
-                                    </TableHead>
-                                    <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      Action
-                                    </TableHead>
-                                    <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      <div className="flex justify-center space-x-2">
-                                        <Button
-                                          className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
-                                          onClick={() => setShowAddServiceDialog(true)}
-                                        >
-                                          Add Service
-                                        </Button>
-                                        <Button
-                                          className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
-                                          onClick={() => showCarDetails(reservation)}
-                                        >
-                                          See Details
-                                        </Button>
-                                      </div>
-                                    </TableHead>
-                                  </tr>
-                                </thead>
-                                <TableBody>
-                                  {(Array.isArray(reservation.services) ? reservation.services : []).map(
-                                    (service, index) => (
-                                      <TableRow key={index} className="h-[4.5rem]">
-                                        <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.created}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
-                                          {formatDate(service.reservationDate)}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.service}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.mechanic}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-4 flex justify-center">
-                                          <div className="inline-flex items-center justify-center gap-2">
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              onClick={() => {
-                                                setSelectedService({
-                                                  reservationId: reservation.id,
-                                                  serviceIndex: index,
-                                                })
-                                                setSelectedMechanic(service.mechanic)
-                                                setShowMechanicDialog(true)
-                                              }}
-                                            >
-                                              <User className="h-4 w-4 text-[#1A365D]" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              onClick={() => {
-                                                setSelectedService({
-                                                  reservationId: reservation.id,
-                                                  serviceIndex: index,
-                                                })
-                                                setShowDeleteDialog(true)
-                                              }}
-                                            >
-                                              <Trash2 className="h-4 w-4 text-[#1A365D]" />
-                                            </Button>
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    ),
-                                  )}
-                                </TableBody>
-                              </Table>
+                              <div className="w-full">
+                                <Table>
+                                  <thead>
+                                    <tr className="h-12">
+                                      <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                        Created
+                                      </TableHead>
+                                      <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                        Reservation Date
+                                      </TableHead>
+                                      <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                        Service
+                                      </TableHead>
+                                      <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                        Mechanic
+                                      </TableHead>
+                                      <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                        Action
+                                      </TableHead>
+                                      <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+                                        <div className="flex justify-center space-x-2">
+                                          <Button
+                                            className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
+                                            onClick={() => setShowAddServiceDialog(true)}
+                                          >
+                                            Add Service
+                                          </Button>
+                                          <Button
+                                            className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
+                                            onClick={() => showCarDetails(reservation)}
+                                          >
+                                            See Details
+                                          </Button>
+                                        </div>
+                                      </TableHead>
+                                    </tr>
+                                  </thead>
+                                  <TableBody>
+                                    {(Array.isArray(reservation.services) ? reservation.services : []).map(
+                                      (service, index) => (
+                                        <TableRow key={index} className="h-[4.5rem]">
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                            {service.created}
+                                          </TableCell>
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                            {formatDate(service.reservationDate)}
+                                          </TableCell>
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                            {service.service}
+                                          </TableCell>
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                            {service.mechanic}
+                                          </TableCell>
+                                          <TableCell className="px-2 py-4 flex justify-center">
+                                            <div className="inline-flex items-center justify-center gap-2">
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                  setSelectedService({
+                                                    reservationId: reservation.id,
+                                                    serviceIndex: index,
+                                                  })
+                                                  setSelectedMechanic(service.mechanic)
+                                                  setShowMechanicDialog(true)
+                                                }}
+                                              >
+                                                <User className="h-4 w-4 text-[#1A365D]" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                  setSelectedService({
+                                                    reservationId: reservation.id,
+                                                    serviceIndex: index,
+                                                  })
+                                                  setShowDeleteDialog(true)
+                                                }}
+                                              >
+                                                <Trash2 className="h-4 w-4 text-[#1A365D]" />
+                                              </Button>
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      ),
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>

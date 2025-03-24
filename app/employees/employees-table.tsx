@@ -432,11 +432,11 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                     <Select
                       value={employee.status}
                       onValueChange={(value) => {
-                        const newStatus = value as Employee["status"]
-                        const updatedEmployees = employees.map((emp) =>
-                          emp.id === employee.id ? { ...emp, status: newStatus } : emp,
-                        )
-                        setEmployees(updatedEmployees)
+                        // Instead of immediately changing the status, store the employee and new status
+                        // and show the password verification dialog
+                        setEditingEmployee(employee)
+                        setNewStatus(value as Employee["status"])
+                        setShowStatusPasswordDialog(true)
                       }}
                     >
                       {/* Also update the Select component to ensure it shows 'Active' when status is undefined */}

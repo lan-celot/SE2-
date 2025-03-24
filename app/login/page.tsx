@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState } from "react"
+import type React from "react"
+import { useState, useEffect } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
@@ -8,25 +9,38 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
 import { loginUser } from "@/lib/firebase"
-import { toast } from "@/components/ui/use-toast"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [notification, setNotification] = useState<{
+    type: "success" | "error"
+    message: string
+  } | null>(null)
   const router = useRouter()
+
+  // Clear notification after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setNotification(null)
 
     // Basic validation
     if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Please enter both email and password",
-        variant: "destructive"
+      setNotification({
+        type: "error",
+        message: "Please enter both email and password",
       })
       setIsLoading(false)
       return
@@ -36,24 +50,42 @@ export default function LoginPage() {
       // Attempt to login
       await loginUser(email, password)
 
-      // Show success toast
-      toast({
-        title: "Success",
-        description: "Login successful! Redirecting to dashboard...",
-        variant: "default"
+      // Show success notification
+      setNotification({
+        type: "success",
+        message: "Redirecting to dashboard...",
       })
 
       // Redirect to dashboard after a short delay
       setTimeout(() => {
         router.push("/dashboard")
       }, 2000)
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle login errors
-      const errorMessage = error.message || "Login failed"
-      toast({
-        title: "Login Error",
-        description: errorMessage,
-        variant: "destructive"
+      console.error("Login error details:", error)
+
+      let errorMessage = "Login failed"
+
+      if (error instanceof Error) {
+        // Check for specific Firebase error codes
+        if (error.message.includes("auth/invalid-credential")) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again."
+        } else if (error.message.includes("auth/user-not-found")) {
+          errorMessage = "No account found with this email address."
+        } else if (error.message.includes("auth/wrong-password")) {
+          errorMessage = "Incorrect password. Please try again."
+        } else if (error.message.includes("auth/user-disabled")) {
+          errorMessage = "This account has been disabled. Please contact support."
+        } else if (error.message.includes("auth/too-many-requests")) {
+          errorMessage = "Too many unsuccessful login attempts. Please try again later."
+        } else {
+          errorMessage = error.message
+        }
+      }
+
+      setNotification({
+        type: "error",
+        message: errorMessage,
       })
       setIsLoading(false)
     }
@@ -61,6 +93,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#ebf8ff] flex flex-col">
+      {notification && (
+        <div
+          className={`fixed inset-x-0 top-0 z-50 p-4 text-center ${
+            notification.type === "success" ? "bg-[#E6FFF3] text-[#28C76F]" : "bg-[#FFE6E6] text-[#EA5455]"
+          }`}
+        >
+          {notification.message}
+        </div>
+      )}
+
       <header className="p-6 max-w-7xl mx-auto w-full">
         <Link href="/" className="flex items-center gap-2 w-fit">
           <Image
@@ -108,15 +150,10 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            <Button 
-              type="submit" 
-              className="h-12 w-full bg-[#2A69AC] hover:bg-[#1A365D]"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="h-12 w-full bg-[#2A69AC] hover:bg-[#1A365D]" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Login"}
             </Button>
-            <div className="text-center mt-4">
-            </div>
+            <div className="text-center mt-4"></div>
           </form>
         </div>
         <div className="hidden lg:flex flex-col items-start justify-center">
@@ -138,3 +175,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

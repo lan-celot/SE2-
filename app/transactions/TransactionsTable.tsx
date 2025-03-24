@@ -391,7 +391,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions = []
                           <div className="text-xs font-medium text-[#8B909A] uppercase">MECHANIC</div>
                           <div className="text-xs font-medium text-[#8B909A] uppercase text-right">PRICE</div>
                           <div className="text-xs font-medium text-[#8B909A] uppercase text-center">QUANTITY</div>
-                          <div className="text-xs font-medium text-[#8B9কিন্ত09A] uppercase text-right">DISCOUNT</div>
+                          <div className="text-xs font-medium text-[#8B909A] uppercase text-right">DISCOUNT</div>
                           <div className="text-xs font-medium text-[#8B909A] uppercase text-right">TOTAL</div>
                         </div>
 
