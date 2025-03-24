@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { db, auth } from "@/lib/firebase";
 import { collection, doc, runTransaction } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { notificationapi, clientId, clientSecret } from "@/lib/notifications"//import notifications.js
 
 interface FormData {
   carBrand: string;
@@ -64,6 +65,9 @@ export function ReviewDetails({
     const cleanModel = model.replace(brand, '').trim();
     return cleanModel ? `${brand} ${cleanModel}` : model;
   };
+
+  //Initialize the notifications api
+  notificationapi.init(clientId, clientSecret)
 
   const handleSubmit = async () => {
     if (isSubmitting || isSubmittingLocal) return;
@@ -138,6 +142,20 @@ export function ReviewDetails({
       });
 
       setSubmissionSuccess(true);
+      // Ayaw pumasok ng notification, may error sa next.js, still figuring out
+      notificationapi.send({
+        notificationId: 'test',
+        user: {
+          id: "leorafael.macaya.cics@ust.edu.ph",//To be replaced 
+          email: "leorafael.macaya.cics@ust.edu.ph",//To be replaced 
+          number: "+15005550006" // Replace with your phone number, use format [+][country code][area code][local number]
+        },
+        mergeTags: {
+          "comment": "Build something great :)",
+          "commentId": "commentId-1234-abcd-wxyz"
+        }
+      })
+
     } catch (error: any) {
       console.error("Error submitting reservation:", error);
       alert(error.message || "There was an error submitting your reservation. Please try again.");
