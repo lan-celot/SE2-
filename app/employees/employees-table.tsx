@@ -2,14 +2,15 @@
 import useLocalStorage from "@/hooks/useLocalStorage"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Pencil, Trash2, ChevronUp, ChevronDown, Eye } from "lucide-react"
+import { Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { parseISO, compareDesc } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
+import Loading from "@/components/loading"
+import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 
 interface Employee {
   id: string
@@ -31,11 +32,32 @@ interface Employee {
   dateAdded?: string
 }
 
-const statusStyles = {
-  Active: { bg: "bg-[#E6FFF3]", text: "text-[#28C76F]" },
-  Inactive: { bg: "bg-[#EBF8FF]", text: "text-[#63B3ED]" },
-  Working: { bg: "bg-[#FFF5E0]", text: "text-[#FFC600]" },
-  Terminated: { bg: "bg-[#FFE5E5]", text: "text-[#EA5455]" },
+const statusStyles: Record<string, { bg: string; text: string; borderColor: string }> = {
+  Active: {
+    bg: "bg-[#E6FFF3]",
+    text: "text-[#28C76F]",
+    borderColor: "border-[#28C76F]",
+  },
+  Inactive: {
+    bg: "bg-[#EBF8FF]",
+    text: "text-[#63B3ED]",
+    borderColor: "border-[#63B3ED]",
+  },
+  Working: {
+    bg: "bg-[#FFF5E0]",
+    text: "text-[#FFC600]",
+    borderColor: "border-[#FFC600]",
+  },
+  Terminated: {
+    bg: "bg-[#FFE5E5]",
+    text: "text-[#EA5455]",
+    borderColor: "border-[#EA5455]",
+  },
+  default: {
+    bg: "bg-gray-100",
+    text: "text-gray-600",
+    borderColor: "border-gray-400",
+  },
 }
 
 const initialEmployees: Employee[] = [
@@ -141,25 +163,28 @@ const initialEmployees: Employee[] = [
   },
 ]
 
+// Update the EmployeesTableProps interface to include activeTab
 interface EmployeesTableProps {
   searchQuery: string
+  activeTab: string
 }
 
-export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
+// Update the function signature to accept activeTab
+export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) {
   const router = useRouter()
   const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees)
   const [sortedEmployees, setSortedEmployees] = useState<Employee[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDeletePasswordDialog, setShowDeletePasswordDialog] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [sortField, setSortField] = useState<keyof Employee>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [showPassword, setShowPassword] = useState(false)
-  const [password, setPassword] = useState("")
-  const [wrongPassword, setWrongPassword] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showEditPasswordDialog, setShowEditPasswordDialog] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [newRole, setNewRole] = useState("")
   const [showStatusDialog, setShowStatusDialog] = useState(false)
+  const [showStatusPasswordDialog, setShowStatusPasswordDialog] = useState(false)
   const [newStatus, setNewStatus] = useState<Employee["status"]>("Active")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
@@ -212,7 +237,18 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
     setSortedEmployees(newSortedEmployees)
   }
 
+  // Update the filteredEmployees function to filter by activeTab
   const filteredEmployees = sortedEmployees.filter((employee) => {
+    // First filter by tab
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "active" && employee.status === "Active") ||
+      (activeTab === "inactive" && employee.status === "Inactive") ||
+      (activeTab === "terminated" && employee.status === "Terminated")
+
+    if (!matchesTab) return false
+
+    // Then filter by search query
     if (!searchQuery) return true
     const searchLower = searchQuery.toLowerCase()
     return (
@@ -229,31 +265,20 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
   const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const handleDelete = () => {
-    if (password === "password123") {
-      if (selectedEmployee) {
-        const updatedEmployees = employees.filter((emp) => emp.id !== selectedEmployee.id)
-        setEmployees(updatedEmployees)
+    if (selectedEmployee) {
+      const updatedEmployees = employees.filter((emp) => emp.id !== selectedEmployee.id)
+      setEmployees(updatedEmployees)
 
-        // Show success toast
-        toast({
-          title: "Employee Deleted",
-          description: `${selectedEmployee.name} has been removed from the employee list.`,
-          variant: "default",
-        })
-
-        // Reset dialogs and state
-        setShowDeleteDialog(false)
-        setSelectedEmployee(null)
-        setPassword("")
-        setWrongPassword(false)
-      }
-    } else {
-      setWrongPassword(true)
+      // Show success toast
       toast({
-        title: "Incorrect Password",
-        description: "The password you entered is incorrect.",
-        variant: "destructive",
+        title: "Employee Deleted",
+        description: `${selectedEmployee.name} has been removed from the employee list.`,
+        variant: "default",
       })
+
+      // Reset dialogs and state
+      setShowDeleteDialog(false)
+      setSelectedEmployee(null)
     }
   }
 
@@ -263,7 +288,7 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
   }
 
   const handleRoleChange = () => {
-    if (password === "password123" && editingEmployee) {
+    if (editingEmployee) {
       const updatedEmployees = employees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp))
 
       setEmployees(updatedEmployees)
@@ -279,20 +304,11 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
       setShowEditDialog(false)
       setEditingEmployee(null)
       setNewRole("")
-      setPassword("")
-      setWrongPassword(false)
-    } else {
-      setWrongPassword(true)
-      toast({
-        title: "Incorrect Password",
-        description: "The password you entered is incorrect.",
-        variant: "destructive",
-      })
     }
   }
 
   const handleStatusChange = () => {
-    if (password === "password123" && editingEmployee) {
+    if (editingEmployee) {
       const updatedEmployees = employees.map((emp) =>
         emp.id === editingEmployee.id ? { ...emp, status: newStatus } : emp,
       )
@@ -310,15 +326,6 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
       setShowStatusDialog(false)
       setEditingEmployee(null)
       setNewStatus("Active")
-      setPassword("")
-      setWrongPassword(false)
-    } else {
-      setWrongPassword(true)
-      toast({
-        title: "Incorrect Password",
-        description: "The password you entered is incorrect.",
-        variant: "destructive",
-      })
     }
   }
 
@@ -329,7 +336,19 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
   }, [])
 
   if (!isMounted) {
-    return null
+    return <Loading />
+  }
+
+  // Update the getStatusStyle function to default to 'Active' status
+  const getStatusStyle = (status: string | undefined) => {
+    // If status is undefined or null, treat as 'Active'
+    if (!status) {
+      return statusStyles.Active
+    }
+
+    // Normalize the status to handle case sensitivity
+    const normalizedStatus = status.trim()
+    return statusStyles[normalizedStatus] || statusStyles.Active // Default to Active instead of default
   }
 
   return (
@@ -410,64 +429,57 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 </td>
                 <td className="px-3 py-4">
                   <div className="relative inline-block">
-                    <select
+                    <Select
                       value={employee.status}
-                      onChange={(e) => {
-                        const newStatus = e.target.value as Employee["status"]
+                      onValueChange={(value) => {
+                        const newStatus = value as Employee["status"]
                         const updatedEmployees = employees.map((emp) =>
                           emp.id === employee.id ? { ...emp, status: newStatus } : emp,
                         )
                         setEmployees(updatedEmployees)
                       }}
-                      className={cn(
-                        "appearance-none h-8 w-[140px] px-3 pr-8 py-0 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 truncate",
-                        employee.status && statusStyles[employee.status]
-                          ? statusStyles[employee.status].bg
-                          : "bg-gray-100",
-                        employee.status && statusStyles[employee.status]
-                          ? statusStyles[employee.status].text
-                          : "text-gray-500",
-                      )}
                     >
-                      <option
-                        value="Active"
-                        className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366] py-1"
+                      {/* Also update the Select component to ensure it shows 'Active' when status is undefined */}
+                      <SelectTrigger
+                        className={cn(
+                          "w-[140px] h-8 px-3 py-1 text-sm font-medium rounded-md",
+                          getStatusStyle(employee.status).bg,
+                          getStatusStyle(employee.status).text,
+                          "border-transparent", // Default transparent border
+                          "focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:ring-0",
+                          "data-[state=open]:border-2", // Only show border when open
+                          {
+                            "data-[state=open]:border-[#28C76F]": employee.status === "Active" || !employee.status,
+                            "data-[state=open]:border-[#63B3ED]": employee.status === "Inactive",
+                            "data-[state=open]:border-[#FFC600]": employee.status === "Working",
+                            "data-[state=open]:border-[#EA5455]": employee.status === "Terminated",
+                            [`data-[state=open]:${getStatusStyle(employee.status).borderColor}`]: true,
+                          },
+                        )}
                       >
-                        Active
-                      </option>
-                      <option
-                        value="Inactive"
-                        className="bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0] py-1"
-                      >
-                        Inactive
-                      </option>
-                      <option
-                        value="Working"
-                        className="bg-[#FFF5E0] text-[#FFC600] hover:bg-[#FEEBC8] hover:text-[#D97706] py-1"
-                      >
-                        Working
-                      </option>
-                      <option
-                        value="Terminated"
-                        className="bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FED7D7] hover:text-[#C53030] py-1"
-                      >
-                        Terminated
-                      </option>
-                    </select>
-                    <ChevronDown
-                      className={cn(
-                        "absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none h-3 w-3",
-                        employee.status === "Active"
-                          ? "text-[#28C76F]"
-                          : employee.status === "Inactive"
-                            ? "text-[#63B3ED]"
-                            : employee.status === "Working"
-                              ? "text-[#FFC600]"
-                              : employee.status === "Terminated"
-                                ? "text-[#EA5455]"
-                                : "text-gray-500",
-                      )}
-                    />
+                        <SelectValue>{employee.status || "Active"}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value="Active"
+                          className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366] py-1.5"
+                        >
+                          Active
+                        </SelectItem>
+                        <SelectItem
+                          value="Inactive"
+                          className="bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0] py-1.5"
+                        >
+                          Inactive
+                        </SelectItem>
+                        <SelectItem
+                          value="Terminated"
+                          className="bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FED7D7] hover:text-[#C53030] py-1.5"
+                        >
+                          Terminated
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </td>
                 <td className="px-3 py-4">
@@ -547,51 +559,36 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
               Are you sure to delete <span className="text-[#2A69AC]">{selectedEmployee?.name}</span>?
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            {wrongPassword && <div className="mb-4 text-center text-[#EA5455]">Wrong password</div>}
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setWrongPassword(false)
-                }}
-                className={cn(
-                  "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]",
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <Eye className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={() => {
-                setShowDeleteDialog(false)
-                setPassword("")
-                setWrongPassword(false)
-              }}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+          <div className="flex justify-center gap-4 py-4">
+            <Button
+              onClick={() => setShowDeleteDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               No, go back
-            </button>
-            <button
-              onClick={handleDelete}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setShowDeletePasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
-              Yes, delete
-            </button>
+              Yes, continue
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showDeletePasswordDialog}
+        onOpenChange={setShowDeletePasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the deletion of this employee."
+        onVerified={handleDelete}
+        cancelButtonText="Cancel"
+        confirmButtonText="Delete"
+      />
 
       {/* Edit Role Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
@@ -613,50 +610,37 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 <SelectItem value="Helper Mechanic">Helper Mechanic</SelectItem>
               </SelectContent>
             </Select>
-            {wrongPassword && <div className="mt-4 text-center text-[#EA5455]">Wrong password</div>}
-            <div className="relative mt-4">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setWrongPassword(false)
-                }}
-                className={cn(
-                  "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]",
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <Eye className="h-5 w-5" />
-              </button>
-            </div>
           </div>
           <div className="flex justify-center gap-4">
-            <button
-              onClick={() => {
-                setShowEditDialog(false)
-                setPassword("")
-                setWrongPassword(false)
-              }}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+            <Button
+              onClick={() => setShowEditDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               Cancel
-            </button>
-            <button
-              onClick={handleRoleChange}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+            </Button>
+            <Button
+              onClick={() => {
+                setShowEditDialog(false)
+                setShowEditPasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Confirm
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Role Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showEditPasswordDialog}
+        onOpenChange={setShowEditPasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the role change."
+        onVerified={handleRoleChange}
+        cancelButtonText="Cancel"
+        confirmButtonText="Update Role"
+      />
 
       {/* Edit Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
@@ -667,7 +651,7 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <Select value={newStatus} onValueChange={setNewStatus as any}>
+            <Select value={newStatus} onValueChange={setNewStatus}>
               <SelectTrigger>
                 <SelectValue placeholder="Select new status" />
               </SelectTrigger>
@@ -678,58 +662,42 @@ export function EmployeesTable({ searchQuery }: EmployeesTableProps) {
                 <SelectItem value="Inactive" className={cn(statusStyles.Inactive.bg, statusStyles.Inactive.text)}>
                   Inactive
                 </SelectItem>
-                <SelectItem value="Working" className={cn(statusStyles.Working.bg, statusStyles.Working.text)}>
-                  Working
-                </SelectItem>
                 <SelectItem value="Terminated" className={cn(statusStyles.Terminated.bg, statusStyles.Terminated.text)}>
                   Terminated
                 </SelectItem>
               </SelectContent>
             </Select>
-            {wrongPassword && <div className="mt-4 text-center text-[#EA5455]">Wrong password</div>}
-            <div className="relative mt-4">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setWrongPassword(false)
-                }}
-                className={cn(
-                  "w-full bg-[#F1F5F9] border-0 pr-10",
-                  wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]",
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <Eye className="h-5 w-5" />
-              </button>
-            </div>
           </div>
           <div className="flex justify-center gap-4">
             <button
-              onClick={() => {
-                setShowStatusDialog(false)
-                setPassword("")
-                setWrongPassword(false)
-              }}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+              onClick={() => setShowStatusDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               Cancel
             </button>
             <button
-              onClick={handleStatusChange}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+              onClick={() => {
+                setShowStatusDialog(false)
+                setShowStatusPasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Confirm
             </button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Status Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showStatusPasswordDialog}
+        onOpenChange={setShowStatusPasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the status change."
+        onVerified={handleStatusChange}
+        cancelButtonText="Cancel"
+        confirmButtonText="Update Status"
+      />
     </>
   )
 }

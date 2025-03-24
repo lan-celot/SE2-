@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react"
 import * as React from "react"
-import { Search, ChevronDown, Trash2, User, ChevronUp, Eye, EyeOff } from "lucide-react"
+import { Search, ChevronDown, Trash2, User, ChevronUp } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AddServiceDialog } from "./add-service-dialog"
@@ -16,20 +16,54 @@ import { ReservationsTabs } from "./reservations-tabs"
 import { Sidebar } from "@/components/sidebar"
 import { collection, onSnapshot, orderBy, query, doc, getDoc, setDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import Loading from "@/components/loading"
+import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 
-type Status = "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
+// Add this function near the top of the file
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      // If date is invalid, return the original string
+      return dateString
+    }
+
+    return date
+      .toLocaleString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .replace(",", "")
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return dateString
+  }
+}
+
+// Add this function near the top of the file
+const toTitleCase = (text: string): string => {
+  return text
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+type Status = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
+
+interface Service {
+  created: string
+  reservationDate: string
+  service: string
+  mechanic: string
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED"
+}
 
 interface Reservation {
   id: string
@@ -39,46 +73,81 @@ interface Reservation {
   customerName: string
   userId: string
   carModel: string
+  plateNo?: string
   status: Status
-  services?: {
-    created: string
-    reservationDate: string
-    service: string
-    mechanic: string
-  }[]
+  services?: Service[]
 }
 
-const statusStyles: Record<Status, { bg: string; text: string; display: string; hoverBg: string; hoverText: string }> =
+interface SelectedService {
+  reservationId: string
+  serviceIndex: number
+}
+
+const statusStyles: Record<
+  Status,
   {
-    CONFIRMED: {
-      bg: "bg-[#EBF8FF]",
-      text: "text-[#63B3ED]",
-      display: "Confirmed",
-      hoverBg: "hover:bg-[#BEE3F8]",
-      hoverText: "hover:text-[#2B6CB0]",
-    },
-    REPAIRING: {
-      bg: "bg-[#FFF5E0]",
-      text: "text-[#FFC600]",
-      display: "Repairing",
-      hoverBg: "hover:bg-[#FEEBC8]",
-      hoverText: "hover:text-[#D97706]",
-    },
-    COMPLETED: {
-      bg: "bg-[#E6FFF3]",
-      text: "text-[#28C76F]",
-      display: "Completed",
-      hoverBg: "hover:bg-[#C6F6D5]",
-      hoverText: "hover:text-[#22A366]",
-    },
-    CANCELLED: {
-      bg: "bg-[#FFE5E5]",
-      text: "text-[#EA5455]",
-      display: "Cancelled",
-      hoverBg: "hover:bg-[#FED7D7]",
-      hoverText: "hover:text-[#C53030]",
-    },
+    bg: string
+    text: string
+    display: string
+    hoverBg: string
+    hoverText: string
+    disabled?: boolean
+    borderColor: string
   }
+> = {
+  PENDING: {
+    bg: "bg-[#FFF5E0]",
+    text: "text-[#FF9F43]",
+    display: "Pending",
+    hoverBg: "hover:bg-[#FEEBC8]",
+    hoverText: "hover:text-[#E67E22]",
+    borderColor: "border-[#FF9F43]",
+  },
+  CONFIRMED: {
+    bg: "bg-[#EBF8FF]",
+    text: "text-[#63B3ED]",
+    display: "Confirmed",
+    hoverBg: "hover:bg-[#BEE3F8]",
+    hoverText: "hover:text-[#2B6CB0]",
+    borderColor: "border-[#63B3ED]",
+  },
+  REPAIRING: {
+    bg: "bg-[#FFF5E0]",
+    text: "text-[#FFC600]",
+    display: "Repairing",
+    hoverBg: "hover:bg-[#FEEBC8]",
+    hoverText: "hover:text-[#D97706]",
+    borderColor: "border-[#FFC600]",
+  },
+  COMPLETED: {
+    bg: "bg-[#E6FFF3]",
+    text: "text-[#28C76F]",
+    display: "Completed",
+    hoverBg: "hover:bg-[#C6F6D5]",
+    hoverText: "hover:text-[#22A366]",
+    disabled: true,
+    borderColor: "border-[#28C76F]",
+  },
+  CANCELLED: {
+    bg: "bg-[#FFE5E5]",
+    text: "text-[#EA5455]",
+    display: "Cancelled",
+    hoverBg: "hover:bg-[#FED7D7]",
+    hoverText: "hover:text-[#C53030]",
+    disabled: true,
+    borderColor: "border-[#EA5455]",
+  },
+}
+
+// Valid status transitions
+// BACKEND DEV: Update these status transitions according to your business rules
+const validStatusTransitions: Record<Status, Status[]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["REPAIRING", "CANCELLED"], // Can only move forward to REPAIRING or be CANCELLED
+  REPAIRING: ["COMPLETED", "CANCELLED"], // Can only move forward to COMPLETED or be CANCELLED
+  COMPLETED: [], // Terminal state - cannot be changed
+  CANCELLED: [], // Terminal state - cannot be changed
+}
 
 const mechanics = [
   "MARCIAL TAMONDONG",
@@ -93,22 +162,35 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
+// Sample plate numbers for demo purposes
+const samplePlateNumbers = [
+  "ABC-123",
+  "XYZ-789",
+  "DEF-456",
+  "GHI-789",
+  "JKL-012",
+  "MNO-345",
+  "PQR-678",
+  "STU-901",
+  "VWX-234",
+  "YZA-567",
+]
+
 export default function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [reservationData, setReservationData] = useState<Reservation[]>([])
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [showMechanicDialog, setShowMechanicDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [selectedService, setSelectedService] = useState<{
-    reservationId: string
-    serviceIndex: number
-  } | null>(null)
+  const [showDeletePasswordDialog, setShowDeletePasswordDialog] = useState(false)
+  const [selectedService, setSelectedService] = useState<SelectedService | null>(null)
   const [selectedMechanic, setSelectedMechanic] = useState("")
   const [showAddServiceDialog, setShowAddServiceDialog] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
   const [sortField, setSortField] = useState<keyof Omit<Reservation, "services" | "status"> | null>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [showStatusConfirmDialog, setShowStatusConfirmDialog] = useState(false)
+  const [showStatusPasswordDialog, setShowStatusPasswordDialog] = useState(false)
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     reservationId: string | "bulk"
     userId: string
@@ -117,12 +199,10 @@ export default function ReservationsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [bulkStatus, setBulkStatus] = useState<Status | "">("")
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [passwordError, setPasswordError] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(5)
+  // Add a new state for success message near the other state declarations
+  const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null)
 
   // Define columns for the table
   const columns = [
@@ -132,6 +212,7 @@ export default function ReservationsPage() {
     { key: "customerName", label: "CUSTOMER NAME" },
     { key: "userId", label: "CUSTOMER ID" },
     { key: "carModel", label: "CAR MODEL" },
+    { key: "plateNo", label: "PLATE NO." }, // Added new column
     { key: "status", label: "STATUS", sortable: false },
   ]
 
@@ -140,6 +221,7 @@ export default function ReservationsPage() {
   }, [])
 
   useEffect(() => {
+    // BACKEND DEV: Modify this query to include any additional filters or sorting needed
     const q = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
 
     const unsubscribe = onSnapshot(
@@ -155,6 +237,7 @@ export default function ReservationsPage() {
             customerName: bookingData.customerName || "",
             userId: bookingData.userId || "",
             carModel: bookingData.carModel || "",
+            plateNo: bookingData.plateNo || "", // Added plateNo field
             status: (bookingData.status?.toUpperCase() as Status) || "CONFIRMED",
             services: Array.isArray(bookingData.services) ? bookingData.services : [],
           } satisfies Reservation
@@ -172,31 +255,103 @@ export default function ReservationsPage() {
     return () => unsubscribe()
   }, [])
 
+  useEffect(() => {
+    // Add dummy data with 'Pending' status for testing
+    const dummyPendingReservation: Reservation = {
+      id: "TEST001",
+      lastName: "Smith",
+      firstName: "John",
+      reservationDate: "2025-04-15T10:00:00",
+      customerName: "John Smith",
+      userId: "user123",
+      carModel: "Honda Civic",
+      plateNo: "ABC-123", // Added plateNo
+      status: "PENDING",
+      services: [
+        {
+          created: "04-01-25 09:30 AM",
+          reservationDate: "04-15-25 10:00 AM",
+          service: "OIL CHANGE",
+          mechanic: "TO BE ASSIGNED",
+          status: "PENDING",
+        },
+        {
+          created: "04-01-25 09:30 AM",
+          reservationDate: "04-15-25 10:00 AM",
+          service: "BRAKE INSPECTION",
+          mechanic: "TO BE ASSIGNED",
+          status: "PENDING",
+        },
+      ],
+    }
+
+    // Check if we have stored the dummy data in localStorage
+    const storedDummyData = localStorage.getItem("dummyReservationAdded")
+
+    // Only add the dummy data if it doesn't already exist in the data and hasn't been stored
+    setReservationData((prevData) => {
+      if (!prevData.some((res) => res.id === "TEST001") && storedDummyData !== "true") {
+        // Store in localStorage that we've added the dummy data
+        localStorage.setItem("dummyReservationAdded", "true")
+
+        // Add sample plate numbers to existing data
+        const updatedData = prevData.map((reservation, index) => ({
+          ...reservation,
+          plateNo: reservation.plateNo || samplePlateNumbers[index % samplePlateNumbers.length],
+        }))
+
+        return [dummyPendingReservation, ...updatedData]
+      }
+
+      // Add sample plate numbers if they don't exist
+      if (prevData.some((res) => !res.plateNo)) {
+        return prevData.map((reservation, index) => ({
+          ...reservation,
+          plateNo: reservation.plateNo || samplePlateNumbers[index % samplePlateNumbers.length],
+        }))
+      }
+
+      return prevData
+    })
+  }, [])
+
   const handleStatusChangeAttempt = (reservationId: string, userId: string, newStatus: Status) => {
     const reservation = reservationData.find((res) => res.id === reservationId)
 
     if (!reservation) return
 
-    const currentStatus = reservation.status
+    // Check if the status transition is valid
+    if (!validStatusTransitions[reservation.status].includes(newStatus)) {
+      // Provide more specific error message based on the attempted transition
+      let errorMessage = `Cannot change status from ${statusStyles[reservation.status].display} to ${statusStyles[newStatus].display}.`
 
-    // Check if changing from a non-changeable status (COMPLETED or CANCELLED)
-    if (currentStatus === "COMPLETED" || currentStatus === "CANCELLED") {
+      if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
+        errorMessage = `${statusStyles[reservation.status].display} reservations cannot be modified.`
+      } else if (
+        newStatus === "PENDING" &&
+        (reservation.status === "CONFIRMED" || reservation.status === "REPAIRING" || reservation.status === "COMPLETED")
+      ) {
+        errorMessage = `Cannot revert from ${statusStyles[reservation.status].display} back to Pending.`
+      } else if (
+        newStatus === "CONFIRMED" &&
+        (reservation.status === "REPAIRING" || reservation.status === "COMPLETED")
+      ) {
+        errorMessage = `Cannot revert from ${statusStyles[reservation.status].display} back to Confirmed.`
+      } else if (newStatus === "REPAIRING" && reservation.status === "COMPLETED") {
+        errorMessage = `Cannot revert from Completed back to Repairing.`
+      }
+
       toast({
-        title: "Status Cannot Be Changed",
-        description: "Completed or cancelled reservations cannot be modified.",
+        title: "Invalid Status Change",
+        description: errorMessage,
         variant: "destructive",
       })
       return
     }
 
-    // If changing to a restricted status, show confirmation dialog
-    if (newStatus === "COMPLETED" || newStatus === "REPAIRING" || newStatus === "CANCELLED") {
-      setPendingStatusChange({ reservationId, userId, newStatus })
-      setShowStatusConfirmDialog(true)
-    } else {
-      // For other statuses, update directly
-      handleStatusChange(reservationId, userId, newStatus)
-    }
+    // Always show confirmation dialog first
+    setPendingStatusChange({ reservationId, userId, newStatus })
+    setShowStatusConfirmDialog(true)
   }
 
   const handleBulkStatusChangeAttempt = () => {
@@ -209,38 +364,44 @@ export default function ReservationsPage() {
       if (allRowsHaveStatus) {
         toast({
           title: "Status Already Applied",
-          description: `All selected reservations already have the status "${bulkStatus}".`,
+          description: `All selected reservations already have the status "${statusStyles[bulkStatus].display}".`,
           variant: "default",
         })
         return
       }
 
-      // Check if any selected rows are COMPLETED or CANCELLED
-      const hasCompletedOrCancelled = selectedRows.some((rowId) => {
-        const status = reservationData.find((r) => r.id === rowId)?.status
-        return status === "COMPLETED" || status === "CANCELLED"
+      // Check if all selected rows can transition to the new status
+      const invalidTransitions = selectedRows.filter((rowId) => {
+        const reservation = reservationData.find((r) => r.id === rowId)
+        if (!reservation) return false
+        return !validStatusTransitions[reservation.status].includes(bulkStatus)
       })
 
-      if (hasCompletedOrCancelled) {
+      if (invalidTransitions.length > 0) {
+        // Get the first invalid reservation to provide a more specific error example
+        const exampleReservation = reservationData.find((r) => invalidTransitions.includes(r.id))
+
+        let errorMessage = `${invalidTransitions.length} reservation(s) cannot be changed to ${statusStyles[bulkStatus].display}.`
+
+        if (exampleReservation) {
+          errorMessage += ` For example, you cannot change from ${statusStyles[exampleReservation.status].display} to ${statusStyles[bulkStatus].display}.`
+        }
+
         toast({
-          title: "Cannot Change Status",
-          description: "One or more selected reservations are completed or cancelled and cannot be modified.",
+          title: "Invalid Status Changes",
+          description: errorMessage,
           variant: "destructive",
         })
         return
       }
 
-      // If changing to a restricted status, show confirmation dialog
-      if (bulkStatus === "COMPLETED" || bulkStatus === "REPAIRING" || bulkStatus === "CANCELLED") {
-        setPendingStatusChange({ reservationId: "bulk", userId: "", newStatus: bulkStatus })
-        setShowStatusConfirmDialog(true)
-      } else {
-        // For other statuses, update directly
-        handleBulkStatusChange(bulkStatus)
-      }
+      // Always show confirmation dialog first
+      setPendingStatusChange({ reservationId: "bulk", userId: "", newStatus: bulkStatus })
+      setShowStatusConfirmDialog(true)
     }
   }
 
+  // Update the handleStatusChange function to show a success message
   const handleStatusChange = async (reservationId: string, userId: string, newStatus: Status) => {
     try {
       const normalizedStatus = newStatus.toUpperCase() as Status
@@ -248,6 +409,8 @@ export default function ReservationsPage() {
       if (!reservationId || !userId || !normalizedStatus) {
         throw new Error("Missing required data for status update")
       }
+
+      // BACKEND DEV: Add any additional validation or business logic here
 
       // References to both locations in Firestore
       const globalDocRef = doc(db, "bookings", reservationId)
@@ -266,9 +429,13 @@ export default function ReservationsPage() {
         ),
       )
 
+      // Show success message
+      setShowSuccessMessage(`Status changed to ${statusStyles[normalizedStatus].display}`)
+      setTimeout(() => setShowSuccessMessage(null), 3000)
+
       toast({
         title: "Status Updated",
-        description: `Reservation status has been changed to ${normalizedStatus}.`,
+        description: `Reservation status has been changed to ${statusStyles[normalizedStatus].display}.`,
         variant: "default",
       })
     } catch (error) {
@@ -281,12 +448,20 @@ export default function ReservationsPage() {
     }
   }
 
+  // Update the handleBulkStatusChange function to show a success message
   const handleBulkStatusChange = async (newStatus: Status) => {
     try {
+      // BACKEND DEV: Add any additional validation or business logic here
+
       // Create an array of promises for all updates
       const updatePromises = selectedRows.map((reservationId) => {
         const reservation = reservationData.find((r) => r.id === reservationId)
         if (!reservation || !reservation.userId) return Promise.resolve()
+
+        // Skip if the transition is not valid
+        if (!validStatusTransitions[reservation.status].includes(newStatus)) {
+          return Promise.resolve()
+        }
 
         const globalDocRef = doc(db, "bookings", reservationId)
         const userDocRef = doc(db, "users", reservation.userId, "bookings", reservationId)
@@ -302,14 +477,21 @@ export default function ReservationsPage() {
 
       // Update local state
       setReservationData((prevData) =>
-        prevData.map((reservation) =>
-          selectedRows.includes(reservation.id) ? { ...reservation, status: newStatus } : reservation,
-        ),
+        prevData.map((reservation) => {
+          if (selectedRows.includes(reservation.id) && validStatusTransitions[reservation.status].includes(newStatus)) {
+            return { ...reservation, status: newStatus }
+          }
+          return reservation
+        }),
       )
+
+      // Show success message
+      setShowSuccessMessage(`Status changed for ${selectedRows.length} reservation(s)`)
+      setTimeout(() => setShowSuccessMessage(null), 3000)
 
       toast({
         title: "Status Updated",
-        description: `${selectedRows.length} reservation(s) updated to ${newStatus}.`,
+        description: `${selectedRows.length} reservation(s) updated to ${statusStyles[newStatus].display}.`,
         variant: "default",
       })
 
@@ -326,78 +508,22 @@ export default function ReservationsPage() {
     }
   }
 
-  const handlePasswordVerification = async () => {
-    try {
-      setIsLoading(true)
-
-      // Get the admin user document from Firestore
-      const adminDocRef = doc(db, "users", "admin")
-      const adminDoc = await getDoc(adminDocRef)
-
-      if (!adminDoc.exists()) {
-        throw new Error("Admin configuration not found")
-      }
-
-      const adminData = adminDoc.data()
-      const correctPassword = adminData.masterPassword || "password123" // Fallback
-
-      if (password === correctPassword) {
-        // If password is correct
-        if (pendingStatusChange) {
-          if (pendingStatusChange.reservationId === "bulk") {
-            // Handle bulk update
-            handleBulkStatusChange(pendingStatusChange.newStatus)
-          } else {
-            // Handle single reservation update
-            handleStatusChange(
-              pendingStatusChange.reservationId,
-              pendingStatusChange.userId,
-              pendingStatusChange.newStatus,
-            )
-          }
-        }
-        setShowPasswordDialog(false)
-        setPassword("")
-        setPasswordError(false)
-      } else {
-        setPasswordError(true)
-      }
-    } catch (error) {
-      console.error("Error verifying password:", error)
-      toast({
-        title: "Error",
-        description: "Failed to verify password. Using default verification.",
-        variant: "destructive",
-      })
-
-      // Fallback to default password
-      if (password === "password123") {
-        if (pendingStatusChange) {
-          if (pendingStatusChange.reservationId === "bulk") {
-            handleBulkStatusChange(pendingStatusChange.newStatus)
-          } else {
-            handleStatusChange(
-              pendingStatusChange.reservationId,
-              pendingStatusChange.userId,
-              pendingStatusChange.newStatus,
-            )
-          }
-        }
-        setShowPasswordDialog(false)
-        setPassword("")
-        setPasswordError(false)
-      } else {
-        setPasswordError(true)
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const confirmStatusChange = () => {
     setShowStatusConfirmDialog(false)
     if (pendingStatusChange) {
-      setShowPasswordDialog(true)
+      setShowStatusPasswordDialog(true)
+    }
+  }
+
+  const handleStatusVerified = () => {
+    if (pendingStatusChange) {
+      if (pendingStatusChange.reservationId === "bulk") {
+        // Handle bulk update
+        handleBulkStatusChange(pendingStatusChange.newStatus)
+      } else {
+        // Handle single reservation update
+        handleStatusChange(pendingStatusChange.reservationId, pendingStatusChange.userId, pendingStatusChange.newStatus)
+      }
     }
   }
 
@@ -411,8 +537,6 @@ export default function ReservationsPage() {
 
     // Force re-sort of the data when sort parameters change
     const sortedData = [...reservationData].sort((a, b) => {
-      const aValue = a[field]
-      const bValue = b[field]
       const modifier = sortOrder === "asc" ? 1 : -1
 
       if (field === "id") {
@@ -424,10 +548,27 @@ export default function ReservationsPage() {
 
       if (field === "reservationDate") {
         // Parse dates for proper date sorting
-        return new Date(a.reservationDate).getTime() - new Date(b.reservationDate).getTime() * modifier
+        return (new Date(a.reservationDate).getTime() - new Date(b.reservationDate).getTime()) * modifier
+      }
+
+      if (field === "customerName") {
+        // Special handling for customer name
+        const aName = `${a.firstName} ${a.lastName}`.toLowerCase()
+        const bName = `${b.firstName} ${b.lastName}`.toLowerCase()
+        return aName.localeCompare(bName) * modifier
+      }
+
+      if (field === "plateNo") {
+        // Special handling for plate number
+        const aPlate = a.plateNo || ""
+        const bPlate = b.plateNo || ""
+        return aPlate.localeCompare(bPlate) * modifier
       }
 
       // Default string comparison
+      const aValue = a[field] as string
+      const bValue = b[field] as string
+
       if (typeof aValue === "string" && typeof bValue === "string") {
         return aValue.localeCompare(bValue) * modifier
       }
@@ -462,6 +603,8 @@ export default function ReservationsPage() {
     userId: string,
   ) => {
     try {
+      // BACKEND DEV: Add any additional validation or business logic here
+
       const bookingRef = doc(db, "bookings", reservationId)
       const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId)
 
@@ -551,19 +694,17 @@ export default function ReservationsPage() {
     if (expandedRowId) {
       const reservation = reservationData.find((res) => res.id === expandedRowId)
       if (reservation) {
-        // Check if status is restricted
-        if (
-          reservation.status === "COMPLETED" ||
-          reservation.status === "CANCELLED" ||
-          reservation.status === "REPAIRING"
-        ) {
+        // Check if reservation status allows adding services
+        // BACKEND DEV: Modify this validation according to your business rules
+        if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
           toast({
             title: "Cannot Add Services",
-            description: `Cannot add services: reservation status is ${reservation.status}.`,
+            description: `Cannot add services to a ${statusStyles[reservation.status].display.toLowerCase()} reservation.`,
             variant: "destructive",
           })
           return
         }
+
         const now = new Date()
         const formattedNow = now
           .toLocaleString("en-US", {
@@ -583,6 +724,7 @@ export default function ReservationsPage() {
           reservationDate: reservation.reservationDate.toLowerCase(),
           service: service,
           mechanic: "TO BE ASSIGNED",
+          status: "PENDING",
         }))
 
         const updatedServices = [...(reservation.services || []), ...newServices]
@@ -621,15 +763,12 @@ export default function ReservationsPage() {
     if (selectedService) {
       const reservation = reservationData.find((res) => res.id === selectedService.reservationId)
       if (reservation) {
-        // Check if status is restricted
-        if (
-          reservation.status === "COMPLETED" ||
-          reservation.status === "CANCELLED" ||
-          reservation.status === "REPAIRING"
-        ) {
+        // Check if reservation status allows deleting services
+        // BACKEND DEV: Modify this validation according to your business rules
+        if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
           toast({
             title: "Cannot Delete Service",
-            description: `Cannot delete services: reservation status is ${reservation.status}.`,
+            description: `Cannot delete services from a ${statusStyles[reservation.status].display.toLowerCase()} reservation.`,
             variant: "destructive",
           })
           return
@@ -688,18 +827,46 @@ export default function ReservationsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen bg-[#EBF8FF] items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1A365D] mx-auto"></div>
-          <p className="mt-2 text-[#1A365D]">Loading...</p>
-        </div>
+      <div className="flex min-h-screen bg-[#EBF8FF]">
+        <Sidebar />
+        <main className="ml-64 flex-1 p-8">
+          <Loading />
+        </main>
       </div>
     )
   }
 
+  // Fix the any type issue
+  const handleServiceStatusChange = (reservationId: string, serviceIndex: number, newStatus: Service["status"]) => {
+    // BACKEND DEV: Add any additional validation or business logic here
+
+    setReservationData((prevData) =>
+      prevData.map((reservation) => {
+        if (reservation.id === reservationId && reservation.services) {
+          const updatedServices = [...reservation.services]
+          updatedServices[serviceIndex] = {
+            ...updatedServices[serviceIndex],
+            status: newStatus,
+          }
+          return {
+            ...reservation,
+            services: updatedServices,
+          }
+        }
+        return reservation
+      }),
+    )
+  }
+
+  // Add the success message component right after the <Sidebar /> component
   return (
     <div className="flex min-h-screen bg-[#EBF8FF]">
       <Sidebar />
+      {showSuccessMessage && (
+        <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
+          {showSuccessMessage}
+        </div>
+      )}
       <main className="ml-64 flex-1 p-4 md:p-6 lg:p-8">
         <div className="mb-4">
           <DashboardHeader title="Reservation Management" />
@@ -724,7 +891,7 @@ export default function ReservationsPage() {
           {selectedRows.length > 0 && (
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <Select value={bulkStatus} onValueChange={(value) => setBulkStatus(value as Status)}>
-                <SelectTrigger className="w-full sm:w-[160px] bg-white border border-gray-200 text-sm text-center whitespace-nowrap">
+                <SelectTrigger className="w-full sm:w-[160px] bg-white border-0 text-sm text-center whitespace-nowrap focus:ring-offset-0 focus-visible:ring-1 focus-visible:ring-[#2A69AC]">
                   <SelectValue placeholder="Change status" className="text-center mx-auto" />
                 </SelectTrigger>
                 <SelectContent>
@@ -780,7 +947,9 @@ export default function ReservationsPage() {
                       checked={selectedRows.length > 0 && selectedRows.length === selectableReservations.length}
                       onCheckedChange={handleSelectAll}
                       aria-label="Select all reservations"
-                      className="border-[#2A69AC] data-[state=checked]:bg-[#2A69AC] data-[state=checked]:text-white"
+                      className={cn(
+                        "border-[#2A69AC] data-[state=checked]:bg-[#2A69AC] data-[state=checked]:text-white",
+                      )}
                     />
                   </TableHead>
                   {columns
@@ -788,7 +957,7 @@ export default function ReservationsPage() {
                     .map((column) => (
                       <TableHead
                         key={column.key}
-                        className="px-2 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider w-[15%]"
+                        className="px-2 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider w-[13%]"
                       >
                         {column.sortable !== false ? (
                           <button
@@ -838,8 +1007,9 @@ export default function ReservationsPage() {
                             checked={selectedRows.includes(reservation.id)}
                             onCheckedChange={() => handleRowSelect(reservation.id)}
                             aria-label={`Select reservation ${reservation.id}`}
-                            disabled={reservation.status === "COMPLETED" || reservation.status === "CANCELLED"}
-                            className="border-[#2A69AC] data-[state=checked]:bg-[#2A69AC] data-[state=checked]:text-white"
+                            className={cn(
+                              "border-[#2A69AC] data-[state=checked]:bg-[#2A69AC] data-[state=checked]:text-white",
+                            )}
                           />
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
@@ -848,7 +1018,9 @@ export default function ReservationsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate">{reservation.reservationDate}</span>
+                          <span className="block truncate" title={formatDate(reservation.reservationDate)}>
+                            {formatDate(reservation.reservationDate)}
+                          </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
                           <span className="block truncate">{reservation.firstName + " " + reservation.lastName}</span>
@@ -861,52 +1033,88 @@ export default function ReservationsPage() {
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
                           <span className="block truncate">{reservation.carModel}</span>
                         </TableCell>
+                        <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
+                          <span className="block truncate">{reservation.plateNo || "—"}</span>
+                        </TableCell>
                         <TableCell className="px-2 py-4 flex justify-center">
-                          <div className="relative inline-block max-w-[140px]">
-                            <select
-                              value={reservation.status}
-                              onChange={(e) => {
-                                const newStatus = e.target.value as Status
-                                if (reservation.id && reservation.userId) {
-                                  handleStatusChangeAttempt(reservation.id, reservation.userId, newStatus)
-                                }
-                              }}
-                              className={cn(
-                                "appearance-none h-8 px-2 py-1 rounded-md pr-6 focus:outline-none focus:ring-2 focus:ring-offset-2 font-medium text-sm w-full truncate",
-                                statusStyles[reservation.status].bg,
-                                statusStyles[reservation.status].text,
-                              )}
-                              disabled={reservation.status === "COMPLETED" || reservation.status === "CANCELLED"}
-                            >
-                              {Object.keys(statusStyles).map((status) => {
-                                // Skip CONFIRMED option if current status is REPAIRING
-                                if (status === "CONFIRMED" && reservation.status === "REPAIRING") {
-                                  return null
-                                }
-
-                                return (
-                                  <option
-                                    key={status}
-                                    value={status}
-                                    className={cn(
-                                      statusStyles[status as Status].bg,
-                                      statusStyles[status as Status].text,
-                                      statusStyles[status as Status].hoverBg,
-                                      statusStyles[status as Status].hoverText,
-                                      "py-1",
-                                    )}
+                          <div className="relative inline-block w-[140px]">
+                            {reservation.status === "COMPLETED" || reservation.status === "CANCELLED" ? (
+                              // For Completed or Cancelled, render a static badge instead of a dropdown
+                              <div
+                                className={cn(
+                                  "w-[140px] h-8 px-2 py-1 text-sm font-medium flex items-center justify-center rounded-lg",
+                                  statusStyles[reservation.status].bg,
+                                  statusStyles[reservation.status].text,
+                                )}
+                              >
+                                {statusStyles[reservation.status].display}
+                              </div>
+                            ) : (
+                              // For other statuses, keep the dropdown functionality
+                              <Select
+                                value={reservation.status}
+                                onValueChange={(value) => {
+                                  if (reservation.id && reservation.userId) {
+                                    handleStatusChangeAttempt(reservation.id, reservation.userId, value as Status)
+                                  }
+                                }}
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    "w-[140px] h-8 px-2 py-1 text-sm font-medium",
+                                    statusStyles[reservation.status].bg,
+                                    statusStyles[reservation.status].text,
+                                    "border-transparent", // Default transparent border
+                                    "focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:ring-0",
+                                    "data-[state=open]:border-2", // Only show border when open
+                                    {
+                                      "data-[state=open]:border-[#63B3ED]": reservation.status === "CONFIRMED",
+                                      "data-[state=open]:border-[#FFC600]": reservation.status === "REPAIRING",
+                                      "data-[state=open]:border-[#FF9F43]": reservation.status === "PENDING",
+                                    },
+                                  )}
+                                >
+                                  <SelectValue>{statusStyles[reservation.status].display}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem
+                                    key="PENDING"
+                                    value="PENDING"
+                                    className="bg-[#FFF5E0] text-[#FF9F43] hover:bg-[#FEEBC8] hover:text-[#E67E22] py-1.5"
                                   >
-                                    {statusStyles[status as Status].display}
-                                  </option>
-                                )
-                              })}
-                            </select>
-                            <ChevronDown
-                              className={cn(
-                                "absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none h-3 w-3",
-                                statusStyles[reservation.status].text,
-                              )}
-                            />
+                                    Pending
+                                  </SelectItem>
+                                  <SelectItem
+                                    key="CONFIRMED"
+                                    value="CONFIRMED"
+                                    className="bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0] py-1.5"
+                                  >
+                                    Confirmed
+                                  </SelectItem>
+                                  <SelectItem
+                                    key="REPAIRING"
+                                    value="REPAIRING"
+                                    className="bg-[#FFF5E0] text-[#FFC600] hover:bg-[#FEEBC8] hover:text-[#D97706] py-1.5"
+                                  >
+                                    Repairing
+                                  </SelectItem>
+                                  <SelectItem
+                                    key="COMPLETED"
+                                    value="COMPLETED"
+                                    className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366] py-1.5"
+                                  >
+                                    Completed
+                                  </SelectItem>
+                                  <SelectItem
+                                    key="CANCELLED"
+                                    value="CANCELLED"
+                                    className="bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FED7D7] hover:text-[#C53030] py-1.5"
+                                  >
+                                    Cancelled
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="px-2 py-4 text-center">
@@ -938,35 +1146,30 @@ export default function ReservationsPage() {
                       </TableRow>
                       {expandedRowId === reservation.id && (
                         <TableRow>
-                          <TableCell colSpan={8} className="bg-gray-50 p-0">
+                          <TableCell colSpan={9} className="bg-gray-50 p-0">
                             <div className="px-2 py-2 overflow-x-auto">
                               <Table className="w-full">
                                 <thead>
                                   <tr className="h-12">
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      CREATED
+                                      Created
                                     </TableHead>
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      RESERVATION DATE
+                                      Reservation Date
                                     </TableHead>
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      SERVICE
+                                      Service
                                     </TableHead>
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      MECHANIC
+                                      Mechanic
                                     </TableHead>
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      ACTION
+                                      Action
                                     </TableHead>
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
                                       <Button
-                                        className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-xs font-medium px-2 py-1 rounded-md"
+                                        className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
                                         onClick={() => setShowAddServiceDialog(true)}
-                                        disabled={
-                                          reservation.status === "COMPLETED" ||
-                                          reservation.status === "CANCELLED" ||
-                                          reservation.status === "REPAIRING"
-                                        }
                                       >
                                         Add Service
                                       </Button>
@@ -981,7 +1184,7 @@ export default function ReservationsPage() {
                                           {service.created}
                                         </TableCell>
                                         <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.reservationDate}
+                                          {formatDate(service.reservationDate)}
                                         </TableCell>
                                         <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
                                           {service.service}
@@ -1002,22 +1205,8 @@ export default function ReservationsPage() {
                                                 setSelectedMechanic(service.mechanic)
                                                 setShowMechanicDialog(true)
                                               }}
-                                              disabled={
-                                                reservation.status === "COMPLETED" ||
-                                                reservation.status === "CANCELLED" ||
-                                                reservation.status === "REPAIRING"
-                                              }
                                             >
-                                              <User
-                                                className={cn(
-                                                  "h-4 w-4",
-                                                  reservation.status === "COMPLETED" ||
-                                                    reservation.status === "CANCELLED" ||
-                                                    reservation.status === "REPAIRING"
-                                                    ? "text-gray-400"
-                                                    : "text-[#1A365D]",
-                                                )}
-                                              />
+                                              <User className="h-4 w-4 text-[#1A365D]" />
                                             </Button>
                                             <Button
                                               variant="ghost"
@@ -1029,22 +1218,8 @@ export default function ReservationsPage() {
                                                 })
                                                 setShowDeleteDialog(true)
                                               }}
-                                              disabled={
-                                                reservation.status === "COMPLETED" ||
-                                                reservation.status === "CANCELLED" ||
-                                                reservation.status === "REPAIRING"
-                                              }
                                             >
-                                              <Trash2
-                                                className={cn(
-                                                  "h-4 w-4",
-                                                  reservation.status === "COMPLETED" ||
-                                                    reservation.status === "CANCELLED" ||
-                                                    reservation.status === "REPAIRING"
-                                                    ? "text-gray-400"
-                                                    : "text-[#1A365D]",
-                                                )}
-                                              />
+                                              <Trash2 className="h-4 w-4 text-[#1A365D]" />
                                             </Button>
                                           </div>
                                         </TableCell>
@@ -1061,7 +1236,7 @@ export default function ReservationsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-[#8B909A]">
+                    <TableCell colSpan={9} className="text-center text-[#8B909A]">
                       No reservations found.
                     </TableCell>
                   </TableRow>
@@ -1116,7 +1291,7 @@ export default function ReservationsPage() {
       <Dialog open={showMechanicDialog} onOpenChange={setShowMechanicDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">Which mechanic to do this service?</DialogTitle>
+            <DialogTitle className="text-center text-xl">Which mechanic to do this service?</DialogTitle>
           </DialogHeader>
           <div className="flex justify-center items-center py-4">
             <div className="grid grid-cols-2 gap-x-8 gap-y-2">
@@ -1132,21 +1307,20 @@ export default function ReservationsPage() {
               </RadioGroup>
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <div className="flex justify-center gap-4">
             <Button
-              variant="outline"
-              className="bg-[#FFE5E5] hover:bg-[#EA5455]/30 text-[#EA5455] hover:text-[#EA5455]"
               onClick={() => setShowMechanicDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               Back
             </Button>
             <Button
-              className="bg-[#E6FFF3] hover:bg-[#28C76F]/30 text-[#28C76F] hover:text-[#28C76F]"
               onClick={handleMechanicChange}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Confirm
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1154,101 +1328,86 @@ export default function ReservationsPage() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">Are you sure to delete this service?</DialogTitle>
+            <DialogTitle className="text-center text-xl">Are you sure to delete this service?</DialogTitle>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <div className="flex justify-center gap-4 py-4">
             <Button
-              variant="outline"
-              className="bg-[#FFE5E5] hover:bg-[#EA5455]/30 text-[#EA5455] hover:text-[#EA5455]"
               onClick={() => setShowDeleteDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               No, go back
             </Button>
             <Button
-              className="bg-[#E6FFF3] hover:bg-[#28C76F]/30 text-[#28C76F] hover:text-[#28C76F]"
-              onClick={handleDeleteService}
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setShowDeletePasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Yes, delete
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Service Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showDeletePasswordDialog}
+        onOpenChange={setShowDeletePasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms the deletion of this service."
+        onVerified={handleDeleteService}
+        cancelButtonText="Cancel"
+        confirmButtonText="Delete"
+      />
 
       {/* Status Confirmation Dialog */}
-      <AlertDialog open={showStatusConfirmDialog} onOpenChange={setShowStatusConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingStatusChange?.reservationId === "bulk"
-                ? `Changing ${selectedRows.length} reservations to ${pendingStatusChange?.newStatus} will restrict modifications.`
-                : `Changing to ${pendingStatusChange?.newStatus} will restrict modifications to this reservation.`}
-              {pendingStatusChange?.newStatus === "REPAIRING" && " You won't be able to change this back to CONFIRMED."}
-              {(pendingStatusChange?.newStatus === "COMPLETED" || pendingStatusChange?.newStatus === "CANCELLED") &&
-                " This status change cannot be reversed."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>No</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmStatusChange}>Yes</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Password Verification Dialog */}
-      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+      <Dialog open={showStatusConfirmDialog} onOpenChange={setShowStatusConfirmDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">Verify Authorization</DialogTitle>
+            <DialogTitle className="text-center text-xl">Are you sure?</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            {passwordError && (
-              <div className="mb-4 text-center text-[#EA5455]">Incorrect password. Please try again.</div>
-            )}
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter authorization password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setPasswordError(false)
-                }}
-                className={cn(
-                  "w-full bg-[#F1F5F9] border-0 pr-10",
-                  passwordError && "border-[#EA5455] focus-visible:ring-[#EA5455]",
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
+            <p className="text-center text-[#8B909A] mb-2">
+              {pendingStatusChange?.reservationId === "bulk"
+                ? `Changing ${selectedRows.length} reservations to ${pendingStatusChange?.newStatus ? statusStyles[pendingStatusChange.newStatus].display : ""}.`
+                : `Changing this reservation to ${pendingStatusChange?.newStatus ? statusStyles[pendingStatusChange.newStatus].display : ""}.`}
+            </p>
+            <p className="text-center text-[#EA5455] font-medium">
+              {pendingStatusChange?.newStatus === "CANCELLED"
+                ? "Warning: Cancelled status cannot be reverted."
+                : pendingStatusChange?.newStatus === "COMPLETED"
+                  ? "Warning: Completed status cannot be reverted."
+                  : "Warning: Status changes cannot be reverted to previous states."}
+            </p>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <div className="flex justify-center gap-4">
             <Button
-              variant="outline"
-              className="bg-[#FFE5E5] hover:bg-[#EA5455]/30 text-[#EA5455] hover:text-[#EA5455]"
-              onClick={() => {
-                setShowPasswordDialog(false)
-                setPassword("")
-                setPasswordError(false)
-              }}
+              onClick={() => setShowStatusConfirmDialog(false)}
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
-              Cancel
+              No, go back
             </Button>
             <Button
-              className="bg-[#E6FFF3] hover:bg-[#28C76F]/30 text-[#28C76F] hover:text-[#28C76F]"
-              onClick={handlePasswordVerification}
+              onClick={confirmStatusChange}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
-              Verify
+              Yes, continue
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Status Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showStatusPasswordDialog}
+        onOpenChange={setShowStatusPasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms this change of status."
+        onVerified={handleStatusVerified}
+        cancelButtonText="Cancel"
+        confirmButtonText="Update Status"
+      />
 
       {/* Add Service Dialog */}
       <AddServiceDialog

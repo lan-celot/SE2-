@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -8,20 +8,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, addDoc } from "firebase/firestore"
+import { collection, doc, getDocs, updateDoc, arrayUnion } from "firebase/firestore"
 import { toast } from "@/components/ui/use-toast"
+import Loading from "@/components/loading"
 
-// Define types for services and reservations
 interface Service {
   id: string
   label: string
-}
-
-interface Reservation {
-  id: string
-  customer: string
-  car: string
-  customerId: string
 }
 
 const services: Service[] = [
@@ -50,48 +43,74 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
-export default function AddTransactionPage() {
+export default function AddServicePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const transactionId = searchParams.get("id")
+
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [customServiceName, setCustomServiceName] = useState("")
   const [formData, setFormData] = useState({
-    customerName: "",
-    customerId: "",
-    carModel: "",
     mechanic: "",
     price: "",
     quantity: "1",
     discount: "0",
   })
-  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [transaction, setTransaction] = useState<any>(null)
   const [isCustomService, setIsCustomService] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const fetchReservations = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "bookings"))
-        const reservationsData: Reservation[] = querySnapshot.docs.map((doc) => {
-          const data = doc.data()
-          return {
-            id: data.bookingId || doc.id,
-            customer: `${data.firstName || ""} ${data.lastName || ""}`,
-            car: data.carModel || "",
-            customerId: data.userId || "",
-          }
-        })
-        setReservations(reservationsData)
-      } catch (error) {
-        console.error("Error fetching reservations:", error)
+    const fetchTransaction = async () => {
+      if (!transactionId) {
         toast({
           title: "Error",
-          description: "Failed to fetch reservations data",
+          description: "No transaction ID provided",
           variant: "destructive",
         })
+        router.push("/transactions")
+        return
+      }
+
+      try {
+        // Get the transaction document from Firestore
+        const transactionsRef = collection(db, "transactions")
+        const querySnapshot = await getDocs(transactionsRef)
+
+        // Find the transaction with the matching ID
+        const transactionDoc = querySnapshot.docs.find((doc) => {
+          const data = doc.data()
+          return data.id === transactionId
+        })
+
+        if (!transactionDoc) {
+          toast({
+            title: "Error",
+            description: "Transaction not found",
+            variant: "destructive",
+          })
+          router.push("/transactions")
+          return
+        }
+
+        setTransaction({
+          ...transactionDoc.data(),
+          docId: transactionDoc.id,
+        })
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching transaction:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch transaction data",
+          variant: "destructive",
+        })
+        router.push("/transactions")
       }
     }
 
-    fetchReservations()
-  }, [])
+    fetchTransaction()
+  }, [transactionId, router])
 
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServices((current) =>
@@ -107,12 +126,14 @@ export default function AddTransactionPage() {
   }
 
   const handleConfirm = async () => {
+    if (!transaction) return
+
     try {
       // Validate form data
-      if (!formData.customerName || !formData.carModel || (!selectedServices.length && !customServiceName)) {
+      if ((!selectedServices.length && !customServiceName) || !formData.mechanic) {
         toast({
           title: "Missing Information",
-          description: "Please fill in all required fields",
+          description: "Please select a service and mechanic",
           variant: "destructive",
         })
         return
@@ -127,13 +148,13 @@ export default function AddTransactionPage() {
         return
       }
 
-      // Create transaction data
+      // Create service data
       const price = Number.parseFloat(formData.price)
       const quantity = Number.parseInt(formData.quantity || "1")
       const discount = Number.parseInt(formData.discount || "0")
       const total = price * quantity * (1 - discount / 100)
 
-      const servicesList = isCustomService
+      const newServices = isCustomService
         ? [
             {
               service: customServiceName,
@@ -156,35 +177,43 @@ export default function AddTransactionPage() {
             }
           })
 
-      const transactionData = {
-        id: `T${Date.now().toString().slice(-6)}`,
-        reservationDate: new Date().toLocaleString(),
-        customerName: formData.customerName,
-        customerId: formData.customerId || `C${Date.now().toString().slice(-6)}`,
-        carModel: formData.carModel,
-        completionDate: new Date().toLocaleString(),
-        totalPrice: servicesList.reduce((sum, service) => sum + service.total, 0),
-        services: servicesList,
-      }
+      // Update transaction in Firestore
+      const transactionRef = doc(db, "transactions", transaction.docId)
 
-      // Add transaction to Firestore
-      await addDoc(collection(db, "transactions"), transactionData)
+      // Calculate new total price
+      const newTotalPrice = transaction.totalPrice + newServices.reduce((sum, service) => sum + service.total, 0)
+
+      await updateDoc(transactionRef, {
+        services: arrayUnion(...newServices),
+        totalPrice: newTotalPrice,
+      })
 
       toast({
-        title: "Transaction Added",
-        description: "The transaction has been successfully added",
+        title: "Service Added",
+        description: "The service has been successfully added to the transaction",
         variant: "default",
       })
 
       router.push("/transactions")
     } catch (error) {
-      console.error("Error adding transaction:", error)
+      console.error("Error adding service:", error)
       toast({
         title: "Error",
-        description: "Failed to add transaction",
+        description: "Failed to add service to transaction",
         variant: "destructive",
       })
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen bg-[#EBF8FF]">
+        <Sidebar />
+        <main className="ml-64 flex-1 p-8 flex items-center justify-center">
+          <Loading />
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -192,36 +221,19 @@ export default function AddTransactionPage() {
       <Sidebar />
       <main className="ml-64 flex-1 p-8">
         <div className="mb-8">
-          <DashboardHeader title="Add a Transaction" />
+          <DashboardHeader title="Add Service / Item" />
         </div>
 
         <div className="mx-auto max-w-4xl rounded-xl bg-white p-8 shadow-sm">
-          <h2 className="mb-8 text-2xl font-semibold text-[#1A365D]">Transaction Details</h2>
+          <h2 className="mb-8 text-2xl font-semibold text-[#1A365D]">Add to Transaction: {transaction?.id}</h2>
+
+          <div className="mb-6">
+            <p className="text-sm text-gray-500">Customer: {transaction?.customerName}</p>
+            <p className="text-sm text-gray-500">Car Model: {transaction?.carModel}</p>
+          </div>
 
           <div className="grid gap-6">
             <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  placeholder="Customer Name"
-                  value={formData.customerName}
-                  onChange={(e) => handleInputChange("customerName", e.target.value)}
-                  className="w-full"
-                />
-                <Input
-                  placeholder="Customer ID (optional)"
-                  value={formData.customerId}
-                  onChange={(e) => handleInputChange("customerId", e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              <Input
-                placeholder="Car Model"
-                value={formData.carModel}
-                onChange={(e) => handleInputChange("carModel", e.target.value)}
-                className="w-full"
-              />
-
               <Select value={formData.mechanic} onValueChange={(value) => handleInputChange("mechanic", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Mechanic" />
@@ -316,7 +328,7 @@ export default function AddTransactionPage() {
                 Back
               </Button>
               <Button onClick={handleConfirm} className="bg-[#1A365D] hover:bg-[#1E4E8C]">
-                Confirm Transaction
+                Add to Transaction
               </Button>
             </div>
           </div>

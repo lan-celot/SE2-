@@ -1,10 +1,12 @@
 "use client"
 
 import React, { useState } from "react"
-import { ChevronUp, ChevronDown } from "lucide-react"
+import { ChevronUp, ChevronDown, Printer } from "lucide-react"
 import Image from "next/image"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface Transaction {
   id: string
@@ -25,11 +27,12 @@ interface Transaction {
 }
 
 interface TransactionsTableProps {
-  transactions: Transaction[]
+  transactions?: Transaction[]
   searchQuery: string
 }
 
-const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, searchQuery }) => {
+const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions = [], searchQuery }) => {
+  const router = useRouter()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [sortField, setSortField] = useState<keyof Transaction>("completionDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
@@ -37,78 +40,235 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
-  const [filteredAndSortedTransactions, setFilteredAndSortedTransactions] = useState<Transaction[]>(transactions)
+  // Remove this line:
+  // const [filteredAndSortedTransactions, setFilteredAndSortedTransactions] = useState<Transaction[]>(transactions)
 
   const handleSort = (field: keyof Transaction) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc")
     } else {
       setSortField(field)
-      setSortOrder(field === "completionDate" ? "desc" : "asc")
+      setSortOrder("asc")
     }
-
-    // Get the current page data before sorting
-    const currentPageData = filteredAndSortedTransactions.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage,
-    )
-
-    // Sort only the current page data
-    const sortedPageData = [...currentPageData].sort((a, b) => {
-      const aValue = a[field]
-      const bValue = b[field]
-      const modifier = sortOrder === "asc" ? 1 : -1
-
-      if (field === "completionDate") {
-        return new Date(b.completionDate).getTime() - new Date(a.completionDate).getTime()
-      }
-
-      if (aValue === undefined || bValue === undefined) {
-        return 0
-      }
-
-      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0
-    })
-
-    // Create a new filtered transactions array with the sorted page
-    const newFilteredTransactions = [...filteredAndSortedTransactions]
-    for (let i = 0; i < sortedPageData.length; i++) {
-      newFilteredTransactions[(currentPage - 1) * itemsPerPage + i] = sortedPageData[i]
-    }
-
-    // Update the state
-    setFilteredAndSortedTransactions(newFilteredTransactions)
   }
 
   const formatCurrency = (amount: number) => {
     return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  const filteredTransactions = transactions.filter((transaction) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return (
-        transaction.id.toLowerCase().includes(query) ||
-        transaction.customerName.toLowerCase().includes(query) ||
-        transaction.customerId.toLowerCase().includes(query) ||
-        transaction.carModel.toLowerCase().includes(query) ||
-        transaction.reservationDate.toLowerCase().includes(query) ||
-        transaction.completionDate.toLowerCase().includes(query)
-      )
-    }
-    return true
-  })
-
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
-  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const handleAddServiceItem = (reservationId: string) => {
+    // Navigate to add service/item page with the specific reservation ID
+    router.push(`/transactions/add-service?id=${reservationId}`)
+  }
 
   const handlePrint = () => {
     const transaction = transactions.find((t) => t.id === selectedTransactionId)
     if (transaction) {
       setShowPrintDialog(false)
-      window.print()
+
+      // Create a new window for the invoice
+      const printWindow = window.open("", "_blank")
+      if (printWindow) {
+        const currentDate = new Date().toLocaleString("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+
+        printWindow.document.write(`
+      <html>
+        <head>
+          <title>Invoice - ${transaction.id}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif;
+              margin: 40px;
+              color: #000;
+            }
+            .date-invoice {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 40px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 40px;
+            }
+            .header h1 {
+              margin: 0 0 10px 0;
+              font-size: 24px;
+            }
+            .header p {
+              margin: 0;
+              font-size: 14px;
+            }
+            .details {
+              margin-bottom: 30px;
+              font-size: 14px;
+            }
+            .details p {
+              margin: 5px 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+              font-size: 14px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 12px;
+              text-align: left;
+            }
+            th {
+              background-color: #f8f8f8;
+            }
+            .total {
+              text-align: right;
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .totals-section {
+              width: 300px;
+              margin-left: auto;
+              text-align: right;
+            }
+            .totals-section p {
+              display: flex;
+              justify-content: space-between;
+              margin: 5px 0;
+              font-size: 14px;
+            }
+            .totals-section .label {
+              color: #666;
+            }
+            @media print {
+              body { margin: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="date-invoice">
+            <div>${currentDate}</div>
+            <div>Invoice - ${transaction.id}</div>
+          </div>
+          <div class="header">
+            <h1>Invoice</h1>
+            <p>Transaction ID: ${transaction.id}</p>
+          </div>
+          <div class="details">
+            <p><strong>Customer:</strong> ${transaction.customerName}</p>
+            <p><strong>Customer ID:</strong> ${transaction.customerId}</p>
+            <p><strong>Car Model:</strong> ${transaction.carModel}</p>
+            <p><strong>Completion Date:</strong> ${transaction.completionDate}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Mechanic</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Discount</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                transaction.services
+                  ?.map(
+                    (service) => `
+                <tr>
+                  <td>${service.service}</td>
+                  <td>${service.mechanic}</td>
+                  <td>${formatCurrency(service.price)}</td>
+                  <td>${service.quantity}</td>
+                  <td>${service.discount}%</td>
+                  <td>${formatCurrency(service.total)}</td>
+                </tr>
+              `,
+                  )
+                  .join("") || ""
+              }
+            </tbody>
+          </table>
+          <div class="totals-section">
+            <p>
+              <span class="label">SUBTOTAL</span>
+              <span>${formatCurrency(transaction.totalPrice)}</span>
+            </p>
+            <p>
+              <span class="label">DISCOUNT</span>
+              <span>${formatCurrency(0)}</span>
+            </p>
+            <p>
+              <span class="label">TOTAL</span>
+              <span>${formatCurrency(transaction.totalPrice)}</span>
+            </p>
+            <p>
+              <span class="label">AMOUNT TENDERED</span>
+              <span>${formatCurrency(transaction.totalPrice)}</span>
+            </p>
+            <p>
+              <span class="label">CHANGE</span>
+              <span>${formatCurrency(0)}</span>
+            </p>
+          </div>
+        </body>
+      </html>
+    `)
+        printWindow.document.close()
+        printWindow.print()
+      }
     }
   }
+
+  const filteredTransactions =
+    transactions?.filter((transaction) => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        return (
+          transaction.id.toLowerCase().includes(query) ||
+          transaction.customerName.toLowerCase().includes(query) ||
+          transaction.customerId.toLowerCase().includes(query) ||
+          transaction.carModel.toLowerCase().includes(query) ||
+          transaction.reservationDate.toLowerCase().includes(query) ||
+          transaction.completionDate.toLowerCase().includes(query)
+        )
+      }
+      return true
+    }) || []
+
+  // Sort the filtered transactions
+  const sortedTransactions = [...filteredTransactions].sort((a, b) => {
+    const aValue = a[sortField]
+    const bValue = b[sortField]
+    const modifier = sortOrder === "asc" ? 1 : -1
+
+    if (sortField === "id") {
+      return a.id.localeCompare(b.id) * modifier
+    }
+
+    if (sortField === "completionDate" || sortField === "reservationDate") {
+      return new Date(a[sortField]).getTime() - new Date(b[sortField]).getTime() * modifier
+    }
+
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      return aValue.localeCompare(bValue) * modifier
+    }
+
+    if (typeof aValue === "number" && typeof bValue === "number") {
+      return (aValue - bValue) * modifier
+    }
+
+    return 0
+  })
+
+  const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage)
+  const currentItems = sortedTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   return (
     <div className={cn("bg-white rounded-lg shadow-sm overflow-hidden", showPrintDialog && "opacity-50")}>
@@ -132,26 +292,24 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
                 >
                   {column.key !== "action" ? (
                     <button
-                      className="flex items-center gap-1 hover:text-[#1A365D]"
+                      className="flex items-center justify-center gap-1 hover:text-[#1A365D] mx-auto"
                       onClick={() => column.key !== "action" && handleSort(column.key as keyof Transaction)}
                     >
                       {column.label}
-                      {column.key !== "action" && (
-                        <div className="flex flex-col">
-                          <ChevronUp
-                            className={cn(
-                              "h-3 w-3",
-                              sortField === column.key && sortOrder === "asc" ? "text-[#1A365D]" : "text-[#8B909A]",
-                            )}
-                          />
-                          <ChevronDown
-                            className={cn(
-                              "h-3 w-3",
-                              sortField === column.key && sortOrder === "desc" ? "text-[#1A365D]" : "text-[#8B909A]",
-                            )}
-                          />
-                        </div>
-                      )}
+                      <div className="flex flex-col">
+                        <ChevronUp
+                          className={cn(
+                            "h-3 w-3",
+                            sortField === column.key && sortOrder === "asc" ? "text-[#1A365D]" : "text-[#8B909A]",
+                          )}
+                        />
+                        <ChevronDown
+                          className={cn(
+                            "h-3 w-3",
+                            sortField === column.key && sortOrder === "desc" ? "text-[#1A365D]" : "text-[#8B909A]",
+                          )}
+                        />
+                      </div>
                     </button>
                   ) : (
                     column.label
@@ -161,7 +319,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {paginatedTransactions.map((transaction) => (
+            {currentItems.map((transaction) => (
               <React.Fragment key={transaction.id}>
                 <tr
                   className={cn(
@@ -169,25 +327,25 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
                     expandedRow && expandedRow !== transaction.id && "opacity-50",
                   )}
                 >
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={transaction.id}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.id}>
                     {transaction.id}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={transaction.reservationDate}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.reservationDate}>
                     {transaction.reservationDate}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={transaction.customerName}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.customerName}>
                     {transaction.customerName}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={transaction.customerId}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.customerId}>
                     {transaction.customerId}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={transaction.carModel}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.carModel}>
                     {transaction.carModel}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={transaction.completionDate}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.completionDate}>
                     {transaction.completionDate}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4">
                     <div className="flex justify-center">
                       <button
                         onClick={() => setExpandedRow(expandedRow === transaction.id ? null : transaction.id)}
@@ -208,41 +366,65 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
                   <tr>
                     <td colSpan={7} className="px-6 py-4 bg-gray-50">
                       <div className="space-y-4">
-                        <div className="grid grid-cols-6 w-full items-center font-medium text-[#8B909A] mb-2 text-xs">
-                          <div className="truncate">SERVICE</div>
-                          <div className="truncate">MECHANIC</div>
-                          <div className="text-right truncate">PRICE</div>
-                          <div className="text-right truncate">QUANTITY</div>
-                          <div className="text-right truncate">DISCOUNT</div>
-                          <div className="text-right truncate">TOTAL</div>
+                        {/* Action buttons row */}
+                        <div className="flex justify-end mb-4 space-x-2">
+                          <Button
+                            onClick={() => handleAddServiceItem(transaction.id)}
+                            className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+                          >
+                            Add Service / Item
+                          </Button>
+                          <button
+                            className="p-2 text-[#1A365D] hover:text-[#2a69ac] bg-transparent rounded-full hover:bg-[#EBF8FF]"
+                            onClick={() => {
+                              setSelectedTransactionId(transaction.id)
+                              setShowPrintDialog(true)
+                            }}
+                          >
+                            <Printer className="h-5 w-5" />
+                          </button>
                         </div>
+
+                        {/* Table header */}
+                        <div className="grid grid-cols-6 w-full">
+                          <div className="text-xs font-medium text-[#8B909A] uppercase">SERVICE</div>
+                          <div className="text-xs font-medium text-[#8B909A] uppercase">MECHANIC</div>
+                          <div className="text-xs font-medium text-[#8B909A] uppercase text-right">PRICE</div>
+                          <div className="text-xs font-medium text-[#8B909A] uppercase text-center">QUANTITY</div>
+                          <div className="text-xs font-medium text-[#8B9কিন্ত09A] uppercase text-right">DISCOUNT</div>
+                          <div className="text-xs font-medium text-[#8B909A] uppercase text-right">TOTAL</div>
+                        </div>
+
+                        {/* Service rows */}
                         {transaction.services.map((service, index) => (
-                          <div key={index} className="grid grid-cols-[25%_20%_15%_10%_15%_15%] w-full items-center">
-                            <div className="text-sm text-[#1A365D]">{service.service}</div>
+                          <div key={index} className="grid grid-cols-6 w-full py-4 border-b border-gray-100">
+                            <div className="text-sm text-[#1A365D] font-medium">{service.service}</div>
                             <div className="text-sm text-[#1A365D]">{service.mechanic}</div>
-                            <div className="text-sm text-[#1A365D]">{formatCurrency(service.price)}</div>
+                            <div className="text-sm text-[#1A365D] text-right">{formatCurrency(service.price)}</div>
                             <div className="text-sm text-[#1A365D] text-center">x{service.quantity}</div>
-                            <div className="text-sm text-[#EA5455]">{service.discount}%</div>
-                            <div className="text-sm text-[#1A365D]">{formatCurrency(service.total)}</div>
+                            <div className="text-sm text-[#EA5455] text-right">{service.discount}%</div>
+                            <div className="text-sm text-[#1A365D] text-right">{formatCurrency(service.total)}</div>
                           </div>
                         ))}
-                        <div className="border-t border-gray-200 pt-4">
-                          <div className="flex justify-end">
-                            <div className="grid grid-cols-[1fr_1fr] gap-x-8 gap-y-3 text-sm w-[60%]">
-                              <div className="text-[#8B909A] text-left">SUBTOTAL</div>
-                              <div className="text-[#1A365D] text-right">{formatCurrency(transaction.totalPrice)}</div>
-                              <div className="text-[#8B909A] text-left">DISCOUNT</div>
-                              <div className="text-[#EA5455] text-right">{formatCurrency(0)}</div>
-                              <div className="text-[#8B909A] text-left">TOTAL</div>
-                              <div className="text-[#1A365D] font-semibold text-right">
-                                {formatCurrency(transaction.totalPrice)}
-                              </div>
-                              <div className="text-[#8B909A] text-left">AMOUNT TENDERED</div>
-                              <div className="text-[#1A365D] text-right">{formatCurrency(transaction.totalPrice)}</div>
-                              <div className="text-[#8B909A] text-left">CHANGE</div>
-                              <div className="text-[#1A365D] text-right">{formatCurrency(0)}</div>
-                            </div>
+
+                        {/* Summary section */}
+                        <div className="grid grid-cols-2 gap-y-2 w-1/3 ml-auto text-right mt-4">
+                          <div className="text-sm text-[#8B909A] uppercase">SUBTOTAL</div>
+                          <div className="text-sm text-[#1A365D]">{formatCurrency(transaction.totalPrice)}</div>
+
+                          <div className="text-sm text-[#8B909A] uppercase">DISCOUNT</div>
+                          <div className="text-sm text-[#EA5455]">{formatCurrency(0)}</div>
+
+                          <div className="text-sm text-[#8B909A] uppercase">TOTAL</div>
+                          <div className="text-sm text-[#1A365D] font-bold">
+                            {formatCurrency(transaction.totalPrice)}
                           </div>
+
+                          <div className="text-sm text-[#8B909A] uppercase">AMOUNT TENDERED</div>
+                          <div className="text-sm text-[#1A365D]">{formatCurrency(transaction.totalPrice)}</div>
+
+                          <div className="text-sm text-[#8B909A] uppercase">CHANGE</div>
+                          <div className="text-sm text-[#1A365D]">{formatCurrency(0)}</div>
                         </div>
                       </div>
                     </td>
@@ -298,18 +480,18 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions, sea
             <DialogTitle className="text-center text-xl">Print this transaction?</DialogTitle>
           </DialogHeader>
           <div className="flex justify-center gap-4 pt-4">
-            <button
+            <Button
               onClick={() => setShowPrintDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               No, go back
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handlePrint}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Yes, print
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

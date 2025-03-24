@@ -3,19 +3,17 @@ import { cn } from "@/lib/utils"
 
 const tabs = [
   { id: "all", label: "All" },
-  { id: "pending", label: "Pending" },
-  { id: "confirmed", label: "Confirmed" },
-  { id: "repairing", label: "Repairing" },
-  { id: "completed", label: "Completed" },
-  { id: "cancelled", label: "Cancelled" },
+  { id: "active", label: "Active" },
+  { id: "inactive", label: "Inactive" },
+  { id: "terminated", label: "Terminated" },
 ]
 
-interface ReservationsTabsProps {
+interface EmployeesTabsProps {
   activeTab: string
   onTabChange: (tabId: string) => void
 }
 
-export function ReservationsTabs({ activeTab, onTabChange }: ReservationsTabsProps) {
+export function EmployeesTabs({ activeTab, onTabChange }: EmployeesTabsProps) {
   return (
     <nav className="flex space-x-2 md:space-x-4 lg:space-x-8 overflow-x-auto border-b border-gray-200">
       {tabs.map((tab) => (

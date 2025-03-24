@@ -1,17 +1,16 @@
 "use client"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
-import useLocalStorage from '@/hooks/useLocalStorage'; // Ensure this path is correct
+import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
+import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 
+// Update the EmployeeData interface to include status
 interface EmployeeData {
   id: string
   name: string
@@ -19,6 +18,7 @@ interface EmployeeData {
   avatar: string
   role: string
   workingOn: string
+  status: "Active" | "Inactive" | "Working" | "Terminated"
   firstName: string
   lastName: string
   gender: string
@@ -28,15 +28,13 @@ interface EmployeeData {
   city: string
   province: string
   zipCode: string
-  dateAdded: string // Add this line
+  dateAdded: string
 }
 
 export default function AddEmployeePage() {
   const router = useRouter()
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [password, setPassword] = useState("")
-  const [wrongPassword, setWrongPassword] = useState(false)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [formData, setFormData] = useState({
     firstName: "",
@@ -73,27 +71,28 @@ export default function AddEmployeePage() {
   }
 
   const handleConfirm = () => {
-    if (password === "password123") {
-      const newEmployee: EmployeeData = {
-        id: generateEmployeeId(),
-        name: `${formData.firstName} ${formData.lastName}`,
-        username: formData.firstName.toLowerCase(),
-        avatar: "/placeholder.svg?height=40&width=40",
-        workingOn: "Not assigned",
-        dateAdded: new Date().toISOString(), // Add this line
-        ...formData,
-      }
+    setShowConfirmDialog(false)
+    setShowPasswordDialog(true)
+  }
 
-      setEmployees([...employees, newEmployee])
-
-      setShowConfirmDialog(false)
-      setShowSuccessMessage(true)
-      setTimeout(() => {
-        router.push("/employees")
-      }, 2000)
-    } else {
-      setWrongPassword(true)
+  const handleAddEmployee = () => {
+    const newEmployee: EmployeeData = {
+      id: generateEmployeeId(),
+      name: `${formData.firstName} ${formData.lastName}`,
+      username: formData.firstName.toLowerCase(),
+      avatar: "/placeholder.svg?height=40&width=40",
+      workingOn: "Not assigned",
+      status: "Active", // Set default status to Active
+      dateAdded: new Date().toISOString(),
+      ...formData,
     }
+
+    setEmployees([...employees, newEmployee])
+
+    setShowSuccessMessage(true)
+    setTimeout(() => {
+      router.push("/employees")
+    }, 2000)
   }
 
   return (
@@ -105,9 +104,7 @@ export default function AddEmployeePage() {
         </div>
 
         {showSuccessMessage && (
-          <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
-            Employee added
-          </div>
+          <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">Employee added</div>
         )}
 
         <div className="mx-auto max-w-4xl rounded-xl bg-white p-8 shadow-sm">
@@ -215,52 +212,35 @@ export default function AddEmployeePage() {
             <DialogHeader>
               <DialogTitle className="text-center text-xl">Are you sure to add this employee?</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-              {wrongPassword && <div className="mb-4 text-center text-[#EA5455]">Wrong password</div>}
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Confirm password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    setWrongPassword(false)
-                  }}
-                  className={cn(
-                    "w-full bg-[#F1F5F9] border-0 pr-10",
-                    wrongPassword && "border-[#EA5455] focus-visible:ring-[#EA5455]",
-                  )}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <Eye className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => {
-                  setShowConfirmDialog(false)
-                  setPassword("")
-                  setWrongPassword(false)
-                }}
-                className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10"
+            <div className="flex justify-center gap-4 py-4">
+              <Button
+                onClick={() => setShowConfirmDialog(false)}
+                className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
               >
                 No, go back
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleConfirm}
-                className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10"
+                className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
               >
-                Yes, add
-              </button>
+                Yes, continue
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Password Verification Dialog */}
+        <PasswordVerificationDialog
+          open={showPasswordDialog}
+          onOpenChange={setShowPasswordDialog}
+          title="Verify Authorization"
+          description="Verifying your password confirms adding this employee."
+          onVerified={handleAddEmployee}
+          cancelButtonText="Cancel"
+          confirmButtonText="Add Employee"
+        />
       </main>
     </div>
   )
 }
+
