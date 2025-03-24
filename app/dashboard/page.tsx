@@ -223,39 +223,40 @@ export default function DashboardPage() {
         {/* Third row: Arriving Today */}
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Arriving Today</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-[#8B909A]">Reservation ID</TableHead>
-                <TableHead className="text-[#8B909A]">Customer</TableHead>
-                <TableHead className="text-[#8B909A]">Car Model</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && <Loading />}
-              {isLoading ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-[#8B909A]">
-                    Loading...
-                  </TableCell>
+                  <TableHead className="text-[#8B909A]">Reservation ID</TableHead>
+                  <TableHead className="text-[#8B909A]">Customer</TableHead>
+                  <TableHead className="text-[#8B909A]">Car Model</TableHead>
                 </TableRow>
-              ) : arrivingToday.length > 0 ? (
-                arrivingToday.map((reservation) => (
-                  <TableRow key={reservation.id}>
-                    <TableCell className="text-[#1A365D]">#{reservation.id}</TableCell>
-                    <TableCell className="text-[#1A365D]">{reservation.customerName}</TableCell>
-                    <TableCell className="text-[#1A365D]">{reservation.carModel}</TableCell>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-[#8B909A]">
+                      Loading...
+                    </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-[#8B909A]">
-                    No reservations arriving today
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ) : arrivingToday.length > 0 ? (
+                  arrivingToday.map((reservation) => (
+                    <TableRow key={reservation.id}>
+                      <TableCell className="text-[#1A365D]">#{reservation.id}</TableCell>
+                      <TableCell className="text-[#1A365D]">{reservation.customerName}</TableCell>
+                      <TableCell className="text-[#1A365D]">{reservation.carModel}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-[#8B909A]">
+                      No reservations arriving today
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
     </DashboardLayout>
