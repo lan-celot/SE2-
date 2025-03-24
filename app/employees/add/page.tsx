@@ -201,7 +201,7 @@ export default function AddEmployeePage() {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Button className="bg-[#1A365D] hover:bg-[#1E4E8C]" onClick={handleProceed}>
+            <Button className="bg-[#2A69AC] hover:bg-[#1A365D] text-white" onClick={handleProceed}>
               Proceed
             </Button>
           </div>
@@ -215,13 +215,13 @@ export default function AddEmployeePage() {
             <div className="flex justify-center gap-4 py-4">
               <Button
                 onClick={() => setShowConfirmDialog(false)}
-                className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+                className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
               >
                 No, go back
               </Button>
               <Button
                 onClick={handleConfirm}
-                className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+                className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
               >
                 Yes, continue
               </Button>

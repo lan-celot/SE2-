@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AddServiceDialog } from "./add-service-dialog"
@@ -20,6 +20,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Loading from "@/components/loading"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
+import { Badge } from "@/components/ui/badge"
 
 // Add this function near the top of the file
 const formatDate = (dateString: string): string => {
@@ -76,11 +77,29 @@ interface Reservation {
   plateNo?: string
   status: Status
   services?: Service[]
+  specificIssues?: string
+  yearModel?: string
+  transmission?: string
+  fuelType?: string
+  odometer?: string
+  generalServices?: string[]
 }
 
 interface SelectedService {
   reservationId: string
   serviceIndex: number
+}
+
+interface CarDetails {
+  carModel: string
+  yearModel: string
+  transmission: string
+  fuelType: string
+  odometer: string
+  specificIssues: string
+  generalServices: string[]
+  reservationDate: string
+  customerName: string
 }
 
 const statusStyles: Record<
@@ -162,20 +181,6 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
-// Sample plate numbers for demo purposes
-const samplePlateNumbers = [
-  "ABC-123",
-  "XYZ-789",
-  "DEF-456",
-  "GHI-789",
-  "JKL-012",
-  "MNO-345",
-  "PQR-678",
-  "STU-901",
-  "VWX-234",
-  "YZA-567",
-]
-
 export default function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [reservationData, setReservationData] = useState<Reservation[]>([])
@@ -183,11 +188,12 @@ export default function ReservationsPage() {
   const [showMechanicDialog, setShowMechanicDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDeletePasswordDialog, setShowDeletePasswordDialog] = useState(false)
+  const [showMechanicPasswordDialog, setShowMechanicPasswordDialog] = useState(false)
   const [selectedService, setSelectedService] = useState<SelectedService | null>(null)
   const [selectedMechanic, setSelectedMechanic] = useState("")
   const [showAddServiceDialog, setShowAddServiceDialog] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
-  const [sortField, setSortField] = useState<keyof Omit<Reservation, "services" | "status"> | null>("id")
+  const [sortField, setSortField] = useState<keyof Omit<Reservation, "services" | "status"> | null>("reservationDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [showStatusConfirmDialog, setShowStatusConfirmDialog] = useState(false)
   const [showStatusPasswordDialog, setShowStatusPasswordDialog] = useState(false)
@@ -203,6 +209,11 @@ export default function ReservationsPage() {
   const [itemsPerPage] = useState(5)
   // Add a new state for success message near the other state declarations
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null)
+  // Add a new state for the mechanic password verification dialog
+
+  // Add a new state for the car details dialog
+  const [showCarDetailsDialog, setShowCarDetailsDialog] = useState(false)
+  const [selectedCarDetails, setSelectedCarDetails] = useState<CarDetails | null>(null)
 
   // Define columns for the table
   const columns = [
@@ -240,10 +251,21 @@ export default function ReservationsPage() {
             plateNo: bookingData.plateNo || "", // Added plateNo field
             status: (bookingData.status?.toUpperCase() as Status) || "CONFIRMED",
             services: Array.isArray(bookingData.services) ? bookingData.services : [],
+            specificIssues: bookingData.specificIssues || "",
+            yearModel: bookingData.yearModel || "",
+            transmission: bookingData.transmission || "",
+            fuelType: bookingData.fuelType || "",
+            odometer: bookingData.odometer || "",
+            generalServices: Array.isArray(bookingData.generalServices) ? bookingData.generalServices : [],
           } satisfies Reservation
         })
 
-        setReservationData(data)
+        // Sort by reservation date (newest first)
+        const sortedData = [...data].sort((a, b) => {
+          return new Date(b.reservationDate).getTime() - new Date(a.reservationDate).getTime()
+        })
+
+        setReservationData(sortedData)
         setIsLoading(false)
       },
       (error) => {
@@ -253,66 +275,6 @@ export default function ReservationsPage() {
     )
 
     return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    // Add dummy data with 'Pending' status for testing
-    const dummyPendingReservation: Reservation = {
-      id: "TEST001",
-      lastName: "Smith",
-      firstName: "John",
-      reservationDate: "2025-04-15T10:00:00",
-      customerName: "John Smith",
-      userId: "user123",
-      carModel: "Honda Civic",
-      plateNo: "ABC-123", // Added plateNo
-      status: "PENDING",
-      services: [
-        {
-          created: "04-01-25 09:30 AM",
-          reservationDate: "04-15-25 10:00 AM",
-          service: "OIL CHANGE",
-          mechanic: "TO BE ASSIGNED",
-          status: "PENDING",
-        },
-        {
-          created: "04-01-25 09:30 AM",
-          reservationDate: "04-15-25 10:00 AM",
-          service: "BRAKE INSPECTION",
-          mechanic: "TO BE ASSIGNED",
-          status: "PENDING",
-        },
-      ],
-    }
-
-    // Check if we have stored the dummy data in localStorage
-    const storedDummyData = localStorage.getItem("dummyReservationAdded")
-
-    // Only add the dummy data if it doesn't already exist in the data and hasn't been stored
-    setReservationData((prevData) => {
-      if (!prevData.some((res) => res.id === "TEST001") && storedDummyData !== "true") {
-        // Store in localStorage that we've added the dummy data
-        localStorage.setItem("dummyReservationAdded", "true")
-
-        // Add sample plate numbers to existing data
-        const updatedData = prevData.map((reservation, index) => ({
-          ...reservation,
-          plateNo: reservation.plateNo || samplePlateNumbers[index % samplePlateNumbers.length],
-        }))
-
-        return [dummyPendingReservation, ...updatedData]
-      }
-
-      // Add sample plate numbers if they don't exist
-      if (prevData.some((res) => !res.plateNo)) {
-        return prevData.map((reservation, index) => ({
-          ...reservation,
-          plateNo: reservation.plateNo || samplePlateNumbers[index % samplePlateNumbers.length],
-        }))
-      }
-
-      return prevData
-    })
   }, [])
 
   const handleStatusChangeAttempt = (reservationId: string, userId: string, newStatus: Status) => {
@@ -634,6 +596,63 @@ export default function ReservationsPage() {
     }
   }
 
+  // Update the handleMechanicChange function to be called after password verification
+  const handleMechanicVerified = async () => {
+    if (selectedService && selectedMechanic) {
+      const reservationId = selectedService.reservationId
+      const reservation = reservationData.find((res) => res.id === reservationId)
+
+      if (!reservation) {
+        console.error("Reservation not found")
+        return
+      }
+
+      const userId = reservation.userId
+
+      if (!userId) {
+        console.error("User ID not found")
+        return
+      }
+
+      try {
+        // First update local state for immediate feedback
+        setReservationData((prevData) =>
+          prevData.map((res) => {
+            if (res.id === reservationId && res.services) {
+              const updatedServices = [...res.services]
+              updatedServices[selectedService.serviceIndex] = {
+                ...updatedServices[selectedService.serviceIndex],
+                mechanic: selectedMechanic,
+              }
+              return { ...res, services: updatedServices }
+            }
+            return res
+          }),
+        )
+
+        // Then update in Firestore
+        await updateMechanicAssignment(reservationId, selectedService.serviceIndex, selectedMechanic, userId)
+
+        toast({
+          title: "Mechanic Assigned",
+          description: "Mechanic assignment has been updated successfully.",
+          variant: "default",
+        })
+      } catch (error) {
+        console.error("Error updating mechanic assignment:", error)
+        toast({
+          title: "Error",
+          description: "Failed to update mechanic assignment.",
+          variant: "destructive",
+        })
+      } finally {
+        setShowMechanicDialog(false)
+        setSelectedService(null)
+        setSelectedMechanic("")
+      }
+    }
+  }
+
   const handleMechanicChange = async () => {
     if (selectedService && selectedMechanic) {
       const reservationId = selectedService.reservationId
@@ -824,6 +843,22 @@ export default function ReservationsPage() {
   const selectableReservations = filteredReservations.filter(
     (r) => r.status !== "COMPLETED" && r.status !== "CANCELLED",
   )
+
+  // Function to show car details dialog
+  const showCarDetails = (reservation: Reservation) => {
+    setSelectedCarDetails({
+      carModel: reservation.carModel || "",
+      yearModel: reservation.yearModel || "",
+      transmission: reservation.transmission || "",
+      fuelType: reservation.fuelType || "",
+      odometer: reservation.odometer || "",
+      specificIssues: reservation.specificIssues || "",
+      generalServices: reservation.generalServices || [],
+      reservationDate: reservation.reservationDate || "",
+      customerName: `${reservation.firstName} ${reservation.lastName}`.trim() || reservation.customerName || "",
+    })
+    setShowCarDetailsDialog(true)
+  }
 
   if (isLoading) {
     return (
@@ -1167,12 +1202,20 @@ export default function ReservationsPage() {
                                       Action
                                     </TableHead>
                                     <TableHead className="px-2 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                      <Button
-                                        className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
-                                        onClick={() => setShowAddServiceDialog(true)}
-                                      >
-                                        Add Service
-                                      </Button>
+                                      <div className="flex justify-center space-x-2">
+                                        <Button
+                                          className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
+                                          onClick={() => setShowAddServiceDialog(true)}
+                                        >
+                                          Add Service
+                                        </Button>
+                                        <Button
+                                          className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
+                                          onClick={() => showCarDetails(reservation)}
+                                        >
+                                          See Details
+                                        </Button>
+                                      </div>
                                     </TableHead>
                                   </tr>
                                 </thead>
@@ -1310,13 +1353,16 @@ export default function ReservationsPage() {
           <div className="flex justify-center gap-4">
             <Button
               onClick={() => setShowMechanicDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
             >
               Back
             </Button>
             <Button
-              onClick={handleMechanicChange}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+              onClick={() => {
+                setShowMechanicDialog(false)
+                setShowMechanicPasswordDialog(true)
+              }}
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
               Confirm
             </Button>
@@ -1333,7 +1379,7 @@ export default function ReservationsPage() {
           <div className="flex justify-center gap-4 py-4">
             <Button
               onClick={() => setShowDeleteDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
             >
               No, go back
             </Button>
@@ -1342,7 +1388,7 @@ export default function ReservationsPage() {
                 setShowDeleteDialog(false)
                 setShowDeletePasswordDialog(true)
               }}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
               Yes, delete
             </Button>
@@ -1384,13 +1430,13 @@ export default function ReservationsPage() {
           <div className="flex justify-center gap-4">
             <Button
               onClick={() => setShowStatusConfirmDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
             >
               No, go back
             </Button>
             <Button
               onClick={confirmStatusChange}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
               Yes, continue
             </Button>
@@ -1420,6 +1466,84 @@ export default function ReservationsPage() {
             : []
         }
       />
+
+      {/* Mechanic Password Verification Dialog */}
+      <PasswordVerificationDialog
+        open={showMechanicPasswordDialog}
+        onOpenChange={setShowMechanicPasswordDialog}
+        title="Verify Authorization"
+        description="Verifying your password confirms this mechanic assignment."
+        onVerified={handleMechanicVerified}
+        cancelButtonText="Cancel"
+        confirmButtonText="Assign Mechanic"
+      />
+
+      {/* Car Details Dialog */}
+      <Dialog open={showCarDetailsDialog} onOpenChange={setShowCarDetailsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Vehicle Details</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-sm font-medium text-gray-500">Name:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.customerName || "—"}</div>
+
+                <div className="text-sm font-medium text-gray-500">Car:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.carModel || "—"}</div>
+
+                <div className="text-sm font-medium text-gray-500">Year Model:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.yearModel || "—"}</div>
+
+                <div className="text-sm font-medium text-gray-500">Transmission:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.transmission || "—"}</div>
+
+                <div className="text-sm font-medium text-gray-500">Fuel Type:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.fuelType || "—"}</div>
+
+                <div className="text-sm font-medium text-gray-500">Odometer:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.odometer || "—"}</div>
+
+                <div className="text-sm font-medium text-gray-500">Reservation Date:</div>
+                <div className="text-sm text-[#1A365D]">{formatDate(selectedCarDetails?.reservationDate || "")}</div>
+              </div>
+
+              {selectedCarDetails?.generalServices && selectedCarDetails.generalServices.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-sm font-medium text-gray-500 mb-2">General Services:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCarDetails.generalServices.map((service, index) => (
+                      <Badge key={index} className="bg-[#EBF8FF] text-[#2A69AC] hover:bg-[#EBF8FF]">
+                        {service}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <div className="text-sm font-medium text-gray-500 mb-2">Specific Issues:</div>
+                <p
+                  className={`whitespace-pre-wrap ${selectedCarDetails?.specificIssues ? "text-[#1A365D]" : "text-gray-500 opacity-75"}`}
+                >
+                  {selectedCarDetails?.specificIssues
+                    ? selectedCarDetails.specificIssues
+                    : "The customer did not specify any issues with their vehicle."}
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowCarDetailsDialog(false)}
+              className="w-full bg-[#2A69AC] hover:bg-[#1A365D] text-white"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
