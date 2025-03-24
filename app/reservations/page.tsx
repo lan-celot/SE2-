@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Loading from "@/components/loading"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 import { Badge } from "@/components/ui/badge"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 // Add this function near the top of the file
 const formatDate = (dateString: string): string => {
@@ -206,7 +207,7 @@ export default function ReservationsPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [bulkStatus, setBulkStatus] = useState<Status | "">("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(5)
+  const itemsPerPage = useResponsiveRows(200) // Adjust header height for tabs, search bar, and bulk actions
   // Add a new state for success message near the other state declarations
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null)
   // Add a new state for the mechanic password verification dialog

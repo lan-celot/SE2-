@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Transaction {
   id: string
@@ -39,9 +40,8 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ transactions = []
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
-  // Remove this line:
-  // const [filteredAndSortedTransactions, setFilteredAndSortedTransactions] = useState<Transaction[]>(transactions)
+  // Replace fixed itemsPerPage with the custom hook
+  const itemsPerPage = useResponsiveRows(180) // Adjust header height for search bar
 
   const handleSort = (field: keyof Transaction) => {
     if (sortField === field) {

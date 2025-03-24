@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import React from "react"
 import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Employee {
   id: string
@@ -294,7 +295,10 @@ export default function EmployeeDetailsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const itemsPerPage = 5
+  // Replace this line:
+  // const itemsPerPage = 5
+  // With this:
+  const itemsPerPage = useResponsiveRows()
   // Add new state for managing services
   const [reservationsData, setReservationsData] = useLocalStorage<Reservation[]>("reservations", marcialReservations)
 

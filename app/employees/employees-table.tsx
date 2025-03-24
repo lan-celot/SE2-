@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 import Loading from "@/components/loading"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Employee {
   id: string
@@ -187,7 +188,8 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
   const [showStatusPasswordDialog, setShowStatusPasswordDialog] = useState(false)
   const [newStatus, setNewStatus] = useState<Employee["status"]>("Active")
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  // Replace fixed itemsPerPage with the custom hook
+  const itemsPerPage = useResponsiveRows(180) // Adjust header height for tabs and search
 
   // Sort employees when they change
   useEffect(() => {
@@ -519,7 +521,6 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
           <button
             onClick={() => {
               setCurrentPage(Math.max(1, currentPage - 1))
-              // If there's an expanded row state, reset it here
             }}
             disabled={currentPage === 1}
             className={cn(
@@ -534,7 +535,6 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
               key={page}
               onClick={() => {
                 setCurrentPage(page)
-                // If there's an expanded row state, reset it here
               }}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
@@ -547,7 +547,6 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
           <button
             onClick={() => {
               setCurrentPage(Math.min(totalPages, currentPage + 1))
-              // If there's an expanded row state, reset it here
             }}
             disabled={currentPage === totalPages}
             className={cn(

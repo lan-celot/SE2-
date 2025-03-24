@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/sidebar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import React from "react" // Added import for React
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Customer {
   id: string
@@ -142,7 +143,7 @@ export default function CustomerDetailsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc") // Update 1: Initial sort order is "desc"
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  const itemsPerPage = useResponsiveRows()
 
   useEffect(() => {
     const customerId = `#${params.id}`.toUpperCase()

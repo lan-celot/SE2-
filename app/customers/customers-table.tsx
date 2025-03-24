@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Customer {
   id: string
@@ -117,7 +118,8 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
   const [sortField, setSortField] = useState<keyof Customer>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(5)
+  // Replace fixed itemsPerPage with the custom hook
+  const itemsPerPage = useResponsiveRows(180) // Adjust header height for search bar
   const [filteredCustomers, setFilteredCustomers] = useState(initialCustomers)
 
   const handleSort = (field: keyof Customer) => {
@@ -269,7 +271,6 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
           <button
             onClick={() => {
               setCurrentPage(Math.max(1, currentPage - 1))
-              // If there's an expanded row state, reset it here
             }}
             disabled={currentPage === 1}
             className={cn(
@@ -284,7 +285,6 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
               key={page}
               onClick={() => {
                 setCurrentPage(page)
-                // If there's an expanded row state, reset it here
               }}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
@@ -297,7 +297,6 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
           <button
             onClick={() => {
               setCurrentPage(Math.min(totalPages, currentPage + 1))
-              // If there's an expanded row state, reset it here
             }}
             disabled={currentPage === totalPages}
             className={cn(

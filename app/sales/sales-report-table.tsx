@@ -2,6 +2,7 @@
 import { useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface SalesReport {
   referenceNo: string
@@ -113,7 +114,8 @@ export function SalesReportTable() {
   const [sortField, setSortField] = useState<SortField>("datePaid")
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  // Replace fixed itemsPerPage with the custom hook
+  const itemsPerPage = useResponsiveRows(180) // Adjust header height for the print button
 
   const [sortedReports, setSortedReports] = useState([...initialReports])
 
@@ -281,7 +283,6 @@ export function SalesReportTable() {
             <button
               onClick={() => {
                 setCurrentPage(Math.max(1, currentPage - 1))
-                // If there's an expanded row state, reset it here
               }}
               disabled={currentPage === 1}
               className={cn(
@@ -296,7 +297,6 @@ export function SalesReportTable() {
                 key={page}
                 onClick={() => {
                   setCurrentPage(page)
-                  // If there's an expanded row state, reset it here
                 }}
                 className={cn(
                   "px-3 py-1 rounded-md text-sm",
@@ -309,7 +309,6 @@ export function SalesReportTable() {
             <button
               onClick={() => {
                 setCurrentPage(Math.min(totalPages, currentPage + 1))
-                // If there's an expanded row state, reset it here
               }}
               disabled={currentPage === totalPages}
               className={cn(
