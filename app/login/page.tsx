@@ -9,6 +9,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { loginUser } from "@/lib/firebase"
 import { toast } from "@/components/ui/use-toast"
+import { getApp } from "firebase/app"
+import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -17,7 +19,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setIsLoading(true);
   
@@ -63,9 +65,9 @@ export default function LoginPage() {
         });
         setIsLoading(false);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // Handle login errors
-      const errorMessage = error.message || "Login failed";
+      const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast({
         title: "Login Error",
         description: errorMessage,
