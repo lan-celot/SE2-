@@ -115,14 +115,14 @@ export function AddServiceDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+            className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
           >
             Back
           </Button>
           <Button
             variant="outline"
             onClick={handleConfirm}
-            className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+            className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             disabled={selectedServices.length === 0}
           >
             Confirm

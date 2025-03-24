@@ -562,7 +562,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
           <div className="flex justify-center gap-4 py-4">
             <Button
               onClick={() => setShowDeleteDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
             >
               No, go back
             </Button>
@@ -571,7 +571,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                 setShowDeleteDialog(false)
                 setShowDeletePasswordDialog(true)
               }}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
               Yes, continue
             </Button>
@@ -614,7 +614,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
           <div className="flex justify-center gap-4">
             <Button
               onClick={() => setShowEditDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
             >
               Cancel
             </Button>
@@ -623,7 +623,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                 setShowEditDialog(false)
                 setShowEditPasswordDialog(true)
               }}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
               Confirm
             </Button>
@@ -671,7 +671,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
           <div className="flex justify-center gap-4">
             <button
               onClick={() => setShowStatusDialog(false)}
-              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
             >
               Cancel
             </button>
@@ -680,7 +680,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                 setShowStatusDialog(false)
                 setShowStatusPasswordDialog(true)
               }}
-              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
+              className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
               Confirm
             </button>

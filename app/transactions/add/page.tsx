@@ -311,11 +311,11 @@ export default function AddTransactionPage() {
               <Button
                 onClick={() => router.push("/transactions")}
                 variant="outline"
-                className="bg-white hover:bg-gray-100"
+                className="bg-white hover:bg-[#1A365D] hover:text-white"
               >
                 Back
               </Button>
-              <Button onClick={handleConfirm} className="bg-[#1A365D] hover:bg-[#1E4E8C]">
+              <Button onClick={handleConfirm} className="bg-[#2A69AC] hover:bg-[#1A365D] text-white">
                 Confirm Transaction
               </Button>
             </div>

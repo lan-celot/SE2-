@@ -129,14 +129,14 @@ export function PasswordVerificationDialog({
         <DialogFooter className="flex justify-center gap-4 pt-2">
           <Button
             onClick={handleCancel}
-            className="bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFD1D1] hover:text-[#EA5455] border-0 px-6"
+            className="bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] hover:text-[#EA5455] border-0 px-6 transition-colors"
           >
             {cancelButtonText}
           </Button>
           <Button
             onClick={handleVerification}
             disabled={!password || isVerifying}
-            className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#D1FFE7] hover:text-[#28C76F] border-0 px-6"
+            className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] hover:text-[#28C76F] border-0 px-6 transition-colors"
           >
             {isVerifying ? "Verifying..." : confirmButtonText}
           </Button>
