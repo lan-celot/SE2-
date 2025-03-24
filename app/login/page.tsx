@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
 import { loginUser } from "@/lib/firebase"
+import { getApp } from "firebase/app"
+import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -48,18 +50,33 @@ export default function LoginPage() {
 
     try {
       // Attempt to login
-      await loginUser(email, password)
+      const user = await loginUser(email, password)
 
-      // Show success notification
-      setNotification({
-        type: "success",
-        message: "Redirecting to dashboard...",
-      })
+      // Check if the user's email is in the adminUsers collection
+      const db = getFirestore(getApp())
+      const adminUsersRef = collection(db, "adminUsers")
+      const q = query(adminUsersRef, where("email", "==", user.email))
+      const querySnapshot = await getDocs(q)
 
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
+      if (!querySnapshot.empty) {
+        // Show success notification
+        setNotification({
+          type: "success",
+          message: "Login successful! Redirecting to dashboard...",
+        })
+
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 2000)
+      } else {
+        // Handle unauthorized access
+        setNotification({
+          type: "error",
+          message: "You do not have admin access.",
+        })
+        setIsLoading(false)
+      }
     } catch (error: unknown) {
       // Handle login errors
       console.error("Login error details:", error)
