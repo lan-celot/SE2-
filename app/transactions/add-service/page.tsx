@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
@@ -43,7 +43,7 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
-export default function AddServicePage() {
+const AddServicePageContent = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const transactionId = searchParams.get("id")
@@ -338,3 +338,10 @@ export default function AddServicePage() {
   )
 }
 
+export default function AddServicePage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <AddServicePageContent />
+    </Suspense>
+  )
+}
