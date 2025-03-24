@@ -5,22 +5,19 @@ import { Bell } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { NotificationAPIProvider, NotificationPopup } from '@notificationapi/react';
 
 interface HeaderProps {
   title?: string
 }
 
 export function DashboardHeader({ title }: HeaderProps) {
-  const [notifications, setNotifications] = useState([
-    "Car is now ready for pick up",
-    "Reservation status updated",
-    "Reservation status updated",
-    "Reservation status updated",
-  ])
-  const [showNotifications, setShowNotifications] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true) // Set true when component mounts in browser
+
     const timer = setInterval(() => {
       setCurrentDate(new Date())
     }, 1000)
@@ -40,11 +37,6 @@ export function DashboardHeader({ title }: HeaderProps) {
     return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date).toUpperCase()
   }
 
-  const handleMarkAsRead = () => {
-    setNotifications([])
-    setShowNotifications(false)
-  }
-
   return (
     <header className="bg-[#EBF8FF] pt-1">
       <div className="flex justify-between items-center px-6 py-2">
@@ -62,56 +54,13 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative z-50">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 text-gray-600 hover:text-gray-900"
-            >
-              <Bell className="h-6 w-6" />
-              {notifications.length > 0 && (
-                <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <>
-                <div
-                  className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-                  onClick={() => setShowNotifications(false)}
-                />
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                  <div className="p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-semibold text-gray-900">Notifications</h3>
-                      {notifications.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleMarkAsRead}
-                          className="text-sm text-blue-600 hover:text-blue-700"
-                        >
-                          Mark all as read
-                        </Button>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {notifications.length > 0 ? (
-                        notifications.map((notification, index) => (
-                          <div
-                            key={index}
-                            className="p-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer"
-                          >
-                            {notification}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-sm text-gray-500 text-center py-2">No new notifications</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </>
+            {isClient && (
+              <NotificationAPIProvider
+                userId="leorafael.macaya.cics@ust.edu.ph"
+                clientId="owvp6sijxsgcijmqlu69gzfgcs"
+              >
+                <NotificationPopup />
+              </NotificationAPIProvider>
             )}
           </div>
 
@@ -131,4 +80,3 @@ export function DashboardHeader({ title }: HeaderProps) {
     </header>
   )
 }
-
