@@ -5,8 +5,8 @@ npm install
 npm install firebase
 npm install -g firebase-tools
 
-# Update All Dependencies & Dev Dependencies
-npx npm-check-updates -u
+# Update All Dependencies & Dev Dependencies (except tailwind)
+npx npm-check-updates -u --reject tailwindcss
 npm install
 
 # Check for Updates Without Applying Changes
