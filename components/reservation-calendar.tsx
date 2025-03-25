@@ -32,6 +32,7 @@ interface BookingDetails {
   carModel: string
   plateNo?: string
   time: string
+  status: string // Added status field
 }
 
 interface CalendarData {
@@ -39,6 +40,30 @@ interface CalendarData {
     bookings: number
     isUnavailable: boolean
   }
+}
+
+// Status styles mapping for consistent styling
+const statusStyles: Record<string, { bg: string; text: string }> = {
+  PENDING: {
+    bg: "bg-[#FFF5E0]",
+    text: "text-[#FF9F43]",
+  },
+  CONFIRMED: {
+    bg: "bg-[#EBF8FF]",
+    text: "text-[#63B3ED]",
+  },
+  REPAIRING: {
+    bg: "bg-[#FFF5E0]",
+    text: "text-[#FFC600]",
+  },
+  COMPLETED: {
+    bg: "bg-[#E6FFF3]",
+    text: "text-[#28C76F]",
+  },
+  CANCELLED: {
+    bg: "bg-[#FFE5E5]",
+    text: "text-[#EA5455]",
+  },
 }
 
 export function ReservationCalendar() {
@@ -176,6 +201,7 @@ export function ReservationCalendar() {
           carModel: data.carModel || "Unknown",
           plateNo: data.plateNo || "No data",
           time: data.time || "Not specified",
+          status: (data.status || "PENDING").toUpperCase(), // Added status with default value
         }
       })
 
@@ -306,6 +332,18 @@ export function ReservationCalendar() {
     return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date)
   }
 
+  // Helper function to get status display name
+  const getStatusDisplay = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      PENDING: "Pending",
+      CONFIRMED: "Confirmed",
+      REPAIRING: "Repairing",
+      COMPLETED: "Completed",
+      CANCELLED: "Cancelled",
+    }
+    return statusMap[status] || status
+  }
+
   return (
     <div className="bg-white rounded-lg p-4 shadow-sm">
       <h3 className="text-xl font-semibold text-[#2a69ac] mb-4">Reservation Calendar</h3>
@@ -407,6 +445,19 @@ export function ReservationCalendar() {
 
                       <div className="text-sm font-medium text-gray-500">Plate No:</div>
                       <div className="text-sm text-[#1A365D]">{booking.plateNo}</div>
+
+                      <div className="text-sm font-medium text-gray-500">Status:</div>
+                      <div className="text-sm">
+                        <span
+                          className={cn(
+                            "px-2 py-1 rounded-md text-xs font-medium",
+                            statusStyles[booking.status]?.bg || "bg-gray-100",
+                            statusStyles[booking.status]?.text || "text-gray-500",
+                          )}
+                        >
+                          {getStatusDisplay(booking.status)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}

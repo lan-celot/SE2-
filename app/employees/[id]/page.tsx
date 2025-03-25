@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import React from "react"
 import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Employee {
   id: string
@@ -294,7 +295,10 @@ export default function EmployeeDetailsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const itemsPerPage = 5
+  // Replace this line:
+  // const itemsPerPage = 5
+  // With this:
+  const itemsPerPage = useResponsiveRows()
   // Add new state for managing services
   const [reservationsData, setReservationsData] = useLocalStorage<Reservation[]>("reservations", marcialReservations)
 
@@ -720,7 +724,10 @@ export default function EmployeeDetailsPage() {
                 <div className="flex justify-end px-2 py-3 mt-4">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() => {
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                        setExpandedRow(null) // Reset expanded row when changing pages
+                      }}
                       disabled={currentPage === 1}
                       className={cn(
                         "px-3 py-1 rounded-md text-sm",
@@ -732,7 +739,10 @@ export default function EmployeeDetailsPage() {
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                       <button
                         key={page}
-                        onClick={() => setCurrentPage(page)}
+                        onClick={() => {
+                          setCurrentPage(page)
+                          setExpandedRow(null) // Reset expanded row when changing pages
+                        }}
                         className={cn(
                           "px-3 py-1 rounded-md text-sm",
                           currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
@@ -742,7 +752,10 @@ export default function EmployeeDetailsPage() {
                       </button>
                     ))}
                     <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      onClick={() => {
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                        setExpandedRow(null) // Reset expanded row when changing pages
+                      }}
                       disabled={currentPage === totalPages}
                       className={cn(
                         "px-3 py-1 rounded-md text-sm",

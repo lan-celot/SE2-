@@ -1,8 +1,8 @@
 "use client"
-
 import { useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface SalesReport {
   referenceNo: string
@@ -114,7 +114,8 @@ export function SalesReportTable() {
   const [sortField, setSortField] = useState<SortField>("datePaid")
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  // Replace fixed itemsPerPage with the custom hook
+  const itemsPerPage = useResponsiveRows(180) // Adjust header height for the print button
 
   const [sortedReports, setSortedReports] = useState([...initialReports])
 
@@ -280,7 +281,9 @@ export function SalesReportTable() {
         <div className="flex justify-end px-3 py-2 border-t border-gray-200">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => {
+                setCurrentPage(Math.max(1, currentPage - 1))
+              }}
               disabled={currentPage === 1}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
@@ -292,7 +295,9 @@ export function SalesReportTable() {
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
-                onClick={() => setCurrentPage(page)}
+                onClick={() => {
+                  setCurrentPage(page)
+                }}
                 className={cn(
                   "px-3 py-1 rounded-md text-sm",
                   currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
@@ -302,7 +307,9 @@ export function SalesReportTable() {
               </button>
             ))}
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              onClick={() => {
+                setCurrentPage(Math.min(totalPages, currentPage + 1))
+              }}
               disabled={currentPage === totalPages}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",

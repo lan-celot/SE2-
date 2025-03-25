@@ -82,6 +82,10 @@ export function AddServiceDialog({
     }
   }, [open])
 
+  const onClose = () => {
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -113,17 +117,18 @@ export function AddServiceDialog({
         </div>
         <div className="flex justify-center space-x-4">
           <Button
+            type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#FFCDD2] border-0 transition-colors"
+            onClick={onClose}
+            className="bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700"
           >
             Back
           </Button>
           <Button
-            variant="outline"
+            type="button"
             onClick={handleConfirm}
-            className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             disabled={selectedServices.length === 0}
+            className="bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700"
           >
             Confirm
           </Button>

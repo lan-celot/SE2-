@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/sidebar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import React from "react" // Added import for React
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 
 interface Customer {
   id: string
@@ -142,7 +143,7 @@ export default function CustomerDetailsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc") // Update 1: Initial sort order is "desc"
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  const itemsPerPage = useResponsiveRows()
 
   useEffect(() => {
     const customerId = `#${params.id}`.toUpperCase()
@@ -496,7 +497,10 @@ export default function CustomerDetailsPage() {
             <div className="flex justify-end px-2 py-3 mt-4">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  onClick={() => {
+                    setCurrentPage(Math.max(1, currentPage - 1))
+                    setExpandedRow(null) // Reset expanded row when changing pages
+                  }}
                   disabled={currentPage === 1}
                   className={cn(
                     "px-3 py-1 rounded-md text-sm",
@@ -508,7 +512,10 @@ export default function CustomerDetailsPage() {
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => {
+                      setCurrentPage(page)
+                      setExpandedRow(null) // Reset expanded row when changing pages
+                    }}
                     className={cn(
                       "px-3 py-1 rounded-md text-sm",
                       currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
@@ -518,7 +525,10 @@ export default function CustomerDetailsPage() {
                   </button>
                 ))}
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  onClick={() => {
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    setExpandedRow(null) // Reset expanded row when changing pages
+                  }}
                   disabled={currentPage === totalPages}
                   className={cn(
                     "px-3 py-1 rounded-md text-sm",

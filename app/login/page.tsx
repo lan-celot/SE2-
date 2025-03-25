@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
 import { loginUser } from "@/lib/firebase"
-import { toast } from "@/components/ui/use-toast"
 import { getApp } from "firebase/app"
 import { getFirestore, collection, query, where, getDocs } from "firebase/firestore"
 
@@ -63,7 +62,7 @@ export default function LoginPage() {
         // Show success notification
         setNotification({
           type: "success",
-          message: "Login successful! Redirecting to dashboard...",
+          message: "Redirecting to dashboard...",
         })
 
         // Redirect to dashboard after a short delay
