@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import React from "react" // Added import for React
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
+// Import the date formatting utility at the top of the file
+import { formatDateTime, formatDateOnly } from "@/lib/date-utils"
 
 interface Customer {
   id: string
@@ -217,11 +219,11 @@ export default function CustomerDetailsPage() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-semibold text-[#2A69AC]">{customer.name}</h2>
+                      <h2 className="text-2xl font-semibold text-[#2A69AC] uppercase">{customer.name}</h2>
                       <div className="flex items-center gap-2">
-                        <p className="text-[#8B909A]">{customer.username}</p>
+                        <p className="text-[#8B909A] uppercase">{customer.username}</p>
                         <span className="text-[#8B909A]">•</span>
-                        <p className="text-[#8B909A]">{customer.id}</p>
+                        <p className="text-[#8B909A] uppercase">{customer.id}</p>
                       </div>
                     </div>
                   </div>
@@ -242,25 +244,11 @@ export default function CustomerDetailsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Date of Birth</p>
-                      <p className="text-[#1A365D]">
-                        {customer.dateOfBirth &&
-                          new Date(customer.dateOfBirth).toLocaleDateString("en-US", {
-                            month: "long",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                      </p>
+                      <p className="text-[#1A365D]">{customer.dateOfBirth && formatDateOnly(customer.dateOfBirth)}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Member Since</p>
-                      <p className="text-[#1A365D]">
-                        {customer.memberSince &&
-                          new Date(customer.memberSince).toLocaleDateString("en-US", {
-                            month: "long",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                      </p>
+                      <p className="text-[#1A365D]">{customer.memberSince && formatDateOnly(customer.memberSince)}</p>
                     </div>
                   </div>
                 </div>
@@ -269,8 +257,8 @@ export default function CustomerDetailsPage() {
 
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-2xl font-semibold text-[#2A69AC]">Address</h3>
-              <p className="text-[#1A365D]">{customer.address?.street}</p>
-              <p className="text-[#1A365D]">
+              <p className="text-[#1A365D] uppercase">{customer.address?.street}</p>
+              <p className="text-[#1A365D] uppercase">
                 {customer.address?.city}, {customer.address?.province} {customer.address?.zipCode}
               </p>
 
@@ -371,14 +359,20 @@ export default function CustomerDetailsPage() {
                           "transition-opacity duration-200",
                         )}
                       >
-                        <td className="px-3 py-2 text-sm text-[#1A365D] text-center truncate" title={reservation.id}>
-                          {reservation.id}
+                        <td
+                          className="px-3 py-2 text-sm text-[#1A365D] text-center truncate uppercase"
+                          title={formatDateTime(reservation.date)}
+                        >
+                          {formatDateTime(reservation.date)}
                         </td>
-                        <td className="px-3 py-2 text-sm text-[#1A365D] text-center truncate" title={reservation.date}>
+                        <td
+                          className="px-3 py-2 text-sm text-[#1A365D] text-center truncate uppercase"
+                          title={reservation.date}
+                        >
                           {reservation.date}
                         </td>
                         <td
-                          className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                          className="px-3 py-2 text-sm text-[#1A365D] text-center truncate uppercase"
                           title={reservation.carModel}
                         >
                           {reservation.carModel}
@@ -402,9 +396,9 @@ export default function CustomerDetailsPage() {
                         </td>
                         <td
                           className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
-                          title={reservation.completionDate || "-"}
+                          title={reservation.completionDate ? formatDateTime(reservation.completionDate) : "-"}
                         >
-                          {reservation.completionDate || "-"}
+                          {reservation.completionDate ? formatDateTime(reservation.completionDate) : "-"}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <Button

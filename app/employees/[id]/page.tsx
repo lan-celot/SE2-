@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button"
 import React from "react"
 import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
+// Import the date formatting utility at the top of the file
+import { formatDateTime, formatDateOnly } from "@/lib/date-utils"
 
 interface Employee {
   id: string
@@ -261,14 +263,15 @@ const serviceStatusStyles = {
 }
 
 // Fix the unused function warning
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date)
-}
+// Remove this function:
+// const formatDate = (dateString: string) => {
+//   const date = new Date(dateString)
+//   return new Intl.DateTimeFormat("en-US", {
+//     month: "short",
+//     day: "numeric",
+//     year: "numeric",
+//   }).format(date)
+// }
 
 // We'll keep this function since it might be used in the future
 // but mark it with a comment to avoid the warning
@@ -433,7 +436,7 @@ export default function EmployeeDetailsPage() {
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Date of Birth</p>
                       <p className="text-[#1A365D]">
-                        {employee.dateOfBirth ? formatDate(employee.dateOfBirth) : "Not provided"}
+                        {employee.dateOfBirth ? formatDateOnly(employee.dateOfBirth) : "Not provided"}
                       </p>
                     </div>
                     <div>
@@ -442,7 +445,7 @@ export default function EmployeeDetailsPage() {
                         {employee.id === "#E00001"
                           ? "November 9, 2011"
                           : employee.dateAdded
-                            ? formatDate(employee.dateAdded)
+                            ? formatDateOnly(employee.dateAdded)
                             : "Date not available"}
                       </p>
                     </div>
@@ -567,7 +570,7 @@ export default function EmployeeDetailsPage() {
                             className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
                             title={reservation.date}
                           >
-                            {reservation.date}
+                            {formatDateTime(reservation.date)}
                           </td>
                           <td
                             className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"

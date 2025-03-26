@@ -3,6 +3,8 @@ import { useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
+// Import the date formatting utility at the top of the file
+import { formatDateTime } from "@/lib/date-utils"
 
 interface SalesReport {
   referenceNo: string
@@ -252,22 +254,26 @@ export function SalesReportTable() {
             <tbody className="divide-y divide-gray-200">
               {currentItems.map((report) => (
                 <tr key={report.referenceNo} className="hover:bg-gray-50 h-[4.5rem]">
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.referenceNo}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={report.referenceNo}>
                     {report.referenceNo}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.customerId}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={report.customerId}>
                     {report.customerId}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.reservationId}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={report.reservationId}>
                     {report.reservationId}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.carModel}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={report.carModel}>
                     {report.carModel}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.datePaid}>
-                    {report.datePaid}
+                  {/* Update the date formatting in the table */}
+                  <td
+                    className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase"
+                    title={formatDateTime(report.datePaid)}
+                  >
+                    {formatDateTime(report.datePaid)}
                   </td>
-                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={report.paymentMethod}>
+                  <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={report.paymentMethod}>
                     {report.paymentMethod}
                   </td>
                   <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={formatCurrency(report.totalPrice)}>

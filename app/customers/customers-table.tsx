@@ -180,6 +180,10 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
     { key: "action", label: "ACTION", width: "10%" },
   ]
 
+  const handleViewDetails = (customerId: string) => {
+    router.push(`/customers/${customerId.replace("#", "").toLowerCase()}`)
+  }
+
   return (
     <div>
       <div className="overflow-x-auto">
@@ -219,7 +223,7 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
           <tbody className="divide-y divide-gray-200">
             {currentItems.map((customer) => (
               <tr key={customer.id} className="hover:bg-gray-50 h-[4.5rem]">
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={customer.id}>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={customer.id}>
                   {customer.id}
                 </td>
                 <td className="px-3 py-4">
@@ -228,21 +232,21 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
                       src={customer.avatar || `https://i.pravatar.cc/40?u=${customer.username}`}
                       alt={customer.name}
                       className="h-8 w-8 rounded-full mr-2 flex-shrink-0 cursor-pointer"
-                      onClick={() => router.push(`/customers/${customer.id.replace("#", "").toLowerCase()}`)}
+                      onClick={() => handleViewDetails(customer.id)}
                     />
                     <span
-                      className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC]"
+                      className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC] uppercase"
                       title={customer.name}
-                      onClick={() => router.push(`/customers/${customer.id.replace("#", "").toLowerCase()}`)}
+                      onClick={() => handleViewDetails(customer.id)}
                     >
                       {customer.name}
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={customer.phone}>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={customer.phone}>
                   {customer.phone}
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={customer.carModel}>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={customer.carModel}>
                   {customer.carModel}
                 </td>
                 <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={customer.lastVisit}>

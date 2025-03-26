@@ -412,7 +412,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                       onClick={() => handleViewDetails(employee.id)}
                     />
                     <span
-                      className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC]"
+                      className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC] uppercase"
                       title={employee.name}
                       onClick={() => handleViewDetails(employee.id)}
                     >
@@ -420,13 +420,13 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={employee.role}>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.role}>
                   {employee.role}
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={employee.id}>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.id}>
                   {employee.id}
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={employee.workingOn}>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.workingOn}>
                   {employee.workingOn}
                 </td>
                 <td className="px-3 py-4">
