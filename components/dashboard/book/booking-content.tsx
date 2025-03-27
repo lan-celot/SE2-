@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 
 type BookingStep = 1 | 2 | 3 | 4 | 5;
 
+// Update the status type to include "PENDING"
+type ReservationStatus = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
+
 interface FormData {
   firstName: string;
   lastName: string;
@@ -31,7 +34,7 @@ interface FormData {
   specificIssues: string;
   reservationDate: string;
   completionDate: string;
-  status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
+  status: ReservationStatus;
 }
 
 export function BookingContent() {
@@ -57,9 +60,16 @@ export function BookingContent() {
     generalServices: [],
     specificIssues: "",
     reservationDate: "",
-    status: "CONFIRMED",
+    // Set initial status to PENDING
+    status: "PENDING",
     completionDate: "",
   });
+
+  // Separate function to check if services can be modified
+  const canModifyServices = () => {
+    // Services can be modified only if status is PENDING or CONFIRMED
+    return formData.status === "PENDING" || formData.status === "CONFIRMED";
+  };
 
   const handleNext = (data: Partial<FormData>) => {
     const updatedFormData = { ...formData, ...data };
@@ -93,12 +103,15 @@ export function BookingContent() {
       generalServices: [],
       specificIssues: "",
       reservationDate: "",
-      status: "CONFIRMED",
+      // Reset to PENDING status
+      status: "PENDING",
       completionDate: "",
     });
   };
 
   const handleReservationSuccess = () => {
+    // Optionally, you can modify the status here if needed
+    // For now, it remains at PENDING from the initial submission
     setCurrentStep(5);
     setIsSubmitting(false);
   };
