@@ -30,6 +30,7 @@ interface ReviewDetailsProps {
   onSubmit: () => void;
   onBack: () => void;
   isSubmitting: boolean;
+  canModifyServices?: () => boolean;
 }
 
 export function ReviewDetails({
@@ -105,7 +106,7 @@ export function ReviewDetails({
           fuelType: formData.fuelType,
           odometer: formData.odometer,
           reservationDate: formattedDate,
-          status: "CONFIRMED",
+          status: "PENDING",
           generalServices: formData.generalServices || [],
           specificIssues: formData.specificIssues,
           firstName: formData.firstName,

@@ -110,8 +110,11 @@ export function BookingContent() {
   };
 
   const handleReservationSuccess = () => {
-    // Optionally, you can modify the status here if needed
-    // For now, it remains at PENDING from the initial submission
+    // Explicitly set status to PENDING when booking is successful
+    setFormData(prev => ({
+      ...prev,
+      status: "PENDING"
+    }));
     setCurrentStep(5);
     setIsSubmitting(false);
   };
@@ -156,6 +159,7 @@ export function BookingContent() {
             onSubmit={handleReservationSuccess}
             onBack={handleBack}
             isSubmitting={isSubmitting}
+            canModifyServices={canModifyServices}
           />
         )}
         {currentStep === 5 && <ConfirmationPage formData={formData} onBookAgain={handleRestart} />}

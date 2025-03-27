@@ -82,7 +82,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           reservationDate: formattedReservationDate,
           carModel: `${booking.carModel}`.replace(/\s+/g, ' '),
           completionDate: completionDate,
-          status: (booking.status || "CONFIRMED").toUpperCase(),
+          status: (booking.status || "PENDING").toUpperCase(),
           services: Array.isArray(booking.services)
             ? booking.services.map((service: any) => ({
                 ...service,
@@ -498,6 +498,7 @@ const getStatusStyle = (status?: string) => {
   if (!status) return "bg-gray-200 text-gray-600";
 
   switch (status.toLowerCase()) {
+    case "pending": return "bg-[#FF9F43]/10 text-[#FF9F43]"; // New style for PENDING status
     case "confirmed": return "bg-[#63B3ED]/10 text-[#63B3ED]";
     case "repairing": return "bg-[#EFBF14]/10 text-[#EFBF14]";
     case "completed": return "bg-[#28C76F]/10 text-[#28C76F]";
