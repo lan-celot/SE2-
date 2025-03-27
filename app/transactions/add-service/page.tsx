@@ -45,6 +45,28 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
+interface Transaction {
+  id: string
+  reservationId: string
+  customerName: string
+  customerId: string
+  carModel: string
+  reservationDate: string
+  completionDate: string
+  totalPrice: number
+  services: {
+    service: string
+    mechanic: string
+    price: number
+    quantity: number
+    discount: number
+    total: number
+  }[]
+  createdAt: Date
+  amountTendered?: number
+  docId?: string;
+}
+
 function AddServicePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -58,9 +80,14 @@ function AddServicePageContent() {
     quantity: "1",
     discount: "0",
   })
-  const [transaction, setTransaction] = useState<any>(null)
+  const [transaction, setTransaction] = useState<Transaction | null>(null)
   const [isCustomService, setIsCustomService] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   useEffect(() => {
     const fetchTransaction = async () => {
@@ -74,6 +101,25 @@ function AddServicePageContent() {
         return
       }
 
+      // First try to get the transaction from localStorage
+      try {
+        const storedTransactions = localStorage.getItem("transactions")
+        if (storedTransactions) {
+          const transactions = JSON.parse(storedTransactions)
+          const foundTransaction = transactions.find((t: Transaction) => t.id === transactionId)
+          
+          if (foundTransaction) {
+            console.log("Transaction found in localStorage:", foundTransaction)
+            setTransaction(foundTransaction)
+            setIsLoading(false)
+            return
+          }
+        }
+      } catch (error) {
+        console.error("Error reading from localStorage:", error)
+      }
+
+      // If not found in localStorage, try Firestore
       try {
         // Get the transaction document from Firestore
         const transactionsRef = collection(db, "transactions")
@@ -96,7 +142,7 @@ function AddServicePageContent() {
         }
 
         setTransaction({
-          ...transactionDoc.data(),
+          ...transactionDoc.data() as Transaction,
           docId: transactionDoc.id,
         })
         setIsLoading(false)
@@ -111,8 +157,10 @@ function AddServicePageContent() {
       }
     }
 
-    fetchTransaction()
-  }, [transactionId, router])
+    if (isClient && transactionId) {
+      fetchTransaction()
+    }
+  }, [transactionId, router, isClient])
 
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServices((current) =>
@@ -179,16 +227,51 @@ function AddServicePageContent() {
             }
           })
 
-      // Update transaction in Firestore
-      const transactionRef = doc(db, "transactions", transaction.docId)
+      // First update in localStorage
+      try {
+        const storedTransactions = localStorage.getItem("transactions");
+        if (storedTransactions) {
+          const transactions = JSON.parse(storedTransactions);
+          const updatedTransactions = transactions.map((t: Transaction) => {
+            if (t.id === transaction.id) {
+              // Calculate new total price
+              const newTotalPrice = t.totalPrice + newServices.reduce((sum, service) => sum + service.total, 0);
+              
+              return {
+                ...t,
+                services: [...t.services, ...newServices],
+                totalPrice: newTotalPrice
+              };
+            }
+            return t;
+          });
+          
+          localStorage.setItem("transactions", JSON.stringify(updatedTransactions));
+          console.log("Transaction updated in localStorage");
+        }
+      } catch (error) {
+        console.error("Error updating localStorage:", error);
+      }
 
-      // Calculate new total price
-      const newTotalPrice = transaction.totalPrice + newServices.reduce((sum, service) => sum + service.total, 0)
+      // Try to update in Firestore if we have a docId
+      if (transaction.docId) {
+        try {
+          // Update transaction in Firestore
+          const transactionRef = doc(db, "transactions", transaction.docId)
 
-      await updateDoc(transactionRef, {
-        services: arrayUnion(...newServices),
-        totalPrice: newTotalPrice,
-      })
+          // Calculate new total price
+          const newTotalPrice = transaction.totalPrice + newServices.reduce((sum, service) => sum + service.total, 0)
+
+          await updateDoc(transactionRef, {
+            services: arrayUnion(...newServices),
+            totalPrice: newTotalPrice,
+          })
+          
+          console.log("Transaction updated in Firestore");
+        } catch (error) {
+          console.error("Error updating Firestore:", error);
+        }
+      }
 
       toast({
         title: "Service Added",
@@ -205,6 +288,10 @@ function AddServicePageContent() {
         variant: "destructive",
       })
     }
+  }
+
+  if (!isClient) {
+    return null; // Return nothing during SSR
   }
 
   if (isLoading) {

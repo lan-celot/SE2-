@@ -12,7 +12,7 @@ import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { db } from "@/lib/firebase"
 import { collection, addDoc } from "firebase/firestore"
 import { toast } from "@/components/ui/use-toast"
-// Import the date formatting utility at the top of the file
+// Import the date formatting utility
 import { formatDateTime } from "@/lib/date-utils"
 
 interface TransactionsTableProps {
@@ -40,8 +40,62 @@ interface Transaction {
   amountTendered?: number
 }
 
+// Add some mock data for initial display when localStorage is empty
+const MOCK_TRANSACTIONS: Transaction[] = [
+  {
+    id: "TRX-001",
+    reservationId: "RES-001",
+    customerName: "JOHN DOE",
+    customerId: "CUST-001",
+    carModel: "TOYOTA CAMRY",
+    reservationDate: "2024-03-20",
+    completionDate: "2024-03-25",
+    totalPrice: 1500,
+    services: [
+      {
+        service: "OIL CHANGE",
+        mechanic: "STEPHEN CURRY",
+        price: 500,
+        quantity: 1,
+        discount: 0,
+        total: 500
+      }
+    ],
+    createdAt: new Date()
+  },
+  {
+    id: "TRX-002",
+    reservationId: "RES-002",
+    customerName: "JANE SMITH",
+    customerId: "CUST-002",
+    carModel: "HONDA CIVIC",
+    reservationDate: "2024-03-22",
+    completionDate: "2024-03-26",
+    totalPrice: 2000,
+    services: [
+      {
+        service: "BRAKE REPLACE",
+        mechanic: "KOBE BRYANT",
+        price: 1200,
+        quantity: 1,
+        discount: 0,
+        total: 1200
+      },
+      {
+        service: "ENGINE TUNING",
+        mechanic: "LUKA DONCIC",
+        price: 800,
+        quantity: 1,
+        discount: 0,
+        total: 800
+      }
+    ],
+    createdAt: new Date()
+  }
+];
+
 const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) => {
-  const router = useRouter()
+  // Format price for display with commas and two decimal places
   const formatPriceForDisplay = (price: number): string => {
     return `₱${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
@@ -72,6 +126,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     return `x${numericValue}`
   }
 
+  const router = useRouter()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [sortField, setSortField] = useState<keyof Transaction>("completionDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
@@ -81,14 +136,19 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   const [editedTransactions, setEditedTransactions] = useState<Record<string, Transaction>>({})
   const [savingTransactionId, setSavingTransactionId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const initializedRef = useRef(false)
-
-  // Add state to track input values separately from the actual data
   const [priceInputs, setPriceInputs] = useState<Record<string, Record<number, string>>>({})
   const [amountTenderedInputs, setAmountTenderedInputs] = useState<Record<string, string>>({})
+  const initializedRef = useRef(false)
+  const [isClient, setIsClient] = useState(false)
 
-  // Replace fixed itemsPerPage with the custom hook
-  const itemsPerPage = useResponsiveRows(180) // Adjust header height for search bar
+  const responsiveRowCount = useResponsiveRows(180)
+  // Use custom hook for responsive rows or fallback to a default
+  const itemsPerPage = isClient ? (responsiveRowCount || 5) : 5
+
+  // Track if component is mounted on client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Initialize editedTransactions with the original transactions - only once
   useEffect(() => {
@@ -126,18 +186,25 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     }
   }, [transactions])
 
+  // Load transactions from localStorage
   useEffect(() => {
-    // Only run on the client side
-    const storedTransactions = localStorage.getItem("transactions")
-    if (storedTransactions) {
+    if (isClient) {
       try {
-        setTransactions(JSON.parse(storedTransactions))
+        const storedTransactions = localStorage.getItem("transactions")
+        if (storedTransactions) {
+          setTransactions(JSON.parse(storedTransactions))
+        } else {
+          // If no transactions in localStorage, use mock data and save it
+          setTransactions(MOCK_TRANSACTIONS)
+          localStorage.setItem("transactions", JSON.stringify(MOCK_TRANSACTIONS))
+        }
       } catch (error) {
-        console.error("Error parsing transactions from localStorage:", error)
-        setTransactions([])
+        console.error("Error loading transactions:", error)
+        // Fallback to mock data if there's an error
+        setTransactions(MOCK_TRANSACTIONS)
       }
     }
-  }, [])
+  }, [isClient])
 
   const handleSort = (field: keyof Transaction) => {
     if (sortField === field) {
@@ -153,12 +220,13 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   }
 
   const handleAddServiceItem = (transactionId: string) => {
-    // Debug
-    console.log(`Navigating to add service with transaction ID: ${transactionId}`);
+    // Debug log
+    console.log(`Navigating to add service with transaction ID: ${transactionId}`)
     
-    // Navigate to the add-service page with the transaction ID as a query parameter
-    router.push(`/transactions/add-service?id=${transactionId}`);
+    // Navigate to add service/item page with the specific transaction ID
+    router.push(`/transactions/add-service?id=${transactionId}`)
   }
+
   // Calculate subtotal, discount amount, and total price
   const calculatePrices = (services: Transaction["services"]) => {
     const subtotal = services.reduce((sum, service) => sum + service.price * service.quantity, 0)
@@ -302,14 +370,14 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         ...prev,
         [transactionId]: "",
       }))
-
+  
       handleAmountTenderedChange(transactionId, "")
       return
     }
-
+  
     // Extract numeric value
     const numericValue = value.replace(/₱/g, "")
-
+  
     // Format with commas and proper decimal places
     try {
       const number = Number.parseFloat(numericValue)
@@ -318,104 +386,87 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`
-
+  
         // Update the input state
         setAmountTenderedInputs((prev) => ({
           ...prev,
           [transactionId]: formatted,
         }))
-
+  
         // Also update the actual amount tendered in the transaction
         handleAmountTenderedChange(transactionId, formatted)
       }
     } catch (error) {
       // Keep as is if parsing fails
     }
-  }
+  }  // Make sure this closing brace is here
 
   // Handle price, quantity, and discount changes
-  const handleServiceChange = (transactionId: string, serviceIndex: number, field: string, value: string) => {
-    const transaction = editedTransactions[transactionId]
-    if (!transaction) return
+  // Handle service changes
+const handleServiceChange = (
+  transactionId: string,
+  serviceIndex: number,
+  field: string,
+  value: string | number,
+) => {
+  setEditedTransactions((prev) => {
+    const transaction = { ...prev[transactionId] }
+    const services = [...transaction.services]
+    const service = { ...services[serviceIndex] }
 
-    const updatedServices = [...transaction.services]
-    const service = { ...updatedServices[serviceIndex] }
-
-    // Process the input value based on the field
+    // Handle specific field changes
     if (field === "price") {
-      // Handle price input
-      if (value === "₱" || value === "") {
-        service.price = 0
-      } else {
-        service.price = parseInputPrice(value)
-      }
+      // Parse price input
+      service.price = typeof value === "string" ? parseInputPrice(value) : value
+      // Recalculate total
+      service.total = service.price * service.quantity * (1 - service.discount / 100)
     } else if (field === "quantity") {
-      // Handle quantity input
-      if (value === "x" || value === "") {
-        service.quantity = 1
-      } else {
-        // Extract numeric part from the input value
-        const numericValue = value.replace(/^x/, "").replace(/\D/g, "")
-        service.quantity = numericValue ? Number.parseInt(numericValue) : 1
-      }
+      // Parse quantity input
+      service.quantity = typeof value === "string" ? parseInt(value.replace(/\D/g, "")) || 1 : value
+      // Recalculate total
+      service.total = service.price * service.quantity * (1 - service.discount / 100)
     } else if (field === "discount") {
-      // Handle discount input
-      if (value === "%" || value === "") {
-        service.discount = 0
-      } else {
-        const numericValue = value.replace(/%$/, "").replace(/\D/g, "")
-        service.discount = numericValue ? Number.parseInt(numericValue) : 0
-      }
+      // Parse discount input
+      service.discount = typeof value === "string" ? parseInt(value.replace(/\D/g, "")) || 0 : value
+      // Recalculate total
+      service.total = service.price * service.quantity * (1 - service.discount / 100)
+    } else {
+      // @ts-ignore - handle other fields
+      service[field] = value
     }
 
-    // Recalculate the total for this service
-    service.total = service.price * service.quantity * (1 - service.discount / 100)
-    updatedServices[serviceIndex] = service
+    services[serviceIndex] = service
 
-    // Recalculate the total price for the transaction
-    const { totalPrice } = calculatePrices(updatedServices)
+    // Recalculate total price for the transaction
+    const totalPrice = services.reduce((sum, s) => sum + s.total, 0)
 
-    // Update the edited transaction
-    setEditedTransactions({
-      ...editedTransactions,
+    return {
+      ...prev,
       [transactionId]: {
         ...transaction,
-        services: updatedServices,
+        services,
         totalPrice,
       },
-    })
-  }
-
-  // Handle amount tendered changes
-  const handleAmountTenderedChange = (transactionId: string, value: string) => {
-    const transaction = editedTransactions[transactionId]
-    if (!transaction) return
-
-    // Check if backspacing to empty or just the symbol
-    if (value === "₱" || value === "") {
-      setEditedTransactions({
-        ...editedTransactions,
-        [transactionId]: {
-          ...transaction,
-          amountTendered: 0,
-        },
-      })
-      return
     }
+  })
+}
 
-    // Parse the input value to a number
-    const amountTendered = parseInputPrice(value)
+// Handle amount tendered changes
+const handleAmountTenderedChange = (transactionId: string, value: string) => {
+  // Convert input string to a number
+  const amountTendered = parseInputPrice(value)
 
-    // Update the transaction with the new amount tendered
-    setEditedTransactions({
-      ...editedTransactions,
+  setEditedTransactions((prev) => {
+    const transaction = { ...prev[transactionId] }
+    return {
+      ...prev,
       [transactionId]: {
         ...transaction,
         amountTendered,
       },
-    })
-  }
-
+    }
+  })
+}
   // Format input values for display
   const formatInputValue = (field: string, value: number) => {
     if (field === "price") {
@@ -520,171 +571,178 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     const transaction = editedTransactions[selectedTransactionId || ""]
     if (transaction) {
       setShowPrintDialog(false)
-
-      // Calculate totals for printing
-      const { subtotal, discountAmount, totalPrice } = calculatePrices(transaction.services)
-
-      // Create a new window for the invoice
+  
+      // Create a new window for printing
       const printWindow = window.open("", "_blank")
-      if (printWindow) {
-        // In the print function, update the date formatting:
-        const currentDate = new Date().toLocaleString("en-US", {
-          month: "2-digit",
-          day: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
-
-        printWindow.document.write(`
-      <html>
-        <head>
-          <title>Invoice - ${transaction.id}</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif;
-              margin: 40px;
-              color: #000;
-            }
-            .date-invoice {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 40px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 40px;
-            }
-            .header h1 {
-              margin: 0 0 10px 0;
-              font-size: 24px;
-            }
-            .header p {
-              margin: 0;
-              font-size: 14px;
-            }
-            .details {
-              margin-bottom: 30px;
-              font-size: 14px;
-            }
-            .details p {
-              margin: 5px 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 30px;
-              font-size: 14px;
-            }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 12px;
-              text-align: left;
-            }
-            th {
-              background-color: #f8f8f8;
-            }
-            .total {
-              text-align: right;
-              font-size: 14px;
-              font-weight: bold;
-            }
-            .totals-section {
-              width: 300px;
-              margin-left: auto;
-              text-align: right;
-            }
-            .totals-section p {
-              display: flex;
-              justify-content: space-between;
-              margin: 5px 0;
-              font-size: 14px;
-            }
-            .totals-section .label {
-              color: #666;
-            }
-            @media print {
-              body { margin: 20px; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="date-invoice">
-            <div>${currentDate}</div>
-            <div>Invoice - ${transaction.id}</div>
-          </div>
-          <div class="header">
-            <h1>Invoice</h1>
-            <p>Transaction ID: ${transaction.id}</p>
-          </div>
-          <div class="details">
-            <p><strong>Customer:</strong> ${transaction.customerName || "-----"}</p>
-            <p><strong>Customer ID:</strong> ${transaction.customerId || "-----"}</p>
-            <p><strong>Car Model:</strong> ${transaction.carModel || "-----"}</p>
-            <p><strong>Completion Date:</strong> ${transaction.completionDate || "-----"}</p>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Mechanic</th>
-                <th>Price</th>
-                <th>Quantity</th>
-                <th>Discount</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                transaction.services
-                  ?.map(
-                    (service) => `
-                <tr>
-                  <td>${service.service || "-----"}</td>
-                  <td>${service.mechanic || "-----"}</td>
-                  <td>${formatCurrency(service.price)}</td>
-                  <td>${service.quantity}</td>
-                  <td>${service.discount}%</td>
-                  <td>${formatCurrency(service.total)}</td>
-                </tr>
-              `,
-                  )
-                  .join("") || ""
-              }
-            </tbody>
-          </table>
-          <div class="totals-section">
-            <p>
-              <span class="label">SUBTOTAL</span>
-              <span>${formatCurrency(subtotal)}</span>
-            </p>
-            <p>
-              <span class="label">DISCOUNT</span>
-              <span>${formatCurrency(discountAmount)}</span>
-            </p>
-            <p>
-              <span class="label">TOTAL</span>
-              <span>${formatCurrency(totalPrice)}</span>
-            </p>
-            <p>
-              <span class="label">AMOUNT TENDERED</span>
-              <span>${formatCurrency(transaction.amountTendered || 0)}</span>
-            </p>
-            <p>
-              <span class="label">CHANGE</span>
-              <span>${formatCurrency(Math.max(0, (transaction.amountTendered || 0) - totalPrice))}</span>
-            </p>
-          </div>
-        </body>
-      </html>
-    `)
-        printWindow.document.close()
-        printWindow.print()
+      if (!printWindow) {
+        console.error("Failed to open print window")
+        return
       }
+  
+      // Calculate transaction details
+      const { subtotal, discountAmount } = calculatePrices(transaction.services)
+      const totalPrice = transaction.totalPrice
+      const change = (transaction.amountTendered || 0) - transaction.totalPrice
+      const currentDate = new Date().toLocaleDateString()
+  
+      // Generate HTML content for the receipt
+      const receiptHTML = `
+        <html>
+          <head>
+            <title>Invoice - ${transaction.id}</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif;
+                margin: 40px;
+                color: #000;
+              }
+              .date-invoice {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 40px;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 40px;
+              }
+              .header h1 {
+                margin: 0 0 10px 0;
+                font-size: 24px;
+              }
+              .header p {
+                margin: 0;
+                font-size: 14px;
+              }
+              .details {
+                margin-bottom: 30px;
+                font-size: 14px;
+              }
+              .details p {
+                margin: 5px 0;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 30px;
+                font-size: 14px;
+              }
+              th, td {
+                border: 1px solid #ddd;
+                padding: 12px;
+                text-align: left;
+              }
+              th {
+                background-color: #f8f8f8;
+              }
+              .total {
+                text-align: right;
+                font-size: 14px;
+                font-weight: bold;
+              }
+              .totals-section {
+                width: 300px;
+                margin-left: auto;
+                text-align: right;
+              }
+              .totals-section p {
+                display: flex;
+                justify-content: space-between;
+                margin: 5px 0;
+                font-size: 14px;
+              }
+              .totals-section .label {
+                color: #666;
+              }
+              @media print {
+                body { margin: 20px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="date-invoice">
+              <div>${currentDate}</div>
+              <div>Invoice - ${transaction.id}</div>
+            </div>
+            <div class="header">
+              <h1>Invoice</h1>
+              <p>Transaction ID: ${transaction.id}</p>
+            </div>
+            <div class="details">
+              <p><strong>Customer:</strong> ${transaction.customerName || "-----"}</p>
+              <p><strong>Customer ID:</strong> ${transaction.customerId || "-----"}</p>
+              <p><strong>Car Model:</strong> ${transaction.carModel || "-----"}</p>
+              <p><strong>Completion Date:</strong> ${transaction.completionDate || "-----"}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Mechanic</th>
+                  <th>Price</th>
+                  <th>Quantity</th>
+                  <th>Discount</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  transaction.services
+                    ?.map(
+                      (service) => `
+                  <tr>
+                    <td>${service.service || "-----"}</td>
+                    <td>${service.mechanic || "-----"}</td>
+                    <td>${formatCurrency(service.price)}</td>
+                    <td>${service.quantity}</td>
+                    <td>${service.discount}%</td>
+                    <td>${formatCurrency(service.total)}</td>
+                  </tr>
+                `,
+                    )
+                    .join("") || ""
+                }
+              </tbody>
+            </table>
+            <div class="totals-section">
+              <p>
+                <span class="label">SUBTOTAL</span>
+                <span>${formatCurrency(subtotal)}</span>
+              </p>
+              <p>
+                <span class="label">DISCOUNT</span>
+                <span>${formatCurrency(discountAmount)}</span>
+              </p>
+              <p>
+                <span class="label">TOTAL</span>
+                <span>${formatCurrency(totalPrice)}</span>
+              </p>
+              <p>
+                <span class="label">AMOUNT TENDERED</span>
+                <span>${formatCurrency(transaction.amountTendered || 0)}</span>
+              </p>
+              <p>
+                <span class="label">CHANGE</span>
+                <span>${formatCurrency(Math.max(0, (transaction.amountTendered || 0) - totalPrice))}</span>
+              </p>
+            </div>
+            <script>
+              window.onload = function() {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `
+  
+      // Write content to the new window and print
+      printWindow.document.open()
+      printWindow.document.write(receiptHTML)
+      printWindow.document.close()
     }
   }
-
   const filteredTransactions =
     transactions?.filter((transaction) => {
       if (searchQuery) {
@@ -725,6 +783,31 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
 
     return 0
   })
+
+  // Fix for formatDateTime possibly being undefined
+  const safeFormatDateTime = (dateString: string) => {
+    if (!dateString) return "-----";
+    
+    // If formatDateTime is defined, use it
+    if (typeof formatDateTime === 'function') {
+      return formatDateTime(dateString);
+    }
+    
+    // Fallback implementation if formatDateTime is not available
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return dateString;
+    }
+  }
 
   const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage)
   const currentItems = sortedTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
