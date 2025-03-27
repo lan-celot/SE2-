@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 
 const tabs = [
   { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
   { id: "confirmed", label: "Confirmed" },
   { id: "repairing", label: "Repairing" },
   { id: "completed", label: "Completed" },

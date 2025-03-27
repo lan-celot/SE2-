@@ -44,8 +44,25 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [showStatusNotification, setShowStatusNotification] = useState<{ message: string; type: string } | null>(null);
   const [lastStatusUpdate, setLastStatusUpdate] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
+  
 
   useEffect(() => {
+    // Add event listener for status filtering
+    const handleStatusFilter = (event: CustomEvent) => {
+      setStatusFilter(event.detail);
+    };
+
+    // Cast to any to work around TypeScript's event typing
+    window.addEventListener('filterStatus', handleStatusFilter as EventListener);
+
+    // Cleanup listener
+    return () => {
+      window.removeEventListener('filterStatus', handleStatusFilter as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    
     const user = auth.currentUser;
     if (!user) {
       console.log("User is not authenticated");
@@ -57,6 +74,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     setIsLoading(true);
     const bookingsCollectionRef = collection(db, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
+
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -208,29 +226,29 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   };
 
   const filteredAndSortedReservations = reservations
-    .filter((reservation) => {
-      const matchesSearch = searchQuery
-        ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) =>
-            reservation[key as keyof Reservation]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
-          )
-        : true;
+  .filter((reservation) => {
+    const matchesSearch = searchQuery
+      ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) =>
+          reservation[key as keyof Reservation]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : true;
 
-      const matchesStatus = statusFilter
-        ? reservation.status.toLowerCase() === statusFilter.toLowerCase()
-        : true;
+    const matchesStatus = statusFilter
+      ? reservation.status.toLowerCase() === statusFilter.toLowerCase()
+      : true;
 
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.reservationDate);
-      const dateB = new Date(b.reservationDate);
+    return matchesSearch && matchesStatus;
+  })
+  .sort((a, b) => {
+    const dateA = new Date(a.reservationDate);
+    const dateB = new Date(b.reservationDate);
 
-      if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
-        return dateB.getTime() - dateA.getTime();
-      }
+    if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+      return dateB.getTime() - dateA.getTime();
+    }
 
-      return a.reservationDate.localeCompare(b.reservationDate);
-    });
+    return a.reservationDate.localeCompare(b.reservationDate);
+  });
 
   const formatDate = (dateStr: string) => {
     try {
