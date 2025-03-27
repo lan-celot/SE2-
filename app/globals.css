@@ -1,16 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  font-family: "Poppins", sans-serif;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Add uppercase utility class */
+  .uppercase-table-text {
+    text-transform: uppercase;
   }
 }
 
@@ -71,6 +76,8 @@ body {
     outline-offset: 2px;
     box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring-color) / 0.4);
   }
+
+  /* In v4, dark mode is handled through plugins, but we'll keep the variables */
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;

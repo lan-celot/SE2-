@@ -6,6 +6,8 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { collection, query, getDocs, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import Loading from "@/components/loading"
+// Import the date formatting utility at the top of the file
+import { formatDateTime } from "@/lib/date-utils"
 
 export default function DashboardPage() {
   const [pendingCount, setPendingCount] = useState(0)
@@ -130,18 +132,26 @@ export default function DashboardPage() {
     }
   }
 
-  const formatDate = (timestamp: any) => {
+  // Replace this function:
+  // const formatDate = (timestamp: any) => {
+  //   if (!timestamp) return ""
+  //   const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+  //   return date
+  //     .toLocaleDateString("en-US", {
+  //       month: "2-digit",
+  //       day: "2-digit",
+  //       year: "2-digit",
+  //       hour: "2-digit",
+  //       minute: "2-digit",
+  //     })
+  //     .replace(",", "")
+  // }
+
+  // With this:
+  const formatLogDate = (timestamp: any) => {
     if (!timestamp) return ""
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
-    return date
-      .toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-      .replace(",", "")
+    return formatDateTime(date.toString())
   }
 
   return (
@@ -159,9 +169,10 @@ export default function DashboardPage() {
             <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Logs</h3>
             <div className="flex-1 overflow-auto text-sm">
               <div className="space-y-2">
+                {/* Update the logs section to use the new function */}
                 {logs.map((log) => (
                   <div key={log.id} className="text-[#8B909A]">
-                    {log.message} at {formatDate(log.timestamp)}
+                    {log.message} at {formatLogDate(log.timestamp)}
                   </div>
                 ))}
               </div>
@@ -242,9 +253,9 @@ export default function DashboardPage() {
                 ) : arrivingToday.length > 0 ? (
                   arrivingToday.map((reservation) => (
                     <TableRow key={reservation.id}>
-                      <TableCell className="text-[#1A365D]">#{reservation.id}</TableCell>
-                      <TableCell className="text-[#1A365D]">{reservation.customerName}</TableCell>
-                      <TableCell className="text-[#1A365D]">{reservation.carModel}</TableCell>
+                      <TableCell className="text-[#1A365D] uppercase">#{reservation.id}</TableCell>
+                      <TableCell className="text-[#1A365D] uppercase">{reservation.customerName}</TableCell>
+                      <TableCell className="text-[#1A365D] uppercase">{reservation.carModel}</TableCell>
                     </TableRow>
                   ))
                 ) : (

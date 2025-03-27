@@ -21,6 +21,9 @@ import { collection, query, where, getDocs, doc, setDoc, getDoc, orderBy } from 
 import { db } from "@/lib/firebase"
 import { toast } from "@/components/ui/use-toast"
 
+// Import the date formatting utility at the top of the file
+import { formatDateOnly } from "@/lib/date-utils"
+
 interface DayBookings {
   bookings: number
   isUnavailable: boolean
@@ -75,6 +78,7 @@ export function ReservationCalendar() {
   const [selectedDateBookings, setSelectedDateBookings] = useState<BookingDetails[]>([])
   const [dateToMarkUnavailable, setDateToMarkUnavailable] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const today = new Date()
 
   const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
 
@@ -85,6 +89,14 @@ export function ReservationCalendar() {
   const isSunday = (dayNumber: number): boolean => {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNumber)
     return date.getDay() === 0 // 0 represents Sunday
+  }
+
+  const isToday = (dayNumber: number): boolean => {
+    return (
+      today.getDate() === dayNumber &&
+      today.getMonth() === currentDate.getMonth() &&
+      today.getFullYear() === currentDate.getFullYear()
+    )
   }
 
   const fetchMonthBookings = async () => {
@@ -320,6 +332,21 @@ export function ReservationCalendar() {
     setSelectedDate(null)
   }
 
+  const goToPreviousYear = () => {
+    setCurrentDate(new Date(currentDate.getFullYear() - 1, currentDate.getMonth(), 1))
+    setSelectedDate(null)
+  }
+
+  const goToNextYear = () => {
+    setCurrentDate(new Date(currentDate.getFullYear() + 1, currentDate.getMonth(), 1))
+    setSelectedDate(null)
+  }
+
+  const goToToday = () => {
+    setCurrentDate(new Date())
+    setSelectedDate(null)
+  }
+
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
   }
@@ -350,13 +377,47 @@ export function ReservationCalendar() {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={goToPreviousMonth} className="hover:bg-gray-100">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPreviousYear}
+              className="hover:bg-gray-100"
+              title="Previous Year"
+            >
+              <div className="flex">
+                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 -ml-2" />
+              </div>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPreviousMonth}
+              className="hover:bg-gray-100"
+              title="Previous Month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
           <h4 className="font-medium">{formatMonth(currentDate)}</h4>
-          <Button variant="ghost" size="icon" onClick={goToNextMonth} className="hover:bg-gray-100">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextMonth}
+              className="hover:bg-gray-100"
+              title="Next Month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={goToNextYear} className="hover:bg-gray-100" title="Next Year">
+              <div className="flex">
+                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 -ml-2" />
+              </div>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 text-center text-sm font-medium text-gray-500">
@@ -378,6 +439,7 @@ export function ReservationCalendar() {
               const isCurrentMonth = dayNumber > 0 && dayNumber <= getDaysInMonth(currentDate)
               const dateString = formatDateString(dayNumber)
               const isUnavailable = bookingData[dateString]?.isUnavailable || isSunday(dayNumber)
+              const isTodayDate = isToday(dayNumber)
 
               if (!isCurrentMonth) return <div key={i} className="p-2" />
 
@@ -397,6 +459,12 @@ export function ReservationCalendar() {
                   )}
                 >
                   {dayNumber}
+                  {isTodayDate && (
+                    <div
+                      className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full"
+                      title="Today"
+                    ></div>
+                  )}
                   {getBookingIndicator(dayNumber, isCurrentMonth)}
                 </button>
               )
@@ -404,26 +472,40 @@ export function ReservationCalendar() {
           </div>
         )}
 
-        <div className="mt-2 flex items-center justify-center space-x-4 text-xs">
-          <div className="flex items-center">
-            <div className="h-3 w-3 rounded-full bg-blue-100 mr-1"></div>
-            <span>1 booking</span>
+        <div className="flex flex-col items-center space-y-2">
+          <div className="flex items-center justify-center space-x-4 text-xs">
+            <div className="flex items-center">
+              <div className="h-3 w-3 rounded-full bg-blue-100 mr-1"></div>
+              <span>1 booking</span>
+            </div>
+            <div className="flex items-center">
+              <div className="h-3 w-3 rounded-full bg-orange-100 mr-1"></div>
+              <span>2-3 bookings</span>
+            </div>
+            <div className="flex items-center">
+              <div className="h-3 w-3 rounded-full bg-red-100 mr-1"></div>
+              <span>4+ bookings</span>
+            </div>
           </div>
-          <div className="flex items-center">
-            <div className="h-3 w-3 rounded-full bg-orange-100 mr-1"></div>
-            <span>2-3 bookings</span>
-          </div>
-          <div className="flex items-center">
-            <div className="h-3 w-3 rounded-full bg-red-100 mr-1"></div>
-            <span>4+ bookings</span>
-          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToToday}
+            className="text-xs px-2 py-1 h-auto border-blue-300 text-blue-600 hover:bg-blue-50"
+          >
+            Today
+          </Button>
         </div>
       </div>
 
       <Dialog open={showBookingsDialog} onOpenChange={setShowBookingsDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">{selectedDate && formatDateString(selectedDate)}</DialogTitle>
+            {/* Update the dialog that shows bookings for a selected date */}
+            <DialogTitle className="text-center">
+              {selectedDate && formatDateOnly(formatDateString(selectedDate))}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="py-4 max-h-[60vh] overflow-y-auto">
@@ -433,18 +515,19 @@ export function ReservationCalendar() {
                   <div key={booking.id} className="border rounded-md p-3 bg-gray-50">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="text-sm font-medium text-gray-500">Reservation ID:</div>
+                      {/* Update the booking details display */}
                       <div className="text-sm text-[#1A365D] truncate overflow-hidden" title={booking.id}>
                         #{booking.id}
                       </div>
 
                       <div className="text-sm font-medium text-gray-500">Customer:</div>
-                      <div className="text-sm text-[#1A365D]">{booking.customerName}</div>
+                      <div className="text-sm text-[#1A365D] uppercase">{booking.customerName}</div>
 
                       <div className="text-sm font-medium text-gray-500">Car Model:</div>
-                      <div className="text-sm text-[#1A365D]">{booking.carModel}</div>
+                      <div className="text-sm text-[#1A365D] uppercase">{booking.carModel}</div>
 
                       <div className="text-sm font-medium text-gray-500">Plate No:</div>
-                      <div className="text-sm text-[#1A365D]">{booking.plateNo}</div>
+                      <div className="text-sm text-[#1A365D] uppercase">{booking.plateNo}</div>
 
                       <div className="text-sm font-medium text-gray-500">Status:</div>
                       <div className="text-sm">

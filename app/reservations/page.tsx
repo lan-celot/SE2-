@@ -22,31 +22,8 @@ import Loading from "@/components/loading"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 import { Badge } from "@/components/ui/badge"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
-
-// Add this function near the top of the file
-const formatDate = (dateString: string): string => {
-  try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) {
-      // If date is invalid, return the original string
-      return dateString
-    }
-
-    return date
-      .toLocaleString("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      })
-      .replace(",", "")
-  } catch (error) {
-    console.error("Error formatting date:", error)
-    return dateString
-  }
-}
+// Import the date formatting utility at the top of the file
+import { formatDateTime } from "@/lib/date-utils"
 
 // Add this function near the top of the file
 const toTitleCase = (text: string): string => {
@@ -1148,28 +1125,33 @@ export default function ReservationsPage() {
                           />
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate" title={reservation.id}>
+                          <span className="block truncate uppercase" title={reservation.id}>
                             {reservation.id}
                           </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate" title={formatDate(reservation.reservationDate)}>
-                            {formatDate(reservation.reservationDate)}
+                          <span
+                            className="block truncate uppercase"
+                            title={formatDateTime(reservation.reservationDate)}
+                          >
+                            {formatDateTime(reservation.reservationDate)}
                           </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate">{reservation.firstName + " " + reservation.lastName}</span>
+                          <span className="block truncate uppercase">
+                            {reservation.firstName + " " + reservation.lastName}
+                          </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate" title={reservation.userId}>
+                          <span className="block truncate uppercase" title={reservation.userId}>
                             {reservation.userId}
                           </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate">{reservation.carModel}</span>
+                          <span className="block truncate uppercase">{reservation.carModel}</span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span className="block truncate">{reservation.plateNo || "—"}</span>
+                          <span className="block truncate uppercase">{reservation.plateNo || "—"}</span>
                         </TableCell>
                         <TableCell className="px-2 py-4 flex justify-center">
                           <div className="relative inline-block w-[140px]">
@@ -1338,16 +1320,16 @@ export default function ReservationsPage() {
                                     {(Array.isArray(reservation.services) ? reservation.services : []).map(
                                       (service, index) => (
                                         <TableRow key={index} className="h-[4.5rem]">
-                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center uppercase">
                                             {service.created}
                                           </TableCell>
-                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
-                                            {formatDate(service.reservationDate)}
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center uppercase">
+                                            {formatDateTime(service.reservationDate)}
                                           </TableCell>
-                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center uppercase">
                                             {service.service}
                                           </TableCell>
-                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center">
+                                          <TableCell className="px-2 py-4 text-sm text-[#1A365D] text-center uppercase">
                                             {service.mechanic}
                                           </TableCell>
                                           <TableCell className="px-2 py-4 flex justify-center">
@@ -1655,7 +1637,9 @@ export default function ReservationsPage() {
                 <div className="text-sm text-[#1A365D]">{selectedCarDetails?.odometer || "—"}</div>
 
                 <div className="text-sm font-medium text-gray-500">Reservation Date:</div>
-                <div className="text-sm text-[#1A365D]">{formatDate(selectedCarDetails?.reservationDate || "")}</div>
+                <div className="text-sm text-[#1A365D]">
+                  {formatDateTime(selectedCarDetails?.reservationDate || "")}
+                </div>
               </div>
 
               {selectedCarDetails?.generalServices && selectedCarDetails.generalServices.length > 0 && (
