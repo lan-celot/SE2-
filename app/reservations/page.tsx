@@ -59,6 +59,11 @@ const toTitleCase = (text: string): string => {
 
 type Status = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
 
+// Add type guard function
+function isValidStatus(status: string): status is Status {
+  return ["PENDING", "CONFIRMED", "REPAIRING", "COMPLETED", "CANCELLED"].includes(status as Status)
+}
+
 interface Service {
   created: string
   reservationDate: string
@@ -294,16 +299,20 @@ export default function ReservationsPage() {
       if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
         errorMessage = `${statusStyles[reservation.status].display} reservations cannot be modified.`
       } else if (
-        newStatus === "PENDING" &&
-        (reservation.status === "CONFIRMED" || reservation.status === "REPAIRING" || reservation.status === "COMPLETED")
+        (newStatus as Status) === "PENDING" &&
+        ([
+          "CONFIRMED",
+          "REPAIRING",
+          "COMPLETED"
+        ] as Status[]).includes(reservation.status)
       ) {
         errorMessage = `Cannot revert from ${statusStyles[reservation.status].display} back to Pending.`
       } else if (
         newStatus === "CONFIRMED" &&
-        (reservation.status === "REPAIRING" || reservation.status === "COMPLETED")
+                (["REPAIRING", "COMPLETED"] as Status[]).includes(reservation.status)
       ) {
         errorMessage = `Cannot revert from ${statusStyles[reservation.status].display} back to Confirmed.`
-      } else if (newStatus === "REPAIRING" && reservation.status === "COMPLETED") {
+      } else if (newStatus === "REPAIRING" && (reservation.status as Status) === "COMPLETED") {
         errorMessage = `Cannot revert from Completed back to Repairing.`
       }
 
@@ -770,7 +779,17 @@ export default function ReservationsPage() {
           ])
 
           setReservationData((prevData) =>
-            prevData.map((res) => (res.id === reservation.id ? { ...res, services: updatedServices } : res)),
+            prevData.map((res) =>
+              res.id === reservation.id
+                ? {
+                    ...res,
+                    services: updatedServices.map((service) => ({
+                      ...service,
+                      status: service.status as "PENDING" | "COMPLETED",
+                    })),
+                  }
+                : res,
+            ),
           )
 
           toast({
@@ -852,7 +871,17 @@ export default function ReservationsPage() {
           ])
 
           setReservationData((prevData) =>
-            prevData.map((res) => (res.id === reservation.id ? { ...res, services: updatedServices } : res)),
+                      prevData.map((res) =>
+                        res.id === reservation.id
+                          ? {
+                              ...res,
+                              services: updatedServices.map((service) => ({
+                                ...service,
+                                status: service.status as "PENDING" | "COMPLETED",
+                              })),
+                            }
+                          : res,
+                      ),
           )
 
           toast({
