@@ -1,3 +1,5 @@
+// File: app/transactions/add-service/page.tsx
+
 "use client"
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -337,6 +339,7 @@ function AddServicePageContent() {
     </div>
   )
 }
+
 export default function AddServicePage() {
   return (
     <Suspense fallback={

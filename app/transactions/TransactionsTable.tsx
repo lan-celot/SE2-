@@ -41,7 +41,7 @@ interface Transaction {
 }
 
 const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) => {
-  // Format price for display with commas and two decimal places
+  const router = useRouter()
   const formatPriceForDisplay = (price: number): string => {
     return `₱${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
@@ -72,7 +72,6 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     return `x${numericValue}`
   }
 
-  const router = useRouter()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [sortField, setSortField] = useState<keyof Transaction>("completionDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
@@ -154,10 +153,12 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   }
 
   const handleAddServiceItem = (transactionId: string) => {
-    // Navigate to add service/item page with the specific transaction ID
-    router.push(`/transactions/add-service?id=${transactionId}`)
+    // Debug
+    console.log(`Navigating to add service with transaction ID: ${transactionId}`);
+    
+    // Navigate to the add-service page with the transaction ID as a query parameter
+    router.push(`/transactions/add-service?id=${transactionId}`);
   }
-
   // Calculate subtotal, discount amount, and total price
   const calculatePrices = (services: Transaction["services"]) => {
     const subtotal = services.reduce((sum, service) => sum + service.price * service.quantity, 0)
@@ -836,12 +837,12 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
                       <div className="space-y-4">
                         {/* Action buttons row */}
                         <div className="flex justify-end mb-4 space-x-2">
-                          <Button
-                            onClick={() => handleAddServiceItem(transaction.id)}
-                            className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
-                          >
-                            Add Service / Item
-                          </Button>
+                        <Button
+    onClick={() => handleAddServiceItem(transaction.id)}
+    className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+  >
+    Add Service / Item
+  </Button>
                           <Button
                             onClick={() => saveTransactionChanges(transaction.id)}
                             className="bg-[#28C76F] hover:bg-[#1F9D57] text-white text-sm font-medium px-4 py-2 rounded-md flex items-center gap-1"
