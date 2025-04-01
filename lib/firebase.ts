@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app"
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import { getFirestore, doc, setDoc } from "firebase/firestore"
 
 const firebaseConfig = {
@@ -12,12 +12,10 @@ const firebaseConfig = {
   measurementId: "G-BLJNBPYQ3N",
 }
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 
-// Modified loginUser function that doesn't throw errors
 export const loginUser = async (email: string, password: string) => {
   try {
     console.log("Attempting to login with email:", email)

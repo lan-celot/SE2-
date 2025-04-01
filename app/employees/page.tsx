@@ -9,8 +9,6 @@ import { Input } from "@/components/input"
 import { EmployeesTable } from "./employees-table"
 import { useRouter } from "next/navigation"
 import { EmployeesTabs } from "./employees-tabs"
-// Remove the Loading import since it's not used in this file
-// import Loading from "@/components/loading"
 
 export default function EmployeesPage() {
   const [searchQuery, setSearchQuery] = useState("")
