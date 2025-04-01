@@ -487,15 +487,6 @@ export function ReservationCalendar() {
               <span>4+ bookings</span>
             </div>
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToToday}
-            className="text-xs px-2 py-1 h-auto border-blue-300 text-blue-600 hover:bg-blue-50"
-          >
-            Today
-          </Button>
         </div>
       </div>
 

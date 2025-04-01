@@ -1,113 +1,39 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
+import { db } from "@/lib/firebase"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { formatDateOnly } from "@/lib/date-utils"
 
 interface Customer {
   id: string
+  uid: string
   name: string
-  username: string
+  firstName: string
+  lastName: string
+  username?: string
+  email: string
   phone: string
-  carModel: string
-  lastVisit: string
+  carModel?: string
+  lastVisit?: string
   avatar?: string
+  gender?: string
+  dateOfBirth?: string
 }
 
-const initialCustomers: Customer[] = [
-  {
-    id: "#C00100",
-    name: "Andrea Salazar",
-    username: "andeng",
-    phone: "09757840449",
-    carModel: "Toyota Hilux",
-    lastVisit: "2023-12-25",
-    avatar: "https://i.pravatar.cc/40?u=andeng",
-  },
-  {
-    id: "#C00099",
-    name: "Blaine Ramos",
-    username: "blainey",
-    phone: "09380605349",
-    carModel: "Honda Civic",
-    lastVisit: "2024-01-15",
-    avatar: "https://i.pravatar.cc/40?u=blainey",
-  },
-  {
-    id: "#C00098",
-    name: "Leo Macaya",
-    username: "oel",
-    phone: "09283429109",
-    carModel: "Ford Ranger",
-    lastVisit: "2024-02-01",
-    avatar: "https://i.pravatar.cc/40?u=oel",
-  },
-  {
-    id: "#C00097",
-    name: "Russ De Guzman",
-    username: "roired",
-    phone: "09489539463",
-    carModel: "Mitsubishi Montero",
-    lastVisit: "2024-02-15",
-    avatar: "https://i.pravatar.cc/40?u=roired",
-  },
-  {
-    id: "#C00096",
-    name: "Averill Buenvenida",
-    username: "ave",
-    phone: "09409450648",
-    carModel: "Nissan Navara",
-    lastVisit: "2024-03-01",
-    avatar: "https://i.pravatar.cc/40?u=ave",
-  },
-  {
-    id: "#C00095",
-    name: "Han Bascao",
-    username: "hanning",
-    phone: "09982603116",
-    carModel: "Isuzu D-Max",
-    lastVisit: "2024-03-15",
-    avatar: "https://i.pravatar.cc/40?u=hanning",
-  },
-  {
-    id: "#C00094",
-    name: "Jude Flores",
-    username: "judeing",
-    phone: "09469926599",
-    carModel: "Hyundai Accent",
-    lastVisit: "2024-04-01",
-    avatar: "https://i.pravatar.cc/40?u=judeing",
-  },
-  {
-    id: "#C00093",
-    name: "Joulet Casquejo",
-    username: "julet",
-    phone: "09129343090",
-    carModel: "Kia Sportage",
-    lastVisit: "2024-04-15",
-    avatar: "https://i.pravatar.cc/40?u=julet",
-  },
-  {
-    id: "#C00092",
-    name: "Vince Delos Santos",
-    username: "vi",
-    phone: "09284267778",
-    carModel: "Mazda CX-5",
-    lastVisit: "2024-05-01",
-    avatar: "https://i.pravatar.cc/40?u=vi",
-  },
-  {
-    id: "#C00091",
-    name: "Joanne Joaquin",
-    username: "jowan",
-    phone: "09953094872",
-    carModel: "Subaru Forester",
-    lastVisit: "2024-05-15",
-    avatar: "https://i.pravatar.cc/40?u=jowan",
-  },
-]
+interface Booking {
+  id: string
+  customerId: string
+  customerName?: string
+  carModel?: string
+  date: string
+  status: string
+  userId?: string // Some bookings might use userId instead of customerId
+}
 
 interface CustomersTableProps {
   searchQuery: string
@@ -118,9 +44,97 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
   const [sortField, setSortField] = useState<keyof Customer>("id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  // Replace fixed itemsPerPage with the custom hook
-  const itemsPerPage = useResponsiveRows(180) // Adjust header height for search bar
-  const [filteredCustomers, setFilteredCustomers] = useState(initialCustomers)
+  const itemsPerPage = useResponsiveRows(180)
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchCustomersWithConfirmedBookings() {
+      try {
+        setLoading(true)
+        console.log("Fetching customers with confirmed bookings...")
+
+        // First, get all bookings with status "Confirmed"
+        const bookingsRef = collection(db, "bookings")
+        const bookingsQuery = query(bookingsRef, where("status", "==", "Confirmed"))
+
+        const bookingsSnapshot = await getDocs(bookingsQuery)
+        console.log(`Found ${bookingsSnapshot.size} confirmed bookings`)
+
+        // Extract unique customer IDs from confirmed bookings
+        const customerIds = new Set<string>()
+        const customerLastVisits = new Map<string, string>()
+        const customerCarModels = new Map<string, string>()
+
+        bookingsSnapshot.forEach((doc) => {
+          const booking = doc.data() as Booking
+          // Check for customerId or userId (different field names might be used)
+          const customerId = booking.customerId || booking.userId
+
+          if (customerId) {
+            customerIds.add(customerId)
+
+            // Track the latest visit date for each customer
+            const currentLastVisit = customerLastVisits.get(customerId)
+            if (!currentLastVisit || new Date(booking.date) > new Date(currentLastVisit)) {
+              customerLastVisits.set(customerId, booking.date)
+            }
+
+            // Track car model
+            if (booking.carModel) {
+              customerCarModels.set(customerId, booking.carModel)
+            }
+          }
+        })
+
+        console.log(`Found ${customerIds.size} unique customers with confirmed bookings`)
+
+        if (customerIds.size === 0) {
+          setCustomers([])
+          setLoading(false)
+          return
+        }
+
+        // Now fetch the customer details for these IDs
+        const customersRef = collection(db, "users")
+        const customersSnapshot = await getDocs(customersRef)
+        console.log(`Fetched ${customersSnapshot.size} total users`)
+
+        const fetchedCustomers: Customer[] = []
+
+        customersSnapshot.forEach((doc) => {
+          const userData = doc.data()
+
+          // Only include customers who have confirmed bookings
+          if (customerIds.has(userData.uid)) {
+            fetchedCustomers.push({
+              id: `#C${fetchedCustomers.length.toString().padStart(5, "0")}`,
+              uid: userData.uid,
+              name: `${userData.firstName} ${userData.lastName}`,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              username: userData.username,
+              email: userData.email,
+              phone: userData.phone || "N/A",
+              carModel: customerCarModels.get(userData.uid) || "N/A",
+              lastVisit: customerLastVisits.get(userData.uid) || "N/A",
+              gender: userData.gender,
+              dateOfBirth: userData.dateOfBirth,
+            })
+          }
+        })
+
+        console.log(`Displaying ${fetchedCustomers.length} customers with confirmed bookings`)
+        setCustomers(fetchedCustomers)
+      } catch (error) {
+        console.error("Error fetching customers:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCustomersWithConfirmedBookings()
+  }, [])
 
   const handleSort = (field: keyof Customer) => {
     if (sortField === field) {
@@ -129,47 +143,40 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
       setSortField(field)
       setSortOrder("asc")
     }
-
-    // Get the current page data before sorting
-    const currentPageData = filteredCustomers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-    // Sort only the current page data
-    const sortedPageData = [...currentPageData].sort((a, b) => {
-      const aValue = a[field]
-      const bValue = b[field]
-      const modifier = sortOrder === "asc" ? 1 : -1
-
-      if (field === "id") {
-        return Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1))
-      }
-
-      return aValue < bValue ? -1 * modifier : aValue > bValue ? 1 * modifier : 0
-    })
-
-    // Create a new filtered customers array with the sorted page
-    const newFilteredCustomers = [...filteredCustomers]
-    for (let i = 0; i < sortedPageData.length; i++) {
-      newFilteredCustomers[(currentPage - 1) * itemsPerPage + i] = sortedPageData[i]
-    }
-
-    // Update the state with the new sorted data
-    setFilteredCustomers(newFilteredCustomers)
   }
 
-  const filteredCustomersSearch = initialCustomers.filter((customer) => {
-    if (!searchQuery) return true
-    const searchLower = searchQuery.toLowerCase()
-    return (
-      customer.name.toLowerCase().includes(searchLower) ||
-      customer.username.toLowerCase().includes(searchLower) ||
-      customer.phone.includes(searchQuery) ||
-      customer.id.toLowerCase().includes(searchLower) ||
-      customer.carModel.toLowerCase().includes(searchLower)
-    )
-  })
+  const filteredCustomers = customers
+    .filter((customer) => {
+      if (!searchQuery) return true
+      const searchLower = searchQuery.toLowerCase()
+      return (
+        customer.name.toLowerCase().includes(searchLower) ||
+        customer.username?.toLowerCase().includes(searchLower) ||
+        false ||
+        customer.phone.includes(searchQuery) ||
+        customer.id.toLowerCase().includes(searchLower) ||
+        customer.carModel?.toLowerCase().includes(searchLower) ||
+        false
+      )
+    })
+    .sort((a, b) => {
+      const aValue = a[sortField]
+      const bValue = b[sortField]
+      const modifier = sortOrder === "asc" ? 1 : -1
 
-  const totalPages = Math.ceil(filteredCustomersSearch.length / itemsPerPage)
-  const currentItems = filteredCustomersSearch.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+      if (sortField === "id") {
+        return (Number.parseInt(a.id.slice(2)) - Number.parseInt(b.id.slice(2))) * modifier
+      }
+
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return aValue.localeCompare(bValue) * modifier
+      }
+
+      return 0
+    })
+
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage)
+  const currentItems = filteredCustomers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const columns = [
     { key: "id", label: "CUSTOMER ID", width: "15%" },
@@ -180,8 +187,24 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
     { key: "action", label: "ACTION", width: "10%" },
   ]
 
-  const handleViewDetails = (customerId: string) => {
-    router.push(`/customers/${customerId.replace("#", "").toLowerCase()}`)
+  const handleViewDetails = (customer: Customer) => {
+    router.push(`/customers/${customer.uid}`)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2A69AC]"></div>
+      </div>
+    )
+  }
+
+  if (customers.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-[#8B909A] text-lg">No customers with confirmed bookings found</p>
+      </div>
+    )
   }
 
   return (
@@ -229,15 +252,15 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
                 <td className="px-3 py-4">
                   <div className="flex items-center">
                     <img
-                      src={customer.avatar || `https://i.pravatar.cc/40?u=${customer.username}`}
+                      src={customer.avatar || `https://i.pravatar.cc/40?u=${customer.username || customer.email}`}
                       alt={customer.name}
                       className="h-8 w-8 rounded-full mr-2 flex-shrink-0 cursor-pointer"
-                      onClick={() => handleViewDetails(customer.id)}
+                      onClick={() => handleViewDetails(customer)}
                     />
                     <span
                       className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC] uppercase"
                       title={customer.name}
-                      onClick={() => handleViewDetails(customer.id)}
+                      onClick={() => handleViewDetails(customer)}
                     >
                       {customer.name}
                     </span>
@@ -250,7 +273,7 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
                   {customer.carModel}
                 </td>
                 <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={customer.lastVisit}>
-                  {customer.lastVisit}
+                  {customer.lastVisit !== "N/A" ? formatDateOnly(customer.lastVisit) : "N/A"}
                 </td>
                 <td className="px-3 py-4">
                   <div className="flex justify-center">
@@ -270,48 +293,50 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
           </tbody>
         </table>
       </div>
-      <div className="flex justify-end mt-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setCurrentPage(Math.max(1, currentPage - 1))
-            }}
-            disabled={currentPage === 1}
-            className={cn(
-              "px-3 py-1 rounded-md text-sm",
-              currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-            )}
-          >
-            Previous
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+      {totalPages > 0 && (
+        <div className="flex justify-end mt-4">
+          <div className="flex items-center gap-2">
             <button
-              key={page}
               onClick={() => {
-                setCurrentPage(page)
+                setCurrentPage(Math.max(1, currentPage - 1))
               }}
+              disabled={currentPage === 1}
               className={cn(
                 "px-3 py-1 rounded-md text-sm",
-                currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
               )}
             >
-              {page}
+              Previous
             </button>
-          ))}
-          <button
-            onClick={() => {
-              setCurrentPage(Math.min(totalPages, currentPage + 1))
-            }}
-            disabled={currentPage === totalPages}
-            className={cn(
-              "px-3 py-1 rounded-md text-sm",
-              currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-            )}
-          >
-            Next
-          </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => {
+                  setCurrentPage(page)
+                }}
+                className={cn(
+                  "px-3 py-1 rounded-md text-sm",
+                  currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+                )}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setCurrentPage(Math.min(totalPages, currentPage + 1))
+              }}
+              disabled={currentPage === totalPages}
+              className={cn(
+                "px-3 py-1 rounded-md text-sm",
+                currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+              )}
+            >
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
