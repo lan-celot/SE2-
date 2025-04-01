@@ -12,7 +12,6 @@ import { PasswordVerificationDialog } from "@/components/password-verification-d
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { type Employee, getAllEmployees, updateEmployee, deleteEmployee } from "@/lib/employee-utils"
 
-// Keep the statusStyles object
 
 const statusStyles: Record<string, { bg: string; text: string; borderColor: string }> = {
   Active: {
