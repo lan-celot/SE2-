@@ -3,16 +3,15 @@
 import React, { useState, useEffect, useRef } from "react"
 import { ChevronUp, ChevronDown, Printer, Save } from "lucide-react"
 import Image from "next/image"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/dialog"
+import { Button } from "@/components/button"
+import { Input } from "@/components/input"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { db } from "@/lib/firebase"
 import { collection, addDoc } from "firebase/firestore"
-import { toast } from "@/components/ui/use-toast"
-// Import the date formatting utility
+import { useToast } from "@/hooks/use-toast"
 import { formatDateTime } from "@/lib/date-utils"
 
 interface TransactionsTableProps {
@@ -58,10 +57,10 @@ const MOCK_TRANSACTIONS: Transaction[] = [
         price: 500,
         quantity: 1,
         discount: 0,
-        total: 500
-      }
+        total: 500,
+      },
     ],
-    createdAt: new Date()
+    createdAt: new Date(),
   },
   {
     id: "TRX-002",
@@ -79,7 +78,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
         price: 1200,
         quantity: 1,
         discount: 0,
-        total: 1200
+        total: 1200,
       },
       {
         service: "ENGINE TUNING",
@@ -87,12 +86,12 @@ const MOCK_TRANSACTIONS: Transaction[] = [
         price: 800,
         quantity: 1,
         discount: 0,
-        total: 800
-      }
+        total: 800,
+      },
     ],
-    createdAt: new Date()
-  }
-];
+    createdAt: new Date(),
+  },
+]
 
 const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) => {
   // Format price for display with commas and two decimal places
@@ -140,10 +139,11 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   const [amountTenderedInputs, setAmountTenderedInputs] = useState<Record<string, string>>({})
   const initializedRef = useRef(false)
   const [isClient, setIsClient] = useState(false)
+  const { toast } = useToast() // Move the hook call outside the conditional block
 
   const responsiveRowCount = useResponsiveRows(180)
   // Use custom hook for responsive rows or fallback to a default
-  const itemsPerPage = isClient ? (responsiveRowCount || 5) : 5
+  const itemsPerPage = isClient ? responsiveRowCount || 5 : 5
 
   // Track if component is mounted on client
   useEffect(() => {
@@ -222,7 +222,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   const handleAddServiceItem = (transactionId: string) => {
     // Debug log
     console.log(`Navigating to add service with transaction ID: ${transactionId}`)
-    
+
     // Navigate to add service/item page with the specific transaction ID
     router.push(`/transactions/add-service?id=${transactionId}`)
   }
@@ -370,14 +370,14 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         ...prev,
         [transactionId]: "",
       }))
-  
+
       handleAmountTenderedChange(transactionId, "")
       return
     }
-  
+
     // Extract numeric value
     const numericValue = value.replace(/₱/g, "")
-  
+
     // Format with commas and proper decimal places
     try {
       const number = Number.parseFloat(numericValue)
@@ -386,87 +386,82 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`
-  
+
         // Update the input state
         setAmountTenderedInputs((prev) => ({
           ...prev,
           [transactionId]: formatted,
         }))
-  
+
         // Also update the actual amount tendered in the transaction
         handleAmountTenderedChange(transactionId, formatted)
       }
     } catch (error) {
       // Keep as is if parsing fails
     }
-  }  // Make sure this closing brace is here
+  } // Make sure this closing brace is here
 
   // Handle price, quantity, and discount changes
   // Handle service changes
-const handleServiceChange = (
-  transactionId: string,
-  serviceIndex: number,
-  field: string,
-  value: string | number,
-) => {
-  setEditedTransactions((prev) => {
-    const transaction = { ...prev[transactionId] }
-    const services = [...transaction.services]
-    const service = { ...services[serviceIndex] }
+  const handleServiceChange = (transactionId: string, serviceIndex: number, field: string, value: string | number) => {
+    setEditedTransactions((prev) => {
+      const transaction = { ...prev[transactionId] }
+      const services = [...transaction.services]
+      const service = { ...services[serviceIndex] }
 
-    // Handle specific field changes
-    if (field === "price") {
-      // Parse price input
-      service.price = typeof value === "string" ? parseInputPrice(value) : value
-      // Recalculate total
-      service.total = service.price * service.quantity * (1 - service.discount / 100)
-    } else if (field === "quantity") {
-      // Parse quantity input
-      service.quantity = typeof value === "string" ? parseInt(value.replace(/\D/g, "")) || 1 : value
-      // Recalculate total
-      service.total = service.price * service.quantity * (1 - service.discount / 100)
-    } else if (field === "discount") {
-      // Parse discount input
-      service.discount = typeof value === "string" ? parseInt(value.replace(/\D/g, "")) || 0 : value
-      // Recalculate total
-      service.total = service.price * service.quantity * (1 - service.discount / 100)
-    } else {
-      // @ts-ignore - handle other fields
-      service[field] = value
-    }
+      // Handle specific field changes
+      if (field === "price") {
+        // Parse price input
+        service.price = typeof value === "string" ? parseInputPrice(value) : value
+        // Recalculate total
+        service.total = service.price * service.quantity * (1 - service.discount / 100)
+      } else if (field === "quantity") {
+        // Parse quantity input
+        service.quantity = typeof value === "string" ? Number.parseInt(value.replace(/\D/g, "")) || 1 : value
+        // Recalculate total
+        service.total = service.price * service.quantity * (1 - service.discount / 100)
+      } else if (field === "discount") {
+        // Parse discount input
+        service.discount = typeof value === "string" ? Number.parseInt(value.replace(/\D/g, "")) || 0 : value
+        // Recalculate total
+        service.total = service.price * service.quantity * (1 - service.discount / 100)
+      } else {
+        // @ts-ignore - handle other fields
+        service[field] = value
+      }
 
-    services[serviceIndex] = service
+      services[serviceIndex] = service
 
-    // Recalculate total price for the transaction
-    const totalPrice = services.reduce((sum, s) => sum + s.total, 0)
+      // Recalculate total price for the transaction
+      const totalPrice = services.reduce((sum, s) => sum + s.total, 0)
 
-    return {
-      ...prev,
-      [transactionId]: {
-        ...transaction,
-        services,
-        totalPrice,
-      },
-    }
-  })
-}
+      return {
+        ...prev,
+        [transactionId]: {
+          ...transaction,
+          services,
+          totalPrice,
+        },
+      }
+    })
+  }
 
-// Handle amount tendered changes
-const handleAmountTenderedChange = (transactionId: string, value: string) => {
-  // Convert input string to a number
-  const amountTendered = parseInputPrice(value)
+  // Handle amount tendered changes
+  const handleAmountTenderedChange = (transactionId: string, value: string) => {
+    // Convert input string to a number
+    const amountTendered = parseInputPrice(value)
 
-  setEditedTransactions((prev) => {
-    const transaction = { ...prev[transactionId] }
-    return {
-      ...prev,
-      [transactionId]: {
-        ...transaction,
-        amountTendered,
-      },
-    }
-  })
-}
+    setEditedTransactions((prev) => {
+      const transaction = { ...prev[transactionId] }
+      return {
+        ...prev,
+        [transactionId]: {
+          ...transaction,
+          amountTendered,
+        },
+      }
+    })
+  }
   // Format input values for display
   const formatInputValue = (field: string, value: number) => {
     if (field === "price") {
@@ -571,20 +566,20 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
     const transaction = editedTransactions[selectedTransactionId || ""]
     if (transaction) {
       setShowPrintDialog(false)
-  
+
       // Create a new window for printing
       const printWindow = window.open("", "_blank")
       if (!printWindow) {
         console.error("Failed to open print window")
         return
       }
-  
+
       // Calculate transaction details
       const { subtotal, discountAmount } = calculatePrices(transaction.services)
       const totalPrice = transaction.totalPrice
       const change = (transaction.amountTendered || 0) - transaction.totalPrice
       const currentDate = new Date().toLocaleDateString()
-  
+
       // Generate HTML content for the receipt
       const receiptHTML = `
         <html>
@@ -736,7 +731,7 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
           </body>
         </html>
       `
-  
+
       // Write content to the new window and print
       printWindow.document.open()
       printWindow.document.write(receiptHTML)
@@ -786,26 +781,26 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
 
   // Fix for formatDateTime possibly being undefined
   const safeFormatDateTime = (dateString: string) => {
-    if (!dateString) return "-----";
-    
+    if (!dateString) return "-----"
+
     // If formatDateTime is defined, use it
-    if (typeof formatDateTime === 'function') {
-      return formatDateTime(dateString);
+    if (typeof formatDateTime === "function") {
+      return formatDateTime(dateString)
     }
-    
+
     // Fallback implementation if formatDateTime is not available
     try {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
+      const date = new Date(dateString)
+      return date.toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
     } catch (error) {
-      return dateString;
+      return dateString
     }
   }
 
@@ -920,12 +915,12 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
                       <div className="space-y-4">
                         {/* Action buttons row */}
                         <div className="flex justify-end mb-4 space-x-2">
-                        <Button
-    onClick={() => handleAddServiceItem(transaction.id)}
-    className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
-  >
-    Add Service / Item
-  </Button>
+                          <Button
+                            onClick={() => handleAddServiceItem(transaction.id)}
+                            className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
+                          >
+                            Add Service / Item
+                          </Button>
                           <Button
                             onClick={() => saveTransactionChanges(transaction.id)}
                             className="bg-[#28C76F] hover:bg-[#1F9D57] text-white text-sm font-medium px-4 py-2 rounded-md flex items-center gap-1"
@@ -971,73 +966,79 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
 
                             {/* Editable price field */}
                             <div className="text-sm text-[#1A365D] text-right">
-                              <Input
-                                type="text"
-                                placeholder="₱0,000.00"
-                                value={priceInputs[transaction.id]?.[index] || ""}
-                                onChange={(e) => handlePriceInputChange(transaction.id, index, e.target.value)}
-                                onBlur={(e) => handlePriceInputBlur(transaction.id, index, e.target.value)}
-                                className="text-right h-8 px-2 text-[#1A365D] font-medium"
-                              />
+                              <div className="flex justify-end">
+                                <Input
+                                  type="text"
+                                  placeholder="₱0,000.00"
+                                  value={priceInputs[transaction.id]?.[index] || ""}
+                                  onChange={(e) => handlePriceInputChange(transaction.id, index, e.target.value)}
+                                  onBlur={(e) => handlePriceInputBlur(transaction.id, index, e.target.value)}
+                                  className="text-right h-8 px-2 text-[#1A365D] font-medium w-auto max-w-[140px]"
+                                />
+                              </div>
                             </div>
 
                             {/* Editable quantity field */}
                             <div className="text-sm text-[#1A365D] text-center">
-                              <Input
-                                type="text"
-                                value={
-                                  // Show formatted value or empty string if one
-                                  service.quantity === 1 ? "" : formatQuantityWhileTyping(`x${service.quantity}`)
-                                }
-                                onChange={(e) => {
-                                  const value = e.target.value
-
-                                  // If backspacing to empty or just the symbol, clear it
-                                  if (value === "x" || value === "") {
-                                    handleServiceChange(transaction.id, index, "quantity", "")
-                                    return
+                              <div className="flex justify-center">
+                                <Input
+                                  type="text"
+                                  value={
+                                    // Show formatted value or empty string if one
+                                    service.quantity === 1 ? "" : formatQuantityWhileTyping(`x${service.quantity}`)
                                   }
+                                  onChange={(e) => {
+                                    const value = e.target.value
 
-                                  // Otherwise pass the raw input value
-                                  handleServiceChange(transaction.id, index, "quantity", value)
-                                }}
-                                className="text-center h-8 px-2 text-[#1A365D] font-medium"
-                                placeholder="x1"
-                              />
+                                    // If backspacing to empty or just the symbol, clear it
+                                    if (value === "x" || value === "") {
+                                      handleServiceChange(transaction.id, index, "quantity", "")
+                                      return
+                                    }
+
+                                    // Otherwise pass the raw input value
+                                    handleServiceChange(transaction.id, index, "quantity", value)
+                                  }}
+                                  className="text-center h-8 px-2 text-[#1A365D] font-medium w-auto max-w-[80px]"
+                                  placeholder="x1"
+                                />
+                              </div>
                             </div>
 
                             {/* Editable discount field */}
                             <div className="text-sm text-[#EA5455] text-right">
-                              <Input
-                                type="text"
-                                value={service.discount === 0 ? "" : `${service.discount}%`}
-                                onChange={(e) => {
-                                  // Get the current value and new value
-                                  const currentValue = service.discount === 0 ? "" : `${service.discount}%`
-                                  const newValue = e.target.value
+                              <div className="flex justify-end">
+                                <Input
+                                  type="text"
+                                  value={service.discount === 0 ? "" : `${service.discount}%`}
+                                  onChange={(e) => {
+                                    // Get the current value and new value
+                                    const currentValue = service.discount === 0 ? "" : `${service.discount}%`
+                                    const newValue = e.target.value
 
-                                  // Check if backspace is being used (value is shorter than current value)
-                                  const isBackspacing = newValue.length < currentValue.length
+                                    // Check if backspace is being used (value is shorter than current value)
+                                    const isBackspacing = newValue.length < currentValue.length
 
-                                  // If backspacing and removing the % sign or emptying the field
-                                  if (isBackspacing && (newValue === "" || !newValue.includes("%"))) {
-                                    handleServiceChange(transaction.id, index, "discount", "")
-                                    return
-                                  }
+                                    // If backspacing and removing the % sign or emptying the field
+                                    if (isBackspacing && (newValue === "" || !newValue.includes("%"))) {
+                                      handleServiceChange(transaction.id, index, "discount", "")
+                                      return
+                                    }
 
-                                  // Normal input handling
-                                  let value = newValue
+                                    // Normal input handling
+                                    let value = newValue
 
-                                  // Remove suffix and non-numeric chars
-                                  value = value.replace(/%$/, "").replace(/\D/g, "")
+                                    // Remove suffix and non-numeric chars
+                                    value = value.replace(/%$/, "").replace(/\D/g, "")
 
-                                  // Format with % suffix
-                                  const formattedValue = value ? `${value}%` : ""
-                                  handleServiceChange(transaction.id, index, "discount", formattedValue)
-                                }}
-                                className="text-right h-8 px-2 text-[#EA5455] font-medium"
-                                placeholder="0%"
-                              />
+                                    // Format with % suffix
+                                    const formattedValue = value ? `${value}%` : ""
+                                    handleServiceChange(transaction.id, index, "discount", formattedValue)
+                                  }}
+                                  className="text-right h-8 px-2 text-[#EA5455] font-medium w-auto max-w-[80px]"
+                                  placeholder="0%"
+                                />
+                              </div>
                             </div>
 
                             {/* Calculated total */}
@@ -1046,7 +1047,7 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
                         ))}
 
                         {/* Summary section */}
-                        <div className="grid grid-cols-2 gap-y-2 w-1/3 ml-auto text-right mt-4">
+                        <div className="grid grid-cols-2 gap-y-2 w-auto max-w-xs ml-auto text-right mt-4">
                           {/* Calculate subtotal, discount amount, and total */}
                           <div className="text-sm text-[#8B909A] uppercase">SUBTOTAL</div>
                           <div className="text-sm text-[#1A365D]">
@@ -1086,14 +1087,16 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
 
                           <div className="text-sm text-[#8B909A] uppercase">AMOUNT TENDERED</div>
                           <div className="text-sm text-[#1A365D]">
-                            <Input
-                              type="text"
-                              placeholder="₱0,000.00"
-                              value={amountTenderedInputs[transaction.id] || ""}
-                              onChange={(e) => handleAmountTenderedInputChange(transaction.id, e.target.value)}
-                              onBlur={(e) => handleAmountTenderedInputBlur(transaction.id, e.target.value)}
-                              className="text-right h-8 px-2 text-[#1A365D] font-medium"
-                            />
+                            <div className="flex justify-end">
+                              <Input
+                                type="text"
+                                placeholder="₱0,000.00"
+                                value={amountTenderedInputs[transaction.id] || ""}
+                                onChange={(e) => handleAmountTenderedInputChange(transaction.id, e.target.value)}
+                                onBlur={(e) => handleAmountTenderedInputBlur(transaction.id, e.target.value)}
+                                className="text-right h-8 px-2 text-[#1A365D] font-medium w-auto max-w-[150px]"
+                              />
+                            </div>
                           </div>
 
                           <div className="text-sm text-[#8B909A] uppercase">CHANGE</div>
@@ -1187,18 +1190,18 @@ const handleAmountTenderedChange = (transactionId: string, value: string) => {
             <DialogTitle className="text-center text-xl">Print this transaction?</DialogTitle>
           </DialogHeader>
           <div className="flex justify-center gap-4 pt-4">
-            <Button
+            <button
               onClick={() => setShowPrintDialog(false)}
               className="px-6 py-2 rounded-lg bg-[#FFE5E5] text-[#EA5455] hover:bg-[#EA5455]/10 border-0"
             >
               No, go back
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handlePrint}
               className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#28C76F]/10 border-0"
             >
               Yes, print
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>

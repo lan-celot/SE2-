@@ -2,7 +2,7 @@
 import { Search } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/input"
 import { CustomersTable } from "./customers-table"
 import { useState } from "react"
 

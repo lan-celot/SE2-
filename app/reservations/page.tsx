@@ -4,23 +4,23 @@ import { useEffect, useState } from "react"
 import * as React from "react"
 import { Search, ChevronDown, Trash2, User, ChevronUp } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/button"
+import { Input } from "@/components/input"
+import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/table"
 import { cn } from "@/lib/utils"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/dialog"
+import { RadioGroup, RadioGroupItem } from "@/components/radio-group"
+import { Checkbox } from "@/components/checkbox"
 import { AddServiceDialog } from "./add-service-dialog"
 import { ReservationsTabs } from "./reservations-tabs"
 import { Sidebar } from "@/components/sidebar"
 import { collection, onSnapshot, orderBy, query, doc, getDoc, setDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { toast } from "@/components/ui/use-toast"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select"
 import Loading from "@/components/loading"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/badge"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 // Import the date formatting utility at the top of the file
 import { formatDateTime } from "@/lib/date-utils"
@@ -206,7 +206,7 @@ export default function ReservationsPage() {
     { key: "customerName", label: "CUSTOMER NAME" },
     { key: "userId", label: "CUSTOMER ID" },
     { key: "carModel", label: "CAR MODEL" },
-    { key: "plateNo", label: "PLATE NO." }, // Added new column
+    { key: "plateNo", label: "PLATE NO." }, // Added plateNo field
     { key: "status", label: "STATUS", sortable: false },
   ]
 
@@ -277,17 +277,10 @@ export default function ReservationsPage() {
         errorMessage = `${statusStyles[reservation.status].display} reservations cannot be modified.`
       } else if (
         (newStatus as Status) === "PENDING" &&
-        ([
-          "CONFIRMED",
-          "REPAIRING",
-          "COMPLETED"
-        ] as Status[]).includes(reservation.status)
+        (["CONFIRMED", "REPAIRING", "COMPLETED"] as Status[]).includes(reservation.status)
       ) {
         errorMessage = `Cannot revert from ${statusStyles[reservation.status].display} back to Pending.`
-      } else if (
-        newStatus === "CONFIRMED" &&
-                (["REPAIRING", "COMPLETED"] as Status[]).includes(reservation.status)
-      ) {
+      } else if (newStatus === "CONFIRMED" && (["REPAIRING", "COMPLETED"] as Status[]).includes(reservation.status)) {
         errorMessage = `Cannot revert from ${statusStyles[reservation.status].display} back to Confirmed.`
       } else if (newStatus === "REPAIRING" && (reservation.status as Status) === "COMPLETED") {
         errorMessage = `Cannot revert from Completed back to Repairing.`
@@ -848,17 +841,17 @@ export default function ReservationsPage() {
           ])
 
           setReservationData((prevData) =>
-                      prevData.map((res) =>
-                        res.id === reservation.id
-                          ? {
-                              ...res,
-                              services: updatedServices.map((service) => ({
-                                ...service,
-                                status: service.status as "PENDING" | "COMPLETED",
-                              })),
-                            }
-                          : res,
-                      ),
+            prevData.map((res) =>
+              res.id === reservation.id
+                ? {
+                    ...res,
+                    services: updatedServices.map((service) => ({
+                      ...service,
+                      status: service.status as "PENDING" | "COMPLETED",
+                    })),
+                  }
+                : res,
+            ),
           )
 
           toast({
@@ -947,7 +940,18 @@ export default function ReservationsPage() {
     <div className="flex min-h-screen bg-[#EBF8FF]">
       <Sidebar />
       {showSuccessMessage && (
-        <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
+        <div
+          className={`fixed inset-x-0 top-0 z-50 p-4 text-center ${showSuccessMessage ? "opacity-100" : "opacity-0"} ${
+            showSuccessMessage ? "bg-[#E6FFF3] text-[#28C76F]" : "bg-[#FFE6E6] text-[#EA5455]"
+          }`}
+          style={{
+            transform: "translateY(0)",
+            animation: showSuccessMessage ? "slideInFromTop 0.3s ease-out forwards" : "none",
+            minWidth: "200px",
+            textAlign: "center",
+            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
+          }}
+        >
           {showSuccessMessage}
         </div>
       )}

@@ -4,8 +4,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { Input } from "@/components/input"
+import { Button } from "@/components/button"
 import Image from "next/image"
 import Link from "next/link"
 import { loginUser } from "@/lib/firebase"
@@ -33,6 +33,17 @@ export default function LoginPage() {
     }
   }, [notification])
 
+  // Safe wrapper for loginUser that doesn't throw errors
+  const safeLogin = async (email: string, password: string) => {
+    try {
+      const user = await loginUser(email, password)
+      return { success: true, user: { ...user, email }, error: null }
+    } catch (error) {
+      console.log("Login error caught in safeLogin:", error)
+      return { success: false, user: null, error: "Invalid email or password" }
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -48,61 +59,49 @@ export default function LoginPage() {
       return
     }
 
-    try {
-      // Attempt to login
-      const user = await loginUser(email, password)
+    // Use the safe login wrapper
+    const result = await safeLogin(email, password)
 
-      // Check if the user's email is in the adminUsers collection
-      const db = getFirestore(getApp())
-      const adminUsersRef = collection(db, "adminUsers")
-      const q = query(adminUsersRef, where("email", "==", user.email))
-      const querySnapshot = await getDocs(q)
+    if (result.success && result.user) {
+      try {
+        // Check if the user's email is in the adminUsers collection
+        const db = getFirestore(getApp())
+        const adminUsersRef = collection(db, "adminUsers")
+        const q = query(adminUsersRef, where("email", "==", result.user.email))
+        const querySnapshot = await getDocs(q)
 
-      if (!querySnapshot.empty) {
-        // Show success notification
-        setNotification({
-          type: "success",
-          message: "Redirecting to dashboard...",
-        })
+        if (!querySnapshot.empty) {
+          // Show success notification
+          setNotification({
+            type: "success",
+            message: "Redirecting to dashboard...",
+          })
 
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 2000)
-      } else {
-        // Handle unauthorized access
+          // Redirect to dashboard after a short delay
+          setTimeout(() => {
+            router.push("/dashboard")
+          }, 2000)
+        } else {
+          // Handle unauthorized access
+          setNotification({
+            type: "error",
+            message: "You do not have admin access.",
+          })
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.error("Error checking admin status:", error)
         setNotification({
           type: "error",
-          message: "You do not have admin access.",
+          message: "An error occurred while checking your access. Please try again.",
         })
         setIsLoading(false)
       }
-    } catch (error: unknown) {
-      // Handle login errors
-      console.error("Login error details:", error)
-
-      let errorMessage = "Login failed"
-
-      if (error instanceof Error) {
-        // Check for specific Firebase error codes
-        if (error.message.includes("auth/invalid-credential")) {
-          errorMessage = "Invalid email or password. Please check your credentials and try again."
-        } else if (error.message.includes("auth/user-not-found")) {
-          errorMessage = "No account found with this email address."
-        } else if (error.message.includes("auth/wrong-password")) {
-          errorMessage = "Incorrect password. Please try again."
-        } else if (error.message.includes("auth/user-disabled")) {
-          errorMessage = "This account has been disabled. Please contact support."
-        } else if (error.message.includes("auth/too-many-requests")) {
-          errorMessage = "Too many unsuccessful login attempts. Please try again later."
-        } else {
-          errorMessage = error.message
-        }
-      }
-
+    } else {
+      // Handle login failure
       setNotification({
         type: "error",
-        message: errorMessage,
+        message: result.error || "Invalid email or password. Please try again.",
       })
       setIsLoading(false)
     }
@@ -112,7 +111,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#ebf8ff] flex flex-col">
       {notification && (
         <div
-          className={`fixed inset-x-0 top-0 z-50 p-4 text-center ${
+          className={`fixed inset-x-0 top-0 z-50 p-4 text-center notification-animate ${
             notification.type === "success" ? "bg-[#E6FFF3] text-[#28C76F]" : "bg-[#FFE6E6] text-[#EA5455]"
           }`}
         >
@@ -191,4 +190,4 @@ export default function LoginPage() {
       </main>
     </div>
   )
-} 
+}

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Bell } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/button"
 
 interface HeaderProps {
   title?: string

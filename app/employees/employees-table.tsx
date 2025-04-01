@@ -1,37 +1,18 @@
 "use client"
-import useLocalStorage from "@/hooks/useLocalStorage"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/dialog"
 import { cn } from "@/lib/utils"
-import { parseISO, compareDesc } from "date-fns"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select"
+import { toast } from "@/hooks/use-toast"
 import Loading from "@/components/loading"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
+import { type Employee, getAllEmployees, updateEmployee, deleteEmployee } from "@/lib/employee-utils"
 
-interface Employee {
-  id: string
-  name: string
-  username: string
-  avatar: string
-  role: string
-  workingOn: string
-  status: "Active" | "Inactive" | "Working" | "Terminated"
-  firstName?: string
-  lastName?: string
-  gender?: string
-  phone?: string
-  dateOfBirth?: string
-  streetAddress?: string
-  city?: string
-  province?: string
-  zipCode?: string
-  dateAdded?: string
-}
+// Keep the statusStyles object
 
 const statusStyles: Record<string, { bg: string; text: string; borderColor: string }> = {
   Active: {
@@ -43,11 +24,6 @@ const statusStyles: Record<string, { bg: string; text: string; borderColor: stri
     bg: "bg-[#EBF8FF]",
     text: "text-[#63B3ED]",
     borderColor: "border-[#63B3ED]",
-  },
-  Working: {
-    bg: "bg-[#FFF5E0]",
-    text: "text-[#FFC600]",
-    borderColor: "border-[#FFC600]",
   },
   Terminated: {
     bg: "bg-[#FFE5E5]",
@@ -61,108 +37,8 @@ const statusStyles: Record<string, { bg: string; text: string; borderColor: stri
   },
 }
 
-const initialEmployees: Employee[] = [
-  {
-    id: "#E00010",
-    name: "Donovan Mitchell",
-    username: "spida",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Helper Mechanic",
-    workingOn: "#R00109",
-    status: "Active",
-    dateAdded: "2024-03-15T10:00:00Z",
-  },
-  {
-    id: "#E00009",
-    name: "Anthony Edwards",
-    username: "ant",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Helper Mechanic",
-    workingOn: "#R00108",
-    status: "Working",
-    dateAdded: "2024-03-14T12:00:00Z",
-  },
-  {
-    id: "#E00008",
-    name: "Luka Doncic",
-    username: "luka",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Assistant Mechanic",
-    workingOn: "#R00107",
-    status: "Active",
-    dateAdded: "2024-03-13T14:00:00Z",
-  },
-  {
-    id: "#E00007",
-    name: "Stephen Curry",
-    username: "steph",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Assistant Mechanic",
-    workingOn: "#R00106",
-    status: "Inactive",
-    dateAdded: "2024-03-12T16:00:00Z",
-  },
-  {
-    id: "#E00006",
-    name: "Manu Ginobili",
-    username: "manu",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Assistant Mechanic",
-    workingOn: "#R00105",
-    status: "Working",
-    dateAdded: "2024-03-11T18:00:00Z",
-  },
-  {
-    id: "#E00005",
-    name: "Tim Duncan",
-    username: "timmy",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Lead Mechanic",
-    workingOn: "#R00104",
-    status: "Active",
-    dateAdded: "2024-03-10T20:00:00Z",
-  },
-  {
-    id: "#E00004",
-    name: "Ray Allen",
-    username: "ray",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Lead Mechanic",
-    workingOn: "#R00103",
-    status: "Inactive",
-    dateAdded: "2024-03-09T22:00:00Z",
-  },
-  {
-    id: "#E00003",
-    name: "Kobe Bryant",
-    username: "kobeeee",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Lead Mechanic",
-    workingOn: "#R00102",
-    status: "Terminated",
-    dateAdded: "2024-03-08T00:00:00Z",
-  },
-  {
-    id: "#E00002",
-    name: "Nor Tamondong",
-    username: "nor",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Administrator",
-    workingOn: "#R00101",
-    status: "Active",
-    dateAdded: "2024-03-07T02:00:00Z",
-  },
-  {
-    id: "#E00001",
-    name: "Marcial Tamondong",
-    username: "mar",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Administrator",
-    workingOn: "#R00098",
-    status: "Active",
-    dateAdded: "2024-03-06T04:00:00Z",
-  },
-]
+// Replace the initialEmployees array with an empty array since we'll fetch from Firebase
+const initialEmployees: Employee[] = []
 
 // Update the EmployeesTableProps interface to include activeTab
 interface EmployeesTableProps {
@@ -173,7 +49,7 @@ interface EmployeesTableProps {
 // Update the function signature to accept activeTab
 export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) {
   const router = useRouter()
-  const [employees, setEmployees] = useLocalStorage<Employee[]>("employees", initialEmployees)
+  const [employees, setEmployees] = useState<Employee[]>(initialEmployees)
   const [sortedEmployees, setSortedEmployees] = useState<Employee[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDeletePasswordDialog, setShowDeletePasswordDialog] = useState(false)
@@ -188,55 +64,78 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
   const [showStatusPasswordDialog, setShowStatusPasswordDialog] = useState(false)
   const [newStatus, setNewStatus] = useState<Employee["status"]>("Active")
   const [currentPage, setCurrentPage] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
   // Replace fixed itemsPerPage with the custom hook
   const itemsPerPage = useResponsiveRows(180) // Adjust header height for tabs and search
+  // Remove the selectedRows state and handleRowSelect function
+  // Update the table header to remove the checkbox column
+  // Update the table row to remove the checkbox cell
 
-  // Sort employees when they change
+  // Helper function to sort employees by ID
+  const sortEmployeesById = (employeesToSort: Employee[], order: "asc" | "desc" = "desc") => {
+    return [...employeesToSort].sort((a, b) => {
+      // Extract numeric part of ID for sorting (e.g., "EMP_001" -> 1)
+      const aNum = Number.parseInt(a.id.split("_")[1])
+      const bNum = Number.parseInt(b.id.split("_")[1])
+      return order === "desc" ? bNum - aNum : aNum - bNum
+    })
+  }
+
+  // Fetch employees from Firebase when component mounts
   useEffect(() => {
-    const sorted = [...employees].sort((a, b) =>
-      compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01")),
-    )
+    const fetchEmployees = async () => {
+      try {
+        setIsLoading(true)
+        const fetchedEmployees = await getAllEmployees()
+        setEmployees(fetchedEmployees)
 
-    setSortedEmployees(sorted)
-  }, [employees])
+        // Sort employees by ID (newest first)
+        const sorted = sortEmployeesById(fetchedEmployees, "desc")
+
+        setSortedEmployees(sorted)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error fetching employees:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch employees",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+      }
+    }
+
+    fetchEmployees()
+
+    // Remove the fetch call to the initialization endpoint since we've deleted that file
+  }, [])
 
   const handleSort = (field: keyof Employee) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    // Toggle sort order if clicking the same field
+    const newSortOrder = sortField === field && sortOrder === "asc" ? "desc" : "asc"
+
+    setSortField(field)
+    setSortOrder(newSortOrder)
+
+    // Sort the entire dataset, not just the current page
+    let sorted = [...employees]
+
+    if (field === "id") {
+      // Use our helper function for ID sorting
+      sorted = sortEmployeesById(employees, newSortOrder)
     } else {
-      setSortField(field)
-      setSortOrder("asc")
+      // General sorting for other fields
+      sorted = [...employees].sort((a, b) => {
+        const valueA = (a[field] || "").toString().toLowerCase()
+        const valueB = (b[field] || "").toString().toLowerCase()
+
+        if (valueA < valueB) return newSortOrder === "asc" ? -1 : 1
+        if (valueA > valueB) return newSortOrder === "asc" ? 1 : -1
+        return 0
+      })
     }
 
-    // Get the current page data before sorting
-    const currentPageData = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-    // Sort only the current page data
-    const sortedPageData = [...currentPageData].sort((a, b) => {
-      if (field === "dateAdded") {
-        return sortOrder === "asc"
-          ? compareDesc(parseISO(b.dateAdded || "1970-01-01"), parseISO(a.dateAdded || "1970-01-01"))
-          : compareDesc(parseISO(a.dateAdded || "1970-01-01"), parseISO(b.dateAdded || "1970-01-01"))
-      }
-      if (field === "id") {
-        return sortOrder === "asc"
-          ? Number.parseInt(a.id.slice(1)) - Number.parseInt(b.id.slice(1))
-          : Number.parseInt(b.id.slice(1)) - Number.parseInt(a.id.slice(1))
-      }
-      const valueA = a[field] ?? ""
-      const valueB = b[field] ?? ""
-      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1
-      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1
-      return 0
-    })
-
-    // Replace only the current page in the sorted employees
-    const newSortedEmployees = [...sortedEmployees]
-    for (let i = 0; i < sortedPageData.length; i++) {
-      newSortedEmployees[(currentPage - 1) * itemsPerPage + i] = sortedPageData[i]
-    }
-
-    setSortedEmployees(newSortedEmployees)
+    setSortedEmployees(sorted)
   }
 
   // Update the filteredEmployees function to filter by activeTab
@@ -254,11 +153,12 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
     if (!searchQuery) return true
     const searchLower = searchQuery.toLowerCase()
     return (
-      employee.name.toLowerCase().includes(searchLower) ||
+      employee.firstName.toLowerCase().includes(searchLower) ||
+      employee.lastName.toLowerCase().includes(searchLower) ||
       employee.username.toLowerCase().includes(searchLower) ||
       employee.role.toLowerCase().includes(searchLower) ||
       employee.id.toLowerCase().includes(searchLower) ||
-      employee.workingOn.toLowerCase().includes(searchLower) ||
+      employee.phone.toLowerCase().includes(searchLower) ||
       employee.status.toLowerCase().includes(searchLower)
     )
   })
@@ -266,68 +166,157 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
   const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-  const handleDelete = () => {
+  // Update the handleDelete function to use Firebase and maintain sorting
+  const handleDelete = async () => {
     if (selectedEmployee) {
-      const updatedEmployees = employees.filter((emp) => emp.id !== selectedEmployee.id)
-      setEmployees(updatedEmployees)
+      try {
+        await deleteEmployee(selectedEmployee.id)
 
-      // Show success toast
-      toast({
-        title: "Employee Deleted",
-        description: `${selectedEmployee.name} has been removed from the employee list.`,
-        variant: "default",
-      })
+        // Update local state
+        const updatedEmployees = employees.filter((emp) => emp.id !== selectedEmployee.id)
+        setEmployees(updatedEmployees)
 
-      // Reset dialogs and state
-      setShowDeleteDialog(false)
-      setSelectedEmployee(null)
+        // Re-sort the employees to maintain the current sort order
+        let newSortedEmployees
+        if (sortField === "id") {
+          newSortedEmployees = sortEmployeesById(updatedEmployees, sortOrder)
+        } else {
+          // Re-apply the current sort
+          newSortedEmployees = [...updatedEmployees].sort((a, b) => {
+            const valueA = (a[sortField] || "").toString().toLowerCase()
+            const valueB = (b[sortField] || "").toString().toLowerCase()
+
+            if (valueA < valueB) return sortOrder === "asc" ? -1 : 1
+            if (valueA > valueB) return sortOrder === "asc" ? 1 : -1
+            return 0
+          })
+        }
+
+        setSortedEmployees(newSortedEmployees)
+
+        // Show success toast
+        toast({
+          title: "Employee Deleted",
+          description: `${selectedEmployee.firstName} ${selectedEmployee.lastName} has been removed from the employee list.`,
+          variant: "default",
+        })
+
+        // Reset dialogs and state
+        setShowDeleteDialog(false)
+        setSelectedEmployee(null)
+      } catch (error) {
+        console.error("Error deleting employee:", error)
+        toast({
+          title: "Error",
+          description: "Failed to delete employee",
+          variant: "destructive",
+        })
+      }
     }
   }
 
+  // Update the handleViewDetails function
   const handleViewDetails = (employeeId: string) => {
-    const formattedId = employeeId.replace("#", "").toLowerCase()
-    router.push(`/employees/${formattedId}`)
+    router.push(`/employees/${employeeId}`)
   }
 
-  const handleRoleChange = () => {
+  // Update the handleRoleChange function to use Firebase and maintain sorting
+  const handleRoleChange = async () => {
     if (editingEmployee) {
-      const updatedEmployees = employees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, role: newRole } : emp))
+      try {
+        await updateEmployee(editingEmployee.id, { role: newRole as Employee["role"] })
 
-      setEmployees(updatedEmployees)
+        // Update local state
+        const updatedEmployees = employees.map((emp) =>
+          emp.id === editingEmployee.id ? { ...emp, role: newRole as Employee["role"] } : emp,
+        )
 
-      // Show success toast
-      toast({
-        title: "Role Updated",
-        description: `${editingEmployee.name}'s role has been changed to ${newRole}.`,
-        variant: "default",
-      })
+        setEmployees(updatedEmployees)
 
-      // Reset dialogs and state
-      setShowEditDialog(false)
-      setEditingEmployee(null)
-      setNewRole("")
+        // Re-sort the employees to maintain the current sort order
+        let newSortedEmployees
+        if (sortField === "id") {
+          newSortedEmployees = sortEmployeesById(updatedEmployees, sortOrder)
+        } else {
+          // Re-apply the current sort
+          newSortedEmployees = [...updatedEmployees].sort((a, b) => {
+            const valueA = (a[sortField] || "").toString().toLowerCase()
+            const valueB = (b[sortField] || "").toString().toLowerCase()
+
+            if (valueA < valueB) return sortOrder === "asc" ? -1 : 1
+            if (valueA > valueB) return sortOrder === "asc" ? 1 : -1
+            return 0
+          })
+        }
+
+        setSortedEmployees(newSortedEmployees)
+
+        // Show success toast
+        toast({
+          title: "Role Updated",
+          description: `${editingEmployee.firstName} ${editingEmployee.lastName}'s role has been changed to ${newRole}.`,
+          variant: "default",
+        })
+
+        // Reset dialogs and state
+        setShowEditDialog(false)
+        setEditingEmployee(null)
+        setNewRole("")
+      } catch (error) {
+        console.error("Error updating employee role:", error)
+        toast({
+          title: "Error",
+          description: "Failed to update employee role",
+          variant: "destructive",
+        })
+      }
     }
   }
 
-  const handleStatusChange = () => {
+  // Update the handleStatusChange function to use Firebase and maintain sorting
+  const handleStatusChange = async () => {
     if (editingEmployee) {
-      const updatedEmployees = employees.map((emp) =>
-        emp.id === editingEmployee.id ? { ...emp, status: newStatus } : emp,
-      )
+      try {
+        await updateEmployee(editingEmployee.id, { status: newStatus as Employee["status"] })
 
-      setEmployees(updatedEmployees)
+        // Update local state
+        const updatedEmployees = employees.map((emp) =>
+          emp.id === editingEmployee.id ? { ...emp, status: newStatus } : emp,
+        )
 
-      // Show success toast
-      toast({
-        title: "Status Updated",
-        description: `${editingEmployee.name}'s status has been changed to ${newStatus}.`,
-        variant: "default",
-      })
+        setEmployees(updatedEmployees)
 
-      // Reset dialogs and state
-      setShowStatusDialog(false)
-      setEditingEmployee(null)
-      setNewStatus("Active")
+        // Re-sort the employees to maintain the current sort order
+        let newSortedEmployees = [...updatedEmployees].sort((a, b) => {
+          const valueA = (a[sortField] || "").toString().toLowerCase()
+          const valueB = (b[sortField] || "").toString().toLowerCase()
+
+          if (valueA < valueB) return sortOrder === "asc" ? -1 : 1
+          if (valueA > valueB) return sortOrder === "asc" ? 1 : -1
+          return 0
+        })
+
+        setSortedEmployees(newSortedEmployees)
+
+        // Show success toast
+        toast({
+          title: "Status Updated",
+          description: `${editingEmployee.firstName} ${editingEmployee.lastName}'s status has been changed to ${newStatus}.`,
+          variant: "default",
+        })
+
+        // Reset dialogs and state
+        setShowStatusDialog(false)
+        setEditingEmployee(null)
+        setNewStatus("Active")
+      } catch (error) {
+        console.error("Error updating employee status:", error)
+        toast({
+          title: "Error",
+          description: "Failed to update employee status",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -337,7 +326,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) {
+  if (isLoading) {
     return <Loading />
   }
 
@@ -372,7 +361,7 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                   className="px-3 py-2 text-xs font-medium text-[#8B909A] uppercase tracking-wider text-left"
                   style={{ width: column.width }}
                 >
-                  {column.key !== "action" ? (
+                  {column.key !== "action" && column.key !== "status" ? (
                     <button
                       className="flex items-center gap-1 hover:text-[#1A365D]"
                       onClick={() => handleSort(column.key as keyof Employee)}
@@ -407,16 +396,16 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                   <div className="flex items-center">
                     <img
                       src={employee.avatar || `https://i.pravatar.cc/40?u=${employee.username}`}
-                      alt={employee.name}
+                      alt={`${employee.firstName} ${employee.lastName}`}
                       className="h-8 w-8 rounded-full mr-2 flex-shrink-0 cursor-pointer"
                       onClick={() => handleViewDetails(employee.id)}
                     />
                     <span
                       className="text-sm text-[#1A365D] truncate cursor-pointer hover:text-[#2A69AC] uppercase"
-                      title={employee.name}
+                      title={`${employee.firstName} ${employee.lastName}`}
                       onClick={() => handleViewDetails(employee.id)}
                     >
-                      {employee.name}
+                      {`${employee.firstName} ${employee.lastName}`}
                     </span>
                   </div>
                 </td>
@@ -426,8 +415,8 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                 <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.id}>
                   {employee.id}
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.workingOn}>
-                  {employee.workingOn}
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title="Not assigned">
+                  Not assigned
                 </td>
                 <td className="px-3 py-4">
                   <div className="relative inline-block">
@@ -453,7 +442,6 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                           {
                             "data-[state=open]:border-[#28C76F]": employee.status === "Active" || !employee.status,
                             "data-[state=open]:border-[#63B3ED]": employee.status === "Inactive",
-                            "data-[state=open]:border-[#FFC600]": employee.status === "Working",
                             "data-[state=open]:border-[#EA5455]": employee.status === "Terminated",
                             [`data-[state=open]:${getStatusStyle(employee.status).borderColor}`]: true,
                           },
@@ -564,7 +552,11 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-xl">
-              Are you sure to delete <span className="text-[#2A69AC]">{selectedEmployee?.name}</span>?
+              Are you sure to delete{" "}
+              <span className="text-[#2A69AC]">
+                {selectedEmployee?.firstName} {selectedEmployee?.lastName}
+              </span>
+              ?
             </DialogTitle>
           </DialogHeader>
           <div className="flex justify-center gap-4 py-4">
@@ -603,7 +595,10 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-xl">
-              Change role for <span className="text-[#2A69AC]">{editingEmployee?.name}</span>
+              Change role for{" "}
+              <span className="text-[#2A69AC]">
+                {editingEmployee?.firstName} {editingEmployee?.lastName}
+              </span>
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
@@ -655,11 +650,14 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-xl">
-              Change status for <span className="text-[#2A69AC]">{editingEmployee?.name}</span>
+              Change status for{" "}
+              <span className="text-[#2A69AC]">
+                {editingEmployee?.firstName} {editingEmployee?.lastName}
+              </span>
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <Select value={newStatus} onValueChange={setNewStatus}>
+            <Select value={newStatus} onValueChange={(value) => setNewStatus(value as Employee["status"])}>
               <SelectTrigger>
                 <SelectValue placeholder="Select new status" />
               </SelectTrigger>

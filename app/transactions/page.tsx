@@ -5,13 +5,13 @@
 import { useState } from "react"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/input"
 import { Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/button"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 
-// Use dynamic import with no SSR to avoid localStorage issues
+
 const TransactionsTable = dynamic(
   () => import("@/app/transactions/TransactionsTable"),
   { ssr: false }

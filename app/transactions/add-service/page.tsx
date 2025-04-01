@@ -1,16 +1,16 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
+import { Button } from "@/components/button"
+import { Input } from "@/components/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select"
+import { toast } from "@/hooks/use-toast"
 import useLocalStorage from "@/hooks/useLocalStorage"
 import Loading from "@/components/loading"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, setDoc, collection, query, where, getDocs, type DocumentReference } from "firebase/firestore"
 
 // Define types for services and customers
 interface Service {
@@ -27,6 +27,8 @@ interface Transaction {
   reservationDate: string
   completionDate: string
   totalPrice: number
+  subtotal: number
+  discountAmount: number
   services: {
     service: string
     mechanic: string
@@ -71,7 +73,7 @@ const mechanics = [
   "STEPHEN CURRY",
 ]
 
-export default function AddServicePage() {
+function AddServicePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const transactionId = searchParams.get("id")
@@ -135,20 +137,24 @@ export default function AddServicePage() {
   const [transaction, setTransaction] = useState<Transaction | null>(null)
   const [duplicateErrors, setDuplicateErrors] = useState<{ [key: string]: string }>({})
   const [firebaseTransaction, setFirebaseTransaction] = useState<any>(null)
+  // Add a state to track if we're in the process of submitting
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  // Add a state to track if we've initialized from localStorage
+  const [initialized, setInitialized] = useState(false)
 
   // Load transaction data based on ID from URL
   useEffect(() => {
-    const fetchTransaction = async () => {
-      if (!transactionId) {
-        toast({
-          title: "Error",
-          description: "No transaction ID provided",
-          variant: "destructive",
-        })
-        router.push("/transactions")
-        return
-      }
+    if (!transactionId) {
+      toast({
+        title: "Error",
+        description: "No transaction ID provided",
+        variant: "destructive",
+      })
+      router.push("/transactions")
+      return
+    }
 
+    const fetchTransaction = async () => {
       // First check localStorage
       const foundTransaction = transactions.find((t) => t.id === transactionId)
 
@@ -156,6 +162,7 @@ export default function AddServicePage() {
         console.log("Transaction found in localStorage:", foundTransaction)
         setTransaction(foundTransaction)
         setPageLoading(false)
+        setInitialized(true)
 
         // Also try to fetch from Firebase to keep data in sync
         try {
@@ -177,16 +184,17 @@ export default function AddServicePage() {
           })
           router.push("/transactions")
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error fetching transaction:", error)
         toast({
           title: "Error",
-          description: `Failed to fetch transaction: ${error.message}`,
+          description: `Failed to fetch transaction: ${(error as Error).message}`,
           variant: "destructive",
         })
         router.push("/transactions")
       } finally {
         setPageLoading(false)
+        setInitialized(true)
       }
     }
 
@@ -209,9 +217,18 @@ export default function AddServicePage() {
         // Convert Firebase timestamp to Date if needed
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
 
-        const firebaseTransaction = {
+        const firebaseTransaction: Transaction = {
           id: id,
-          ...data,
+          reservationId: data.reservationId,
+          customerName: data.customerName,
+          customerId: data.customerId,
+          carModel: data.carModel,
+          reservationDate: data.reservationDate,
+          completionDate: data.completionDate,
+          services: data.services || [],
+          totalPrice: data.totalPrice,
+          subtotal: data.subtotal,
+          discountAmount: data.discountAmount,
           createdAt: createdAt,
         }
 
@@ -239,9 +256,18 @@ export default function AddServicePage() {
           // Convert Firebase timestamp to Date if needed
           const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
 
-          const firebaseTransaction = {
+          const firebaseTransaction: Transaction = {
             id: id,
-            ...data,
+            reservationId: data.reservationId,
+            customerName: data.customerName,
+            customerId: data.customerId,
+            carModel: data.carModel,
+            reservationDate: data.reservationDate,
+            completionDate: data.completionDate,
+            services: data.services || [],
+            totalPrice: data.totalPrice,
+            subtotal: data.subtotal,
+            discountAmount: data.discountAmount,
             createdAt: createdAt,
           }
 
@@ -267,12 +293,25 @@ export default function AddServicePage() {
 
   // Check for duplicate services when service type or name changes
   useEffect(() => {
-    if (!transaction) return
+    // Skip if not initialized or during submission
+    if (!initialized || isSubmitting || !transaction) return
 
     // Clear previous errors
     const newErrors: { [key: string]: string } = {}
 
-    // Check each row for duplicates
+    // First, collect all services being added in the current form
+    const currentFormServices = serviceRows
+      .map((row) => {
+        if (row.type === "custom") {
+          return row.customService.trim().toUpperCase()
+        } else if (row.type === "general") {
+          return (services.find((s) => s.id === row.generalService)?.label || "").toUpperCase()
+        }
+        return ""
+      })
+      .filter((name) => name !== "")
+
+    // Check each row for duplicates against EXISTING transaction services only
     serviceRows.forEach((row) => {
       let serviceName = ""
 
@@ -284,7 +323,7 @@ export default function AddServicePage() {
 
       // Only check if service name is not empty
       if (serviceName) {
-        // Check if this service already exists in the transaction
+        // Check if this service already exists in the transaction's EXISTING services
         const isDuplicate = transaction.services.some(
           (existingService) => existingService.service.toUpperCase() === serviceName.toUpperCase(),
         )
@@ -295,8 +334,30 @@ export default function AddServicePage() {
       }
     })
 
+    // Now check for duplicates within the form itself (multiple rows with same service)
+    serviceRows.forEach((row, index) => {
+      let serviceName = ""
+
+      if (row.type === "custom") {
+        serviceName = row.customService.trim().toUpperCase()
+      } else if (row.type === "general") {
+        serviceName = (services.find((s) => s.id === row.generalService)?.label || "").toUpperCase()
+      }
+
+      // Skip empty service names
+      if (!serviceName) return
+
+      // Count occurrences of this service name in the current form
+      const occurrences = currentFormServices.filter((name) => name === serviceName).length
+
+      // If there's more than one occurrence, it's a duplicate within the form
+      if (occurrences > 1 && !newErrors[row.id]) {
+        newErrors[row.id] = `"${serviceName}" appears multiple times in your form`
+      }
+    })
+
     setDuplicateErrors(newErrors)
-  }, [serviceRows, transaction])
+  }, [serviceRows, transaction, services, isSubmitting, initialized])
 
   // Update the handleInputChange function to work with multiple rows
   const handleInputChange = (rowId: string, field: string, value: string) => {
@@ -385,12 +446,6 @@ export default function AddServicePage() {
     return numericValue ? `${numericValue}%` : ""
   }
 
-  // This function is no longer needed as we handle formatting directly in the onBlur handler
-  // We can remove it or keep it as a no-op for backward compatibility
-  const formatPriceOnBlur = (rowId: string) => {
-    // Formatting is now handled directly in the onBlur handler of the input
-  }
-
   // Find the handleConfirm function and add logging
   const handleConfirm = async () => {
     if (!transaction) {
@@ -402,85 +457,87 @@ export default function AddServicePage() {
       return
     }
 
-    // Check for duplicate services
-    const duplicates: string[] = []
-
-    serviceRows.forEach((row) => {
-      let serviceName = ""
-
-      if (row.type === "custom") {
-        serviceName = row.customService.trim()
-      } else if (row.type === "general") {
-        serviceName = services.find((s) => s.id === row.generalService)?.label || ""
-      }
-
-      // Only check if service name is not empty
-      if (serviceName) {
-        // Check if this service already exists in the transaction
-        const isDuplicate = transaction.services.some(
-          (existingService) => existingService.service.toUpperCase() === serviceName.toUpperCase(),
-        )
-
-        if (isDuplicate) {
-          duplicates.push(serviceName)
-        }
-      }
-    })
-
-    // If duplicates found, show error and don't proceed
-    if (duplicates.length > 0) {
-      toast({
-        title: "Duplicate Services",
-        description: `The following services already exist in this transaction: ${duplicates.join(", ")}`,
-        variant: "destructive",
-      })
-      return
-    }
-
+    // Set isSubmitting to true to disable duplicate checking during submission
+    setIsSubmitting(true)
     setIsLoading(true)
 
-    // Create service objects for each row
-    const servicesToAdd = serviceRows
-      .filter((row) => {
-        // Skip empty rows
-        const serviceValue = row.type === "custom" ? row.customService : row.generalService
-        return serviceValue && row.price
-      })
-      .map((row) => {
-        const serviceName =
-          row.type === "custom"
-            ? row.customService
-            : services.find((s) => s.id === row.generalService)?.label || row.generalService
+    try {
+      // Create service objects for each row
+      const servicesToAdd = serviceRows
+        .filter((row) => {
+          // Skip empty rows
+          const serviceValue = row.type === "custom" ? row.customService : row.generalService
+          return serviceValue && row.price
+        })
+        .map((row) => {
+          const serviceName =
+            row.type === "custom"
+              ? row.customService
+              : services.find((s) => s.id === row.generalService)?.label || row.generalService
 
-        // Use the raw price value for calculations, properly handling decimal values
-        const price = row.rawPrice ? Number.parseFloat(row.rawPrice) : 0
+          // Use the raw price value for calculations, properly handling decimal values
+          const price = row.rawPrice ? Number.parseFloat(row.rawPrice) : 0
 
-        return {
-          service: serviceName,
-          mechanic: row.mechanic,
-          price: price,
-          quantity: Number.parseInt(row.quantity.replace(/x/g, "")) || 1,
-          discount: Number.parseInt(row.discount.replace(/%/g, "")) || 0,
-          total: 0, // Will calculate below
+          return {
+            service: serviceName,
+            mechanic: row.mechanic,
+            price: price,
+            quantity: Number.parseInt(row.quantity.replace(/x/g, "")) || 1,
+            discount: Number.parseInt(row.discount.replace(/%/g, "")) || 0,
+            total: 0, // Will calculate below
+          }
+        })
+
+      if (servicesToAdd.length === 0) {
+        toast({
+          title: "No valid services",
+          description: "Please add at least one service with a price",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        setIsSubmitting(false)
+        return
+      }
+
+      // Check for duplicate services ONLY WITHIN the current transaction's existing services
+      // NOT including the ones being added now
+      const duplicates: string[] = []
+      const existingServiceNames = transaction.services.map((s) => s.service.toUpperCase())
+
+      // Check each service to be added against existing services
+      servicesToAdd.forEach((service) => {
+        if (existingServiceNames.includes(service.service.toUpperCase())) {
+          duplicates.push(service.service)
         }
       })
 
-    // Calculate total for each service
-    servicesToAdd.forEach((service) => {
-      service.total = service.price * service.quantity * (1 - service.discount / 100)
-    })
+      // Also check for duplicates within the services being added
+      const newServiceNames = servicesToAdd.map((s) => s.service.toUpperCase())
+      for (let i = 0; i < newServiceNames.length; i++) {
+        for (let j = i + 1; j < newServiceNames.length; j++) {
+          if (newServiceNames[i] === newServiceNames[j] && !duplicates.includes(servicesToAdd[i].service)) {
+            duplicates.push(servicesToAdd[i].service)
+          }
+        }
+      }
 
-    if (servicesToAdd.length === 0) {
-      toast({
-        title: "No valid services",
-        description: "Please add at least one service with a price",
-        variant: "destructive",
+      // If duplicates found, show error and don't proceed
+      if (duplicates.length > 0) {
+        toast({
+          title: "Duplicate Services",
+          description: `The following services already exist or are duplicated: ${duplicates.join(", ")}`,
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        setIsSubmitting(false)
+        return
+      }
+
+      // Calculate total for each service
+      servicesToAdd.forEach((service) => {
+        service.total = service.price * service.quantity * (1 - service.discount / 100)
       })
-      setIsLoading(false)
-      return
-    }
 
-    try {
       console.log("Starting to add services to transaction:", transaction.id)
 
       // First, update the transaction in localStorage
@@ -509,13 +566,18 @@ export default function AddServicePage() {
 
       // Update localStorage
       setTransactions(updatedLocalTransactions)
-      localStorage.setItem("transactions", JSON.stringify(updatedLocalTransactions))
+
+      // Only update localStorage directly if in browser environment
+      if (typeof window !== "undefined") {
+        localStorage.setItem("transactions", JSON.stringify(updatedLocalTransactions))
+      }
+
       console.log("Updated transaction in localStorage")
 
       // Now try to update in Firebase
       try {
         // First check if the transaction exists in Firebase
-        let transactionRef
+        let transactionRef: DocumentReference | null = null
         let existingData = null
 
         // Try to get the document directly
@@ -558,6 +620,11 @@ export default function AddServicePage() {
           }
         }
 
+        // Ensure transactionRef is not null before proceeding
+        if (!transactionRef) {
+          throw new Error("Failed to create or find transaction reference")
+        }
+
         // Prepare the data to update or create
         const currentServices = existingData?.services || transaction.services || []
         const updatedServices = [...currentServices, ...servicesToAdd]
@@ -571,7 +638,7 @@ export default function AddServicePage() {
         const totalPrice = subtotal - discountAmount
 
         // Prepare the update data
-        const updateData = {
+        const updateData: any = {
           id: transaction.id,
           reservationId: transaction.reservationId || "---",
           customerName: transaction.customerName || "---",
@@ -610,6 +677,7 @@ export default function AddServicePage() {
       // Navigate back to transactions page
       setTimeout(() => {
         setIsLoading(false)
+        setIsSubmitting(false)
         router.push("/transactions")
       }, 1000)
     } catch (error) {
@@ -620,6 +688,7 @@ export default function AddServicePage() {
         variant: "destructive",
       })
       setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -739,9 +808,9 @@ export default function AddServicePage() {
                             placeholder="Custom Service/Item Name"
                             value={row.customService}
                             onChange={(e) => handleInputChange(row.id, "customService", e.target.value)}
-                            className={`w-full ${duplicateErrors[row.id] ? "border-red-500" : ""}`}
+                            className={`w-full ${duplicateErrors[row.id] && !isSubmitting ? "border-red-500" : ""}`}
                           />
-                          {duplicateErrors[row.id] && (
+                          {duplicateErrors[row.id] && !isSubmitting && (
                             <p className="text-red-500 text-sm mt-1">{duplicateErrors[row.id]}</p>
                           )}
                         </>
@@ -751,7 +820,9 @@ export default function AddServicePage() {
                             value={row.generalService}
                             onValueChange={(value) => handleInputChange(row.id, "generalService", value)}
                           >
-                            <SelectTrigger className={`w-full ${duplicateErrors[row.id] ? "border-red-500" : ""}`}>
+                            <SelectTrigger
+                              className={`w-full ${duplicateErrors[row.id] && !isSubmitting ? "border-red-500" : ""}`}
+                            >
                               <SelectValue placeholder="General Services" />
                             </SelectTrigger>
                             <SelectContent>
@@ -762,7 +833,7 @@ export default function AddServicePage() {
                               ))}
                             </SelectContent>
                           </Select>
-                          {duplicateErrors[row.id] && (
+                          {duplicateErrors[row.id] && !isSubmitting && (
                             <p className="text-red-500 text-sm mt-1">{duplicateErrors[row.id]}</p>
                           )}
                         </>
@@ -946,7 +1017,7 @@ export default function AddServicePage() {
                 </Button>
                 <Button
                   onClick={handleConfirm}
-                  disabled={isLoading || Object.keys(duplicateErrors).length > 0}
+                  disabled={isLoading}
                   className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
                 >
                   {isLoading ? "Processing..." : "Add Service"}
@@ -957,6 +1028,28 @@ export default function AddServicePage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function AddServicePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen bg-[#EBF8FF]">
+          <Sidebar />
+          <main className="ml-64 flex-1 p-8">
+            <div className="mb-8">
+              <DashboardHeader title="Transactions" />
+            </div>
+            <div className="flex justify-center items-center h-[60vh]">
+              <Loading />
+            </div>
+          </main>
+        </div>
+      }
+    >
+      <AddServicePageContent />
+    </Suspense>
   )
 }
 

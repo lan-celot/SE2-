@@ -1,13 +1,36 @@
 "use client"
+
 import { useState, useEffect } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/table"
 import { ReservationCalendar } from "@/components/reservation-calendar"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { collection, query, getDocs, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import Loading from "@/components/loading"
-// Import the date formatting utility at the top of the file
 import { formatDateTime } from "@/lib/date-utils"
+
+// Define types for our data
+interface Log {
+  id: number
+  message: string
+  timestamp: Date
+}
+
+interface Reservation {
+  id: string
+  customerName: string
+  carModel: string
+}
+
+interface Booking {
+  id: string
+  firstName: string
+  lastName: string
+  carModel: string
+  status: string
+  reservationDate: string | Date
+  userId?: string
+}
 
 export default function DashboardPage() {
   const [pendingCount, setPendingCount] = useState(0)
@@ -16,12 +39,12 @@ export default function DashboardPage() {
   const [confirmedToday, setConfirmedToday] = useState(0)
   const [newClientsCount, setNewClientsCount] = useState(0)
   const [returningClientsCount, setReturningClientsCount] = useState(0)
-  const [arrivingToday, setArrivingToday] = useState<any[]>([])
-  const [logs, setLogs] = useState<any[]>([])
+  const [arrivingToday, setArrivingToday] = useState<Reservation[]>([])
+  const [logs, setLogs] = useState<Log[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    fetchDashboardData()
+    void fetchDashboardData()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -45,7 +68,7 @@ export default function DashboardPage() {
       const bookings = bookingsSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }))
+      })) as Booking[]
 
       // Calculate counts based on status
       const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
@@ -87,7 +110,7 @@ export default function DashboardPage() {
       })
 
       // Count unique customer IDs for this month
-      const uniqueCustomerIds = new Set()
+      const uniqueCustomerIds = new Set<string>()
       thisMonthBookings.forEach((booking) => {
         if (booking.userId) uniqueCustomerIds.add(booking.userId)
       })
@@ -99,7 +122,7 @@ export default function DashboardPage() {
 
       // For logs, we'll use a simplified approach with dummy data
       // In a real app, you'd have a dedicated logs collection
-      const dummyLogs = [
+      const dummyLogs: Log[] = [
         {
           id: 1,
           message: "Transaction #T1234 completed for Andrea Salazar",
@@ -132,23 +155,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Replace this function:
-  // const formatDate = (timestamp: any) => {
-  //   if (!timestamp) return ""
-  //   const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
-  //   return date
-  //     .toLocaleDateString("en-US", {
-  //       month: "2-digit",
-  //       day: "2-digit",
-  //       year: "2-digit",
-  //       hour: "2-digit",
-  //       minute: "2-digit",
-  //     })
-  //     .replace(",", "")
-  // }
-
-  // With this:
-  const formatLogDate = (timestamp: any) => {
+  const formatLogDate = (timestamp: Date | null | undefined): string => {
     if (!timestamp) return ""
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
     return formatDateTime(date.toString())
@@ -169,7 +176,6 @@ export default function DashboardPage() {
             <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Logs</h3>
             <div className="flex-1 overflow-auto text-sm">
               <div className="space-y-2">
-                {/* Update the logs section to use the new function */}
                 {logs.map((log) => (
                   <div key={log.id} className="text-[#8B909A]">
                     {log.message} at {formatLogDate(log.timestamp)}

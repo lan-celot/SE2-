@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { toast } from "@/components/ui/use-toast" // Make sure you have this import
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/dialog"
+import { Button } from "@/components/button"
+import { Checkbox } from "@/components/checkbox"
+import { toast } from "@/hooks/use-toast" // Make sure you have this import
 
 interface Service {
   id: string

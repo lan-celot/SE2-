@@ -4,9 +4,9 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/button"
 import { cn } from "@/lib/utils"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,12 +16,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/alert-dialog"
 import { collection, query, where, getDocs, doc, setDoc, getDoc, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { toast } from "@/components/ui/use-toast"
-
-// Import the date formatting utility at the top of the file
+import { toast } from "@/hooks/use-toast"
 import { formatDateOnly } from "@/lib/date-utils"
 
 interface DayBookings {

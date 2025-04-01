@@ -3,33 +3,15 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
+import { Button } from "@/components/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/dialog"
+import { Input } from "@/components/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
+import { toast } from "@/hooks/use-toast"
+import { addEmployee, Employee } from "@/lib/employee-utils"
 
-// Update the EmployeeData interface to include status
-interface EmployeeData {
-  id: string
-  name: string
-  username: string
-  avatar: string
-  role: string
-  workingOn: string
-  status: "Active" | "Inactive" | "Working" | "Terminated"
-  firstName: string
-  lastName: string
-  gender: string
-  phone: string
-  dateOfBirth: string
-  streetAddress: string
-  city: string
-  province: string
-  zipCode: string
-  dateAdded: string
-}
+// Remove the EmployeeData interface since we're using the one from employee-utils
 
 export default function AddEmployeePage() {
   const router = useRouter()
@@ -39,17 +21,20 @@ export default function AddEmployeePage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    username: "",
     gender: "",
     phone: "",
     dateOfBirth: "",
     role: "",
-    streetAddress: "",
+    streetAddress1: "",
+    streetAddress2: "",
+    barangay: "",
     city: "",
     province: "",
     zipCode: "",
+    workingSince: new Date().toISOString().split("T")[0], // Default to today
   })
-
-  const [employees, setEmployees] = useLocalStorage<EmployeeData[]>("employees", [])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -59,15 +44,20 @@ export default function AddEmployeePage() {
   }
 
   const handleProceed = () => {
-    setShowConfirmDialog(true)
-  }
+    // Validate required fields
+    const requiredFields: (keyof typeof formData)[] = ["firstName", "lastName", "username", "gender", "phone", "role"]
+    const missingFields = requiredFields.filter((field) => !formData[field])
 
-  const generateEmployeeId = () => {
-    const lastId = employees.length > 0 ? employees[employees.length - 1].id : "E00000"
-    const numericPart = Number.parseInt(lastId.slice(1))
-    const newNumericId = numericPart + 1
-    const newId = `E${newNumericId.toString().padStart(5, "0")}`
-    return newId
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Information",
+        description: `Please fill in the following fields: ${missingFields.join(", ")}`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setShowConfirmDialog(true)
   }
 
   const handleConfirm = () => {
@@ -75,24 +65,54 @@ export default function AddEmployeePage() {
     setShowPasswordDialog(true)
   }
 
-  const handleAddEmployee = () => {
-    const newEmployee: EmployeeData = {
-      id: generateEmployeeId(),
-      name: `${formData.firstName} ${formData.lastName}`,
-      username: formData.firstName.toLowerCase(),
-      avatar: "/placeholder.svg?height=40&width=40",
-      workingOn: "Not assigned",
-      status: "Active", // Set default status to Active
-      dateAdded: new Date().toISOString(),
-      ...formData,
+  const handleAddEmployee = async () => {
+    try {
+      setIsSubmitting(true)
+
+      // Prepare employee data
+      const employeeData: Omit<Employee, "id"> = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username,
+        gender: formData.gender as "Male" | "Female" | "Other",
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+        role: formData.role as "Administrator" | "Lead Mechanic" | "Assistant Mechanic" | "Helper Mechanic",
+        streetAddress1: formData.streetAddress1,
+        streetAddress2: formData.streetAddress2,
+        barangay: formData.barangay,
+        city: formData.city,
+        province: formData.province,
+        zipCode: formData.zipCode,
+        workingSince: formData.workingSince,
+        status: "Active", // Default status for new employees
+        email: `${formData.username}@marnor.com`, // Generate email based on username
+        avatar: "/placeholder.svg?height=40&width=40", // Default avatar
+      }
+
+      // Add employee to Firebase
+      const employeeId = await addEmployee(employeeData)
+
+      toast({
+        title: "Employee Added",
+        description: `${formData.firstName} ${formData.lastName} has been added with ID ${employeeId}`,
+        variant: "default",
+      })
+
+      setShowSuccessMessage(true)
+      setTimeout(() => {
+        router.push("/employees")
+      }, 2000)
+    } catch (error) {
+      console.error("Error adding employee:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add employee",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setEmployees([...employees, newEmployee])
-
-    setShowSuccessMessage(true)
-    setTimeout(() => {
-      router.push("/employees")
-    }, 2000)
   }
 
   return (
@@ -104,7 +124,9 @@ export default function AddEmployeePage() {
         </div>
 
         {showSuccessMessage && (
-          <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">Employee added</div>
+          <div className="fixed inset-x-0 top-0 z-50 bg-[#E6FFF3] p-4 text-center text-[#28C76F]">
+            Employee added successfully
+          </div>
         )}
 
         <div className="mx-auto max-w-4xl rounded-xl bg-white p-8 shadow-sm">
@@ -125,6 +147,11 @@ export default function AddEmployeePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
+              <Input
+                placeholder="Username"
+                value={formData.username}
+                onChange={(e) => handleInputChange("username", e.target.value)}
+              />
               <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Gender" />
@@ -132,24 +159,26 @@ export default function AddEmployeePage() {
                 <SelectContent>
                   <SelectItem value="Male">Male</SelectItem>
                   <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
 
+            <div className="grid grid-cols-2 gap-6">
               <Input
                 placeholder="Phone Number (09171234567)"
                 value={formData.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
               <Input
                 type="date"
-                placeholder="Date of Birth (mm-dd-yyyy)"
+                placeholder="Date of Birth"
                 value={formData.dateOfBirth}
                 onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
               />
+            </div>
 
+            <div className="grid grid-cols-2 gap-6">
               <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Role" />
@@ -161,48 +190,60 @@ export default function AddEmployeePage() {
                   <SelectItem value="Helper Mechanic">Helper Mechanic</SelectItem>
                 </SelectContent>
               </Select>
+              <Input
+                type="date"
+                placeholder="Working Since"
+                value={formData.workingSince}
+                onChange={(e) => handleInputChange("workingSince", e.target.value)}
+              />
             </div>
 
+            <h2 className="mt-4 mb-4 text-2xl font-semibold text-[#1A365D]">Address Information</h2>
+
             <Input
-              placeholder="Street Address"
-              value={formData.streetAddress}
-              onChange={(e) => handleInputChange("streetAddress", e.target.value)}
+              placeholder="Street Address 1"
+              value={formData.streetAddress1}
+              onChange={(e) => handleInputChange("streetAddress1", e.target.value)}
             />
 
-            <div className="grid grid-cols-2 gap-6">
-              <Select value={formData.city} onValueChange={(value) => handleInputChange("city", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="City" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bacoor">Bacoor</SelectItem>
-                  <SelectItem value="Imus">Imus</SelectItem>
-                  <SelectItem value="Dasmariñas">Dasmariñas</SelectItem>
-                </SelectContent>
-              </Select>
+            <Input
+              placeholder="Street Address 2 (Optional)"
+              value={formData.streetAddress2}
+              onChange={(e) => handleInputChange("streetAddress2", e.target.value)}
+            />
 
-              <Select value={formData.province} onValueChange={(value) => handleInputChange("province", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Province" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cavite">Cavite</SelectItem>
-                  <SelectItem value="Laguna">Laguna</SelectItem>
-                  <SelectItem value="Batangas">Batangas</SelectItem>
-                </SelectContent>
-              </Select>
+            <Input
+              placeholder="Barangay"
+              value={formData.barangay}
+              onChange={(e) => handleInputChange("barangay", e.target.value)}
+            />
+
+            <div className="grid grid-cols-3 gap-6">
+              <Input
+                placeholder="City"
+                value={formData.city}
+                onChange={(e) => handleInputChange("city", e.target.value)}
+              />
+              <Input
+                placeholder="Province"
+                value={formData.province}
+                onChange={(e) => handleInputChange("province", e.target.value)}
+              />
+              <Input
+                placeholder="Zip Code"
+                value={formData.zipCode}
+                onChange={(e) => handleInputChange("zipCode", e.target.value)}
+              />
             </div>
-
-            <Input
-              placeholder="Zip Code"
-              value={formData.zipCode}
-              onChange={(e) => handleInputChange("zipCode", e.target.value)}
-            />
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Button className="bg-[#2A69AC] hover:bg-[#1A365D] text-white" onClick={handleProceed}>
-              Proceed
+            <Button
+              className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
+              onClick={handleProceed}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Processing..." : "Proceed"}
             </Button>
           </div>
         </div>

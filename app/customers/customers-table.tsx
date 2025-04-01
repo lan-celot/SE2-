@@ -3,7 +3,7 @@ import { useState, useEffect } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/button"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { db } from "@/lib/firebase"
 import { collection, query, where, getDocs } from "firebase/firestore"
@@ -273,7 +273,7 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
                   {customer.carModel}
                 </td>
                 <td className="px-3 py-4 text-sm text-[#1A365D] truncate" title={customer.lastVisit}>
-                  {customer.lastVisit !== "N/A" ? formatDateOnly(customer.lastVisit) : "N/A"}
+                  {customer.lastVisit ? formatDateOnly(customer.lastVisit) : "N/A"}
                 </td>
                 <td className="px-3 py-4">
                   <div className="flex justify-center">

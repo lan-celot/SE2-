@@ -2,13 +2,13 @@
 
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/dialog"
+import { Button } from "@/components/button"
+import { Input } from "@/components/input"
 import { cn } from "@/lib/utils"
 import { auth } from "@/lib/firebase"
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "@/hooks/use-toast"
 
 interface PasswordVerificationDialogProps {
   open: boolean

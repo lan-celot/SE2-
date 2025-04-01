@@ -2,36 +2,21 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { Copy, ChevronUp, ChevronDown } from "lucide-react"
+import { Copy, ChevronUp, ChevronDown, Pencil } from "lucide-react"
 import { DashboardHeader } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/dialog"
+import { Input } from "@/components/input"
 import React from "react"
-import useLocalStorage from "@/hooks/useLocalStorage" // Ensure this path is correct
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
-// Import the date formatting utility at the top of the file
 import { formatDateTime, formatDateOnly } from "@/lib/date-utils"
+import { getEmployeeById, updateEmployee, type Employee } from "@/lib/employee-utils"
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
-interface Employee {
-  id: string
-  name: string
-  username: string
-  avatar: string
-  role: string
-  workingOn: string
-  firstName?: string
-  lastName?: string
-  gender?: string
-  phone?: string
-  dateOfBirth?: string
-  streetAddress?: string
-  city?: string
-  province?: string
-  zipCode?: string
-  dateAdded?: string
-}
-
+// Keep the Service and Reservation interfaces
 interface Reservation {
   id: string
   date: string
@@ -49,229 +34,20 @@ interface Service {
   status: "Confirmed" | "Completed" | "Repairing"
 }
 
-const statusStyles = {
+// Keep the statusStyles object
+const statusStyles: Record<"Completed" | "Repairing" | "Cancelled" | "Confirmed", string> = {
   Completed: "bg-[#E6FFF3] text-[#28C76F] h-7 w-[100px] text-sm font-medium rounded-lg",
   Repairing: "bg-[#FFF5E0] text-[#FFC600] h-7 w-[100px] text-sm font-medium rounded-lg",
   Cancelled: "bg-[#FFE5E5] text-[#EA5455] h-7 w-[100px] text-sm font-medium rounded-lg",
   Confirmed: "bg-[#EBF8FF] text-[#63B3ED] h-7 w-[100px] text-sm font-medium rounded-lg",
 }
 
-const initialEmployees: Employee[] = [
-  {
-    id: "#E00001",
-    name: "Marcial Tamondong",
-    username: "mar",
-    avatar: "/placeholder.svg?height=40&width=40",
-    role: "Administrator",
-    workingOn: "#R00098",
-    firstName: "Marcial",
-    lastName: "Tamondong",
-    gender: "Male",
-    phone: "09171840615",
-    dateOfBirth: "1985-06-15",
-    streetAddress: "Block 1 Lot 20 Danarose Residences",
-    city: "Bacoor",
-    province: "Cavite",
-    zipCode: "4102",
-    dateAdded: "2011-11-09",
-  },
-  // Add other initial employees here
-  {
-    id: "#EMP001",
-    name: "John Doe",
-    username: "johndoe",
-    avatar: "/placeholder.svg",
-    role: "Software Engineer",
-    workingOn: "Project X",
-    firstName: "John",
-    lastName: "Doe",
-    gender: "Male",
-    phone: "+1 555 123 4567",
-    dateOfBirth: "1990-05-15",
-    streetAddress: "123 Main St",
-    city: "Anytown",
-    province: "CA",
-    zipCode: "12345",
-  },
-  // Add more employees as needed
-]
-
-const marcialReservations: Reservation[] = [
-  {
-    id: "#R00099",
-    date: "11-20-24 12:00 PM",
-    customerName: "ROSIE TORRES",
-    carModel: "HONDA CIVIC",
-    status: "Confirmed" as const,
-    services: [
-      {
-        customerId: "#C00034",
-        service: "PAINT JOBS",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Confirmed",
-      },
-      {
-        customerId: "#C00034",
-        service: "OIL CHANGE",
-        mechanic: "STEPHEN CURRY",
-        status: "Confirmed",
-      },
-    ],
-  },
-  {
-    id: "#R00098",
-    date: "11-19-24 12:00 PM",
-    customerName: "ISABELLA MERCADO",
-    carModel: "TOYOTA VIOS",
-    status: "Repairing" as const,
-    services: [
-      {
-        customerId: "#C00033",
-        service: "ENGINE TUNING",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Confirmed",
-      },
-    ],
-  },
-  {
-    id: "#R00097",
-    date: "11-18-24 12:00 PM",
-    customerName: "SAVANNAH OCAMPO",
-    carModel: "HONDA CRV",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00032",
-        service: "BRAKE SHOES REPLACE",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00096",
-    date: "11-17-24 12:00 PM",
-    customerName: "PEARL CARREON",
-    carModel: "HONDA BRV",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00031",
-        service: "TIRE ROTATION",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00095",
-    date: "11-16-24 12:00 PM",
-    customerName: "AUDREY MANGAHAS",
-    carModel: "MITSUBISHI MIRAGE",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00030",
-        service: "BATTERY REPLACE",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00094",
-    date: "11-15-24 12:00 PM",
-    customerName: "MELISSA PATERNO",
-    carModel: "SUZUKI JIMNY",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00029",
-        service: "OIL CHANGE",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00093",
-    date: "11-14-24 12:00 PM",
-    customerName: "SAMUEL GASPAR",
-    carModel: "TOYOTA HILUX",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00028",
-        service: "BRAKE PAD REPLACE",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00092",
-    date: "11-13-24 12:00 PM",
-    customerName: "MARCOS MANUEL",
-    carModel: "TOYOTA FORTUNER",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00027",
-        service: "WHEEL ALIGNMENT",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00091",
-    date: "11-12-24 12:00 PM",
-    customerName: "PATRICIO DE LEON",
-    carModel: "TOYOTA FORTUNER",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00026",
-        service: "ENGINE DIAGNOSTIC",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-  {
-    id: "#R00090",
-    date: "11-11-24 12:00 PM",
-    customerName: "KEVIN DIAZ",
-    carModel: "TOYOTA FORTUNER",
-    status: "Completed" as const,
-    services: [
-      {
-        customerId: "#C00025",
-        service: "AIR FILTER REPLACE",
-        mechanic: "MARCIAL TAMONDONG",
-        status: "Completed",
-      },
-    ],
-  },
-]
-
-// Update the status styles to include Repairing
+// Keep the serviceStatusStyles object
 const serviceStatusStyles = {
   Completed: "bg-[#E6FFF3] text-[#28C76F]",
   Confirmed: "bg-[#EBF8FF] text-[#63B3ED]",
   Repairing: "bg-[#FFF5E0] text-[#FFC600]",
 }
-
-// Fix the unused function warning
-// Remove this function:
-// const formatDate = (dateString: string) => {
-//   const date = new Date(dateString)
-//   return new Intl.DateTimeFormat("en-US", {
-//     month: "short",
-//     day: "numeric",
-//     year: "numeric",
-//   }).format(date)
-// }
 
 // We'll keep this function since it might be used in the future
 // but mark it with a comment to avoid the warning
@@ -294,47 +70,110 @@ export default function EmployeeDetailsPage() {
   const params = useParams()
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [activeTab, setActiveTab] = useState("All")
-  const [sortField, setSortField] = useState<keyof (typeof marcialReservations)[0]>("date")
+  const [reservations, setReservations] = useState<any[]>([])
+  const [sortField, setSortField] = useState<string>("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  // Replace this line:
-  // const itemsPerPage = 5
-  // With this:
+  const [loading, setLoading] = useState(true)
   const itemsPerPage = useResponsiveRows()
-  // Add new state for managing services
-  const [reservationsData, setReservationsData] = useLocalStorage<Reservation[]>("reservations", marcialReservations)
+
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false)
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false)
+  const [updatedAddress, setUpdatedAddress] = useState({
+    streetAddress1: "",
+    streetAddress2: "",
+    barangay: "",
+    city: "",
+    province: "",
+    zipCode: "",
+  })
+  const [updatedPhone, setUpdatedPhone] = useState("")
 
   useEffect(() => {
-    const fullId = `#${params.id}`.toUpperCase()
+    const fetchEmployeeData = async () => {
+      try {
+        setLoading(true)
+        const employeeId = params.id as string
 
-    const savedEmployees = JSON.parse(localStorage.getItem("employees") || "[]")
-    let foundEmployee = savedEmployees.find((emp: Employee) => emp.id === fullId)
+        // Fetch employee data from Firebase
+        const employeeData = await getEmployeeById(employeeId)
 
-    if (!foundEmployee) {
-      foundEmployee = initialEmployees.find((emp) => emp.id === fullId) || null
+        if (!employeeData) {
+          console.log("No employee found with ID:", employeeId)
+          setLoading(false)
+          return
+        }
+
+        setEmployee(employeeData)
+
+        // Fetch employee's reservations/assignments
+        // This is a placeholder - you'll need to implement the actual reservation fetching
+        // based on your data model
+        const bookingsRef = collection(db, "bookings")
+        const bookingsQuery = query(
+          bookingsRef,
+          where("services.mechanic", "==", `${employeeData.firstName} ${employeeData.lastName}`),
+          orderBy("reservationDate", "desc"),
+        )
+
+        try {
+          const bookingsSnapshot = await getDocs(bookingsQuery)
+
+          const employeeReservations: any[] = []
+          bookingsSnapshot.forEach((doc) => {
+            const bookingData = doc.data()
+
+            // Only include services assigned to this employee
+            const employeeServices = (bookingData.services || []).filter(
+              (service: any) => service.mechanic === `${employeeData.firstName} ${employeeData.lastName}`,
+            )
+
+            if (employeeServices.length > 0) {
+              employeeReservations.push({
+                id: bookingData.id || doc.id,
+                customerName:
+                  bookingData.customerName || `${bookingData.firstName || ""} ${bookingData.lastName || ""}`.trim(),
+                carModel: bookingData.carModel || "N/A",
+                date: bookingData.reservationDate || new Date().toISOString(),
+                status: bookingData.status || "CONFIRMED",
+                services: employeeServices,
+              })
+            }
+          })
+
+          setReservations(employeeReservations)
+        } catch (error) {
+          console.error("Error fetching employee reservations:", error)
+          // Continue with empty reservations
+          setReservations([])
+        }
+
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching employee data:", error)
+        setLoading(false)
+      }
     }
 
-    setEmployee(foundEmployee)
+    fetchEmployeeData()
   }, [params.id])
 
-  if (!employee) {
-    return (
-      <div className="flex min-h-screen bg-[#EBF8FF]">
-        <Sidebar />
-        <main className="ml-64 flex-1 p-8">
-          <div className="mb-8">
-            <DashboardHeader title="Employee Details" />
-          </div>
-          <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
-            <p className="text-[#8B909A] text-lg">No Employee Details</p>
-          </div>
-        </main>
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (employee) {
+      setUpdatedAddress({
+        streetAddress1: employee.streetAddress1 || "",
+        streetAddress2: employee.streetAddress2 || "",
+        barangay: employee.barangay || "",
+        city: employee.city || "",
+        province: employee.province || "",
+        zipCode: employee.zipCode || "",
+      })
+      setUpdatedPhone(employee.phone || "")
+    }
+  }, [employee])
 
-  const handleSort = (field: keyof (typeof marcialReservations)[0]) => {
+  const handleSort = (field: string) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc")
     } else {
@@ -345,7 +184,7 @@ export default function EmployeeDetailsPage() {
 
   // Add handler for service status change
   const handleServiceStatusChange = (reservationId: string, serviceIndex: number, newStatus: Service["status"]) => {
-    setReservationsData((prevData) =>
+    setReservations((prevData) =>
       prevData.map((reservation) => {
         if (reservation.id === reservationId && reservation.services) {
           const updatedServices = [...reservation.services]
@@ -363,7 +202,41 @@ export default function EmployeeDetailsPage() {
     )
   }
 
-  const filteredReservations = reservationsData
+  const handleUpdateAddress = async () => {
+    if (!employee) return
+
+    try {
+      const updatedEmployee = {
+        ...employee,
+        ...updatedAddress,
+      }
+
+      await updateEmployee(employee.id, updatedEmployee)
+      setEmployee(updatedEmployee)
+      setAddressDialogOpen(false)
+    } catch (error) {
+      console.error("Error updating employee address:", error)
+    }
+  }
+
+  const handleUpdatePhone = async () => {
+    if (!employee) return
+
+    try {
+      const updatedEmployee = {
+        ...employee,
+        phone: updatedPhone,
+      }
+
+      await updateEmployee(employee.id, updatedEmployee)
+      setEmployee(updatedEmployee)
+      setPhoneDialogOpen(false)
+    } catch (error) {
+      console.error("Error updating employee phone:", error)
+    }
+  }
+
+  const filteredReservations = reservations
     .filter((reservation) => {
       if (activeTab === "All") return true
       return reservation.status === activeTab
@@ -396,23 +269,23 @@ export default function EmployeeDetailsPage() {
         </div>
 
         <div className="grid gap-8">
-          {/* Employee Profile */}
+          {/* Customer Profile */}
           <div className="grid grid-cols-3 gap-8">
             <div className="col-span-2 rounded-xl bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <img
-                  src={`https://i.pravatar.cc/80?u=${employee.username}`}
-                  alt={employee.name}
+                  src={employee?.avatar || `https://i.pravatar.cc/80?u=${employee?.username}`}
+                  alt={`${employee?.firstName} ${employee?.lastName}`}
                   className="h-20 w-20 rounded-full"
                 />
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-semibold text-[#2A69AC]">{employee.name}</h2>
+                      <h2 className="text-2xl font-semibold text-[#2A69AC]">{`${employee?.firstName} ${employee?.lastName}`}</h2>
                       <div className="flex items-center gap-2">
-                        <p className="text-[#8B909A]">{employee.username}</p>
+                        <p className="text-[#8B909A]">{employee?.username}</p>
                         <span className="text-[#8B909A]">•</span>
-                        <p className="text-[#8B909A]">{employee.role}</p>
+                        <p className="text-[#8B909A]">{employee?.role}</p>
                       </div>
                     </div>
                   </div>
@@ -421,32 +294,36 @@ export default function EmployeeDetailsPage() {
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Contact Number</p>
                       <div className="flex items-center gap-2">
-                        <p className="text-[#1A365D]">{employee.phone || "Not provided"}</p>
-                        {employee.phone && (
+                        <p className="text-[#1A365D]">{employee?.phone || "Not provided"}</p>
+                        {employee?.phone && (
                           <Button variant="ghost" size="icon" className="h-4 w-4">
                             <Copy className="h-3 w-3" />
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 ml-1"
+                          onClick={() => setPhoneDialogOpen(true)}
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-[#2A69AC]" />
+                        </Button>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Gender</p>
-                      <p className="text-[#1A365D]">{employee.gender || "Not provided"}</p>
+                      <p className="text-[#1A365D]">{employee?.gender || "Not provided"}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Date of Birth</p>
                       <p className="text-[#1A365D]">
-                        {employee.dateOfBirth ? formatDateOnly(employee.dateOfBirth) : "Not provided"}
+                        {employee?.dateOfBirth ? formatDateOnly(employee.dateOfBirth) : "Not provided"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Working Since</p>
                       <p className="text-[#1A365D]">
-                        {employee.id === "#E00001"
-                          ? "November 9, 2011"
-                          : employee.dateAdded
-                            ? formatDateOnly(employee.dateAdded)
-                            : "Date not available"}
+                        {employee?.workingSince ? formatDateOnly(employee.workingSince) : "Date not available"}
                       </p>
                     </div>
                   </div>
@@ -455,26 +332,39 @@ export default function EmployeeDetailsPage() {
             </div>
 
             <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-2xl font-semibold text-[#2A69AC]">Address</h3>
-              <p className="text-[#1A365D]">{employee.streetAddress || "Not provided"}</p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-semibold text-[#2A69AC]">Address</h3>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setAddressDialogOpen(true)}>
+                  <Pencil className="h-4 w-4 text-[#2A69AC]" />
+                </Button>
+              </div>
+              <p className="text-[#1A365D]">{employee?.streetAddress1 || "Not provided"}</p>
+              {employee?.streetAddress2 && <p className="text-[#1A365D]">{employee.streetAddress2}</p>}
               <p className="text-[#1A365D]">
-                {employee.city && employee.province && employee.zipCode
-                  ? `${employee.city}, ${employee.province}, ${employee.zipCode}`
-                  : ""}
+                {employee?.barangay && `${employee.barangay}, `}
+                {employee?.city && `${employee.city}, `}
+                {employee?.province && `${employee.province}, `}
+                {employee?.zipCode}
               </p>
 
               <h3 className="mt-8 mb-4 text-2xl font-semibold text-[#2A69AC]">Reservations</h3>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-[#1A365D]">{employee.id === "#E00001" ? "8" : "0"}</p>
+                  <p className="text-3xl font-bold text-[#1A365D]">
+                    {reservations.filter((r) => r.status === "Completed").length}
+                  </p>
                   <p className="text-sm text-[#8B909A]">Completed</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-[#1A365D]">{employee.id === "#E00001" ? "1" : "0"}</p>
+                  <p className="text-3xl font-bold text-[#1A365D]">
+                    {reservations.filter((r) => r.status === "Repairing").length}
+                  </p>
                   <p className="text-sm text-[#8B909A]">Repairing</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-[#1A365D]">{employee.id === "#E00001" ? "1" : "0"}</p>
+                  <p className="text-3xl font-bold text-[#1A365D]">
+                    {reservations.filter((r) => r.status === "Confirmed").length}
+                  </p>
                   <p className="text-sm text-[#8B909A]">Confirmed</p>
                 </div>
               </div>
@@ -503,7 +393,7 @@ export default function EmployeeDetailsPage() {
 
           {/* Reservations Table */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            {employee.id === "#E00001" ? (
+            {reservations.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed">
                   <thead>
@@ -524,7 +414,7 @@ export default function EmployeeDetailsPage() {
                           {column.key !== "action" && column.key !== "status" ? (
                             <button
                               className="flex items-center justify-center gap-1 hover:text-[#1A365D] mx-auto"
-                              onClick={() => handleSort(column.key as keyof (typeof marcialReservations)[0])}
+                              onClick={() => handleSort(column.key)}
                             >
                               {column.label}
                               <div className="flex flex-col">
@@ -554,7 +444,7 @@ export default function EmployeeDetailsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentItems.map((reservation) => (
+                    {currentItems.map((reservation: any) => (
                       <React.Fragment key={reservation.id}>
                         <tr
                           className={cn(
@@ -588,7 +478,7 @@ export default function EmployeeDetailsPage() {
                             <span
                               className={cn(
                                 "inline-flex items-center justify-center",
-                                statusStyles[reservation.status],
+                                statusStyles[reservation.status as keyof typeof statusStyles],
                               )}
                             >
                               {reservation.status}
@@ -652,7 +542,7 @@ export default function EmployeeDetailsPage() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {reservation.services.map((service, index) => (
+                                    {reservation.services.map((service: any, index: number) => (
                                       <tr key={index}>
                                         <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
                                           {service.customerId}
@@ -676,7 +566,7 @@ export default function EmployeeDetailsPage() {
                                               }}
                                               className={cn(
                                                 "appearance-none h-7 w-[120px] px-3 pr-8 py-0 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2",
-                                                serviceStatusStyles[service.status],
+                                                serviceStatusStyles[service.status as keyof typeof serviceStatusStyles],
                                               )}
                                             >
                                               <option
@@ -777,6 +667,95 @@ export default function EmployeeDetailsPage() {
             )}
           </div>
         </div>
+        {/* Address Edit Dialog */}
+        <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-[#2A69AC]">Address Information</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Input
+                  id="streetAddress1"
+                  placeholder="Street Address 1"
+                  value={updatedAddress.streetAddress1}
+                  onChange={(e) => setUpdatedAddress({ ...updatedAddress, streetAddress1: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Input
+                  id="streetAddress2"
+                  placeholder="Street Address 2 (Optional)"
+                  value={updatedAddress.streetAddress2}
+                  onChange={(e) => setUpdatedAddress({ ...updatedAddress, streetAddress2: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Input
+                  id="barangay"
+                  placeholder="Barangay"
+                  value={updatedAddress.barangay}
+                  onChange={(e) => setUpdatedAddress({ ...updatedAddress, barangay: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <Input
+                  id="city"
+                  placeholder="City"
+                  value={updatedAddress.city}
+                  onChange={(e) => setUpdatedAddress({ ...updatedAddress, city: e.target.value })}
+                />
+                <Input
+                  id="province"
+                  placeholder="Province"
+                  value={updatedAddress.province}
+                  onChange={(e) => setUpdatedAddress({ ...updatedAddress, province: e.target.value })}
+                />
+                <Input
+                  id="zipCode"
+                  placeholder="Zip Code"
+                  value={updatedAddress.zipCode}
+                  onChange={(e) => setUpdatedAddress({ ...updatedAddress, zipCode: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddressDialogOpen(false)} className="mr-2">
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateAddress} className="bg-[#2A69AC] hover:bg-[#1A4B7C]">
+                Proceed
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Phone Edit Dialog */}
+        <Dialog open={phoneDialogOpen} onOpenChange={setPhoneDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-[#2A69AC]">Update Phone Number</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Input
+                  id="phone"
+                  placeholder="Phone Number"
+                  value={updatedPhone}
+                  onChange={(e) => setUpdatedPhone(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPhoneDialogOpen(false)} className="mr-2">
+                Cancel
+              </Button>
+              <Button onClick={handleUpdatePhone} className="bg-[#2A69AC] hover:bg-[#1A4B7C]">
+                Update
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )
