@@ -1,20 +1,31 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type React from "react"
+import "./globals.css"
+import type { Metadata } from "next"
+import { Poppins } from "next/font/google"
+import { Toaster } from "@/components/ui/toaster"
+
+const poppins = Poppins({
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["latin"],
+})
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: "Mar & Nor Auto Repair",
+  description: "Car repair and maintenance services",
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={poppins.className}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   )
 }
+

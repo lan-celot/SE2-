@@ -1,16 +1,29 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig } from "eslint/config";
+import globals from "globals";
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import pluginReact from "eslint-plugin-react";
+import pluginImport from "eslint-plugin-import";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-];
-
-export default eslintConfig;
+export default defineConfig([
+  { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"] },
+  { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], languageOptions: { globals: {...globals.browser, ...globals.node} } },
+  { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], plugins: { js, import: pluginImport }, extends: ["js/recommended"] },
+  tseslint.configs.recommended,
+  pluginReact.configs.flat.recommended,
+  {
+    rules: {
+      "no-unused-vars": "warn",
+      "import/named": "error",
+      "import/default": "error",
+      "import/namespace": "error",
+      "import/export": "error"
+    },
+    settings: {
+      react: {
+        version: "detect"
+      }
+    }
+  }
+]);
