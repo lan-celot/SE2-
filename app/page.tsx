@@ -1,13 +1,13 @@
-import { NavBar } from "@/components/nav-bar"
-import { HeroSection } from "@/components/hero-section"
-import { ServicesSection } from "@/components/services-section"
-import { CarModels } from "@/components/car-models"
-import { ExoticCarModels } from "@/components/exotic-car-models"
-import { BookingSection } from "@/components/booking-section"
-import { BrandLogoScroll } from "@/components/brand-logo-scroll"
-import { AboutUsSection } from "@/components/about-us-section"
-import { FAQSection } from "@/components/faq-section"
-import { Footer } from "@/components/footer"
+import { NavBar } from "@/components/customer-components/nav-bar"
+import { HeroSection } from "@/components/customer-components/hero-section"
+import { ServicesSection } from "@/components/customer-components/services-section"
+import { CarModels } from "@/components/customer-components/car-models"
+import { ExoticCarModels } from "@/components/customer-components/exotic-car-models"
+import { BookingSection } from "@/components/customer-components/booking-section"
+import { BrandLogoScroll } from "@/components/customer-components/brand-logo-scroll"
+import { AboutUsSection } from "@/components/customer-components/about-us-section"
+import { FAQSection as FAQSection } from "@/components/customer-components/faq-section"
+import { Footer } from "@/components/customer-components/Footer"
 
 export default function Home() {
   return (
