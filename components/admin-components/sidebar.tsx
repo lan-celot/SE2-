@@ -64,8 +64,8 @@ export function Sidebar() {
             variant: "default",
           })
 
-          // Redirect to the correct admin login page
-          router.push("/admin/login")
+          // Redirect to the home page
+          router.push("/")
         } catch (error) {
           // Handle any logout errors
           console.error("Logout error:", error)
@@ -82,7 +82,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#1A365D] text-white flex flex-col">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-65 bg-[#1A365D] text-white flex flex-col">
       {/* Fixed position notification container that's always present but only visible when needed */}
       <div className="fixed top-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
         <div
@@ -101,7 +101,7 @@ export function Sidebar() {
       </div>
 
       <div className="p-6">
-        <Link href="/" className="flex flex-col items-start gap-2">
+        <Link href="/admin/dashboard" className="flex flex-col items-start gap-2">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/marnor_logooo-i719G89p6MTFfgH5UIC2R69vG0Fkfs.svg"
             alt="MAR & NOR AUTO REPAIR Logo"
@@ -109,7 +109,7 @@ export function Sidebar() {
             height={27}
             className="h-auto w-auto"
           />
-          <h1 className="text-lg font-bold text-[#EBF8FF]">MAR & NOR AUTO REPAIR</h1>
+          <h1 className="text-lg font-bold text-[#EBF8FF] whitespace-nowrap">MAR & NOR AUTO REPAIR</h1>
         </Link>
       </div>
 

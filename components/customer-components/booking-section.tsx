@@ -1,7 +1,10 @@
-import { BackgroundLogo } from "./background-logo"
+"use client"
+
 import { Button } from "@/components/customer-components/ui/button"
+import { BackgroundLogo } from "./background-logo"
 import { Calendar, Car, CheckCircle } from "lucide-react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
+import Cookies from "js-cookie"
 
 const bookingSteps = [
   {
@@ -22,6 +25,18 @@ const bookingSteps = [
 ]
 
 export function BookingSection() {
+  const router = useRouter()
+
+  const handleBookNowClick = () => {
+    const isAuthenticated = Cookies.get("isAuthenticated") === "true"
+
+    if (isAuthenticated) {
+      router.push("/customer/dashboard/book")
+    } else {
+      router.push("/admin/login")
+    }
+  }
+
   return (
     <section id="booking" className="relative py-16 md:py-24 overflow-hidden">
       <BackgroundLogo position="left" />
@@ -44,11 +59,13 @@ export function BookingSection() {
         </div>
 
         <div className="flex justify-center">
-          <Link href="/customer/register">
-            <Button size="lg" className="bg-primary hover:bg-primary-dark text-white px-12 py-6 text-xl font-semibold">
-              Book Now
-            </Button>
-          </Link>
+          <Button
+            size="lg"
+            className="bg-primary hover:bg-primary-dark text-white px-12 py-6 text-xl font-semibold"
+            onClick={handleBookNowClick}
+          >
+            Book Now
+          </Button>
         </div>
       </div>
     </section>

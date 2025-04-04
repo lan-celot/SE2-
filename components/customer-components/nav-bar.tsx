@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type React from "react"
 import useLocalStorage from "@/hooks/useLocalStorage"
+import { useEffect, useState } from "react"
 
 interface NavBarProps {
   isLoggedIn?: boolean
@@ -15,6 +16,19 @@ interface NavBarProps {
 export function NavBar({ isLoggedIn = false }: NavBarProps) {
   const [isMenuOpen, setIsMenuOpen] = useLocalStorage("navMenuState", false)
   const router = useRouter()
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  // Get user role from cookie on component mount
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const cookies = document.cookie.split(";")
+      const roleCookie = cookies.find((cookie) => cookie.trim().startsWith("userRole="))
+      if (roleCookie) {
+        const role = roleCookie.split("=")[1]
+        setUserRole(role)
+      }
+    }
+  }, [])
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault()
@@ -32,8 +46,44 @@ export function NavBar({ isLoggedIn = false }: NavBarProps) {
   }
 
   const handleLogout = () => {
-    // Clear authentication token or invalidate session
+    // Clear authentication cookies
+    document.cookie = "isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+    document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+
+    // Redirect to home page
     router.push("/")
+    router.refresh() // Force a refresh to update the UI
+  }
+
+  // Determine dashboard link based on user role
+  const getDashboardLink = () => {
+    if (userRole === "admin") {
+      return "/admin/dashboard"
+    }
+    return "/customer/dashboard"
+  }
+
+  // Determine home link based on authentication status and user role
+  const getHomeLink = () => {
+    if (!isLoggedIn) {
+      return "/"
+    }
+    if (userRole === "admin") {
+      return "/admin/dashboard"
+    }
+    return "/customer/logged-in"
+  }
+
+  // Handle logo click based on current page
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const currentPath = window.location.pathname
+
+    // If we're already on the home page or logged-in page, just scroll to top
+    if (currentPath === "/" || currentPath === "/customer/logged-in") {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+    // Otherwise, let the link navigate normally
   }
 
   return (
@@ -41,7 +91,7 @@ export function NavBar({ isLoggedIn = false }: NavBarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20">
           <div className="flex items-center">
-            <Link href={isLoggedIn ? "/logged-in" : "/"} className="flex-shrink-0 flex items-center gap-2">
+            <Link href={getHomeLink()} className="flex-shrink-0 flex items-center gap-2" onClick={handleLogoClick}>
               <Image
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-IvHIqsnbZo32MpjL3mD01Urzi5xkwE.svg"
                 alt="MAR & NOR Logo"
@@ -94,7 +144,7 @@ export function NavBar({ isLoggedIn = false }: NavBarProps) {
             </a>
             {isLoggedIn ? (
               <>
-                <Link href="/dashboard" className="text-[#2A69AC] hover:text-secondary text-17 font-semibold">
+                <Link href={getDashboardLink()} className="text-[#2A69AC] hover:text-secondary text-17 font-semibold">
                   Dashboard
                 </Link>
                 <Button
@@ -169,19 +219,17 @@ export function NavBar({ isLoggedIn = false }: NavBarProps) {
             {isLoggedIn ? (
               <>
                 <Link
-                  href="/dashboard"
+                  href={getDashboardLink()}
                   className="block px-3 py-2 text-[#2A69AC] hover:text-secondary text-17 font-semibold"
                 >
                   Dashboard
                 </Link>
-                <Link href="/" className="block w-full">
-                  <Button
-                    onClick={handleLogout}
-                    className="w-full bg-[#2A69AC] text-[#EBF8FF] hover:bg-[#1E4E8C] transition-colors text-lg font-semibold px-6 py-2"
-                  >
-                    Logout
-                  </Button>
-                </Link>
+                <Button
+                  onClick={handleLogout}
+                  className="w-full bg-[#2A69AC] text-[#EBF8FF] hover:bg-[#1E4E8C] transition-colors text-lg font-semibold px-6 py-2"
+                >
+                  Logout
+                </Button>
               </>
             ) : (
               <>
@@ -191,7 +239,7 @@ export function NavBar({ isLoggedIn = false }: NavBarProps) {
                 >
                   Login
                 </Link>
-                <Link href="/register" className="block w-full">
+                <Link href="/customer/register" className="block w-full">
                   <Button className="w-full bg-[#2A69AC] text-[#EBF8FF] hover:bg-[#1E4E8C] transition-colors text-lg font-semibold px-6 py-2">
                     Register
                   </Button>

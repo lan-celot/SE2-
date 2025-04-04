@@ -18,7 +18,7 @@ export default function LoggedInTermsPage() {
             />
             <span className="text-primary font-bold">MAR & NOR AUTO REPAIR</span>
           </Link>
-          <Link href="/logged-in" className="text-primary hover:text-secondary font-semibold">
+          <Link href="/customer/logged-in" className="text-primary hover:text-secondary font-semibold">
             Back to Home
           </Link>
         </div>
@@ -31,7 +31,7 @@ export default function LoggedInTermsPage() {
         <TermsContent />
       </main>
 
-      <Footer />
+      <Footer isLoggedIn={true} />
     </div>
   )
 }

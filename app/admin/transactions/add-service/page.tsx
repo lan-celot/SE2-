@@ -138,7 +138,7 @@ function AddServicePageContent() {
         description: "No transaction ID provided",
         variant: "destructive",
       })
-      router.push("/transactions")
+      router.push("/admin/transactions")
       return
     }
 
@@ -152,7 +152,7 @@ function AddServicePageContent() {
             description: `Transaction with ID ${transactionId} not found`,
             variant: "destructive",
           })
-          router.push("/transactions")
+          router.push("/admin/transactions")
         }
       } catch (error: unknown) {
         console.error("Error fetching transaction:", error)
@@ -161,7 +161,7 @@ function AddServicePageContent() {
           description: `Failed to fetch transaction: ${(error as Error).message}`,
           variant: "destructive",
         })
-        router.push("/transactions")
+        router.push("/admin/transactions")
       } finally {
         setPageLoading(false)
         setInitialized(true)
@@ -659,7 +659,7 @@ function AddServicePageContent() {
       setTimeout(() => {
         setIsLoading(false)
         setIsSubmitting(false)
-        router.push("/transactions")
+        router.push("/admin/transactions")
       }, 1000)
     } catch (error) {
       console.error("Error adding services:", error)
@@ -701,7 +701,7 @@ function AddServicePageContent() {
             <div className="text-center">
               <h2 className="text-xl font-semibold text-[#1A365D] mb-4">Transaction Not Found</h2>
               <Button
-                onClick={() => router.push("/transactions")}
+                onClick={() => router.push("/admin/transactions")}
                 className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
               >
                 Back to Transactions
@@ -994,7 +994,7 @@ function AddServicePageContent() {
               {/* Button Row - keep the same */}
               <div className="flex justify-between pt-6">
                 <Button
-                  onClick={() => router.push("/transactions")}
+                  onClick={() => router.push("/admin/transactions")}
                   variant="outline"
                   className="bg-white hover:bg-[#1A365D] hover:text-white"
                 >

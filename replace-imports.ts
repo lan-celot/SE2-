@@ -3,6 +3,9 @@ import path from "path";
 
 // keep this file for updating routings when refactoring
 
+// save this file before running in terminal:
+// npx tsx replace-imports.ts
+
 const directoryPath = "./components"; // Update this to the root folder of your TSX files
 const oldImportPath = "@/components/admin-components/checkbox"; // Change this to what you want to replace
 const newImportPath = "@/components/shared/ui/checkbox"; // Change this to the new path

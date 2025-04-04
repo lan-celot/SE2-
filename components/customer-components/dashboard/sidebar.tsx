@@ -49,8 +49,8 @@ export function DashboardSidebar() {
     Cookies.remove("userId")
     Cookies.remove("userName")
 
-    // Redirect to login page
-    router.push("/admin/login")
+    // Redirect to home page
+    router.push("/")
   }
 
   return (

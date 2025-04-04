@@ -25,7 +25,7 @@ export default function LoggedInHome() {
         <AboutUsSection />
         <FAQSection />
       </div>
-      <Footer />
+      <Footer isLoggedIn={true} />
     </main>
   )
 }

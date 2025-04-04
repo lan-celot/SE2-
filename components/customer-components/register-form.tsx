@@ -29,7 +29,7 @@ import { Checkbox } from "@/components/customer-components/ui/checkbox"
 import { auth } from "@/lib/firebase"
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
 import { db } from "@/lib/firebase"
-import { doc, setDoc } from "firebase/firestore"
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 import { serverTimestamp } from "firebase/firestore"
 
@@ -42,7 +42,13 @@ const formSchema = z
     phoneNumber: z.string().regex(/^09\d{9}$/, "Phone number must be in format: 09XXXXXXXXX"),
     gender: z.enum(["MALE", "FEMALE"]),
     dateOfBirth: z.string().min(1, "Date of birth is required"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(
+        /^(?=.*[A-Z])(?=.*[0-9])(?=.*[a-zA-Z0-9]).{8,}$/,
+        "Password must contain at least 8 alphanumeric characters and 1 uppercase letter",
+      ),
     confirmPassword: z.string(),
     terms: z.boolean().refine((val) => val === true, "You must accept the terms and conditions"),
   })
@@ -56,6 +62,15 @@ export function RegisterForm() {
   const [success, setSuccess] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [usernameError, setUsernameError] = React.useState<string | null>(null)
+  const [phoneError, setPhoneError] = React.useState<string | null>(null)
+  const [emailError, setEmailError] = React.useState<string | null>(null)
+
+  // Debounce timers
+  const usernameTimer = React.useRef<NodeJS.Timeout | null>(null)
+  const phoneTimer = React.useRef<NodeJS.Timeout | null>(null)
+  const emailTimer = React.useRef<NodeJS.Timeout | null>(null)
 
   const router = useRouter()
 
@@ -75,12 +90,108 @@ export function RegisterForm() {
     },
   })
 
-  // Backend: Handles user registration
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setError(null)
-    setSuccess(false)
+  // Clear error message when user interacts with the form
+  React.useEffect(() => {
+    const subscription = form.watch(() => {
+      if (error) setError(null)
+    })
+    return () => subscription.unsubscribe()
+  }, [form, error])
+
+  // Check if username exists in database
+  const checkUsername = React.useCallback(async (username: string) => {
+    if (username.length < 3) return
 
     try {
+      const usernameQuery = query(collection(db, "accounts"), where("username", "==", username))
+      const usernameSnapshot = await getDocs(usernameQuery)
+
+      if (!usernameSnapshot.empty) {
+        setUsernameError("Username already exists. Please choose another one.")
+      } else {
+        setUsernameError(null)
+      }
+    } catch (err) {
+      console.error("Error checking username:", err)
+    }
+  }, [])
+
+  // Check if phone number exists in database
+  const checkPhoneNumber = React.useCallback(async (phoneNumber: string) => {
+    if (!phoneNumber.match(/^09\d{9}$/)) return
+
+    try {
+      const phoneQuery = query(collection(db, "accounts"), where("phoneNumber", "==", phoneNumber))
+      const phoneSnapshot = await getDocs(phoneQuery)
+
+      if (!phoneSnapshot.empty) {
+        setPhoneError("Phone number already registered. Please use another one.")
+      } else {
+        setPhoneError(null)
+      }
+    } catch (err) {
+      console.error("Error checking phone number:", err)
+    }
+  }, [])
+
+  // Check if email exists in database
+  const checkEmail = React.useCallback(async (email: string) => {
+    if (!email.includes("@")) return
+
+    try {
+      const emailQuery = query(collection(db, "accounts"), where("email", "==", email))
+      const emailSnapshot = await getDocs(emailQuery)
+
+      if (!emailSnapshot.empty) {
+        setEmailError("Email already registered. Please use another one.")
+      } else {
+        setEmailError(null)
+      }
+    } catch (err) {
+      console.error("Error checking email:", err)
+    }
+  }, [])
+
+  // Backend: Handles user registration
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    // Check for field-specific errors before proceeding
+    if (usernameError || phoneError || emailError) {
+      return
+    }
+
+    setError(null)
+    setSuccess(false)
+    setIsLoading(true)
+
+    try {
+      // Double-check if username, phone, or email already exists
+      const usernameQuery = query(collection(db, "accounts"), where("username", "==", values.username))
+      const usernameSnapshot = await getDocs(usernameQuery)
+
+      if (!usernameSnapshot.empty) {
+        setUsernameError("Username already exists. Please choose another one.")
+        setIsLoading(false)
+        return
+      }
+
+      const phoneQuery = query(collection(db, "accounts"), where("phoneNumber", "==", values.phoneNumber))
+      const phoneSnapshot = await getDocs(phoneQuery)
+
+      if (!phoneSnapshot.empty) {
+        setPhoneError("Phone number already registered. Please use another one.")
+        setIsLoading(false)
+        return
+      }
+
+      const emailQuery = query(collection(db, "accounts"), where("email", "==", values.email))
+      const emailSnapshot = await getDocs(emailQuery)
+
+      if (!emailSnapshot.empty) {
+        setEmailError("Email already registered. Please use another one.")
+        setIsLoading(false)
+        return
+      }
+
       // 1️⃣ Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password)
       const user = userCredential.user
@@ -90,46 +201,55 @@ export function RegisterForm() {
         displayName: `${values.firstName} ${values.lastName}`,
       })
 
-      // 4️⃣ Save user details to Firestore with BOTH UIDs
-      const userDoc = {
-        authUid: user.uid, // Store Firebase Auth UID
+      // Format date of birth to match the format in the database
+      const dateOfBirth = new Date(values.dateOfBirth).toISOString().split("T")[0]
+
+      // 3️⃣ Save user details to Firestore accounts collection
+      const accountData = {
+        authUid: user.uid,
         firstName: values.firstName,
         lastName: values.lastName,
+        email: values.email,
         username: values.username,
         phoneNumber: values.phoneNumber,
         gender: values.gender,
-        dateOfBirth: values.dateOfBirth,
-        email: values.email,
+        dateOfBirth: dateOfBirth,
+        role: "customer",
         termsAccepted: values.terms,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
       }
 
-      // Save in two places for efficient querying
-      await Promise.all([
-        setDoc(doc(db, "users", user.uid), userDoc), // Primary document using Auth UID
-        setDoc(doc(db, "accounts", user.uid), {
-          firstName: values.firstName,
-          lastName: values.lastName,
-          email: values.email,
-          phoneNumber: values.phoneNumber,
-          role: "customer", // Set default role as customer
-          createdAt: serverTimestamp(),
-        }),
-        {
-          // Reference document using custom UID
-          authUid: user.uid,
-        },
-      ])
+      // Save to accounts collection
+      await setDoc(doc(db, "accounts", user.uid), accountData)
+
+      // Also save to users collection for backward compatibility
+      await setDoc(doc(db, "users", user.uid), {
+        ...accountData,
+        createdAt: new Date().toISOString(), // String format for users collection
+      })
 
       setSuccess(true)
+      setIsLoading(false)
 
       setTimeout(() => {
         router.replace("/admin/login")
         router.refresh()
-      }, 500)
+      }, 1500)
     } catch (err: any) {
       console.error("Registration Error:", err)
-      setError(err.message)
+
+      // Format Firebase error messages to be more user-friendly
+      if (err.code === "auth/email-already-in-use") {
+        setEmailError("Email already registered. Please use another one.")
+      } else if (err.code === "auth/invalid-email") {
+        setEmailError("Invalid email address format.")
+      } else if (err.code === "auth/weak-password") {
+        setError("Password is too weak. Please use a stronger password.")
+      } else {
+        setError(err.message)
+      }
+
+      setIsLoading(false)
     }
   }
 
@@ -143,7 +263,7 @@ export function RegisterForm() {
 
       {success && (
         <Alert className="mb-6 bg-green-50 text-green-600 border-green-200">
-          <AlertDescription>Registered successfully</AlertDescription>
+          <AlertDescription>Registered successfully! Redirecting to login...</AlertDescription>
         </Alert>
       )}
 
@@ -182,9 +302,35 @@ export function RegisterForm() {
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input placeholder="Email" className="bg-white/50" {...field} />
+                <Input
+                  placeholder="Email"
+                  className={cn("bg-white/50", emailError && "border-red-500 focus-visible:ring-red-500")}
+                  {...field}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    // Clear any existing timer
+                    if (emailTimer.current) clearTimeout(emailTimer.current)
+
+                    // Set a new timer to check email after typing stops
+                    emailTimer.current = setTimeout(() => {
+                      checkEmail(e.target.value)
+                    }, 500)
+                  }}
+                  onChange={(e) => {
+                    field.onChange(e)
+                    setEmailError(null)
+
+                    // Clear any existing timer
+                    if (emailTimer.current) clearTimeout(emailTimer.current)
+
+                    // Set a new timer to check email after typing stops
+                    emailTimer.current = setTimeout(() => {
+                      checkEmail(e.target.value)
+                    }, 500)
+                  }}
+                />
               </FormControl>
-              <FormMessage />
+              {emailError ? <p className="text-sm font-medium text-red-500">{emailError}</p> : <FormMessage />}
             </FormItem>
           )}
         />
@@ -197,14 +343,33 @@ export function RegisterForm() {
               <FormControl>
                 <Input
                   placeholder="Username"
-                  className={cn(
-                    "bg-white/50",
-                    error?.includes("Username") && "border-red-500 focus-visible:ring-red-500",
-                  )}
+                  className={cn("bg-white/50", usernameError && "border-red-500 focus-visible:ring-red-500")}
                   {...field}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    // Clear any existing timer
+                    if (usernameTimer.current) clearTimeout(usernameTimer.current)
+
+                    // Set a new timer to check username after typing stops
+                    usernameTimer.current = setTimeout(() => {
+                      checkUsername(e.target.value)
+                    }, 500)
+                  }}
+                  onChange={(e) => {
+                    field.onChange(e)
+                    setUsernameError(null)
+
+                    // Clear any existing timer
+                    if (usernameTimer.current) clearTimeout(usernameTimer.current)
+
+                    // Set a new timer to check username after typing stops
+                    usernameTimer.current = setTimeout(() => {
+                      checkUsername(e.target.value)
+                    }, 500)
+                  }}
                 />
               </FormControl>
-              <FormMessage />
+              {usernameError ? <p className="text-sm font-medium text-red-500">{usernameError}</p> : <FormMessage />}
             </FormItem>
           )}
         />
@@ -217,11 +382,33 @@ export function RegisterForm() {
               <FormControl>
                 <Input
                   placeholder="Phone Number (09171234567)"
-                  className={cn("bg-white/50", error?.includes("phone") && "border-red-500 focus-visible:ring-red-500")}
+                  className={cn("bg-white/50", phoneError && "border-red-500 focus-visible:ring-red-500")}
                   {...field}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    // Clear any existing timer
+                    if (phoneTimer.current) clearTimeout(phoneTimer.current)
+
+                    // Set a new timer to check phone number after typing stops
+                    phoneTimer.current = setTimeout(() => {
+                      checkPhoneNumber(e.target.value)
+                    }, 500)
+                  }}
+                  onChange={(e) => {
+                    field.onChange(e)
+                    setPhoneError(null)
+
+                    // Clear any existing timer
+                    if (phoneTimer.current) clearTimeout(phoneTimer.current)
+
+                    // Set a new timer to check phone number after typing stops
+                    phoneTimer.current = setTimeout(() => {
+                      checkPhoneNumber(e.target.value)
+                    }, 500)
+                  }}
                 />
               </FormControl>
-              <FormMessage />
+              {phoneError ? <p className="text-sm font-medium text-red-500">{phoneError}</p> : <FormMessage />}
             </FormItem>
           )}
         />
@@ -245,11 +432,9 @@ export function RegisterForm() {
           render={({ field }) => (
             <FormItem>
               <Select onValueChange={field.onChange} value={field.value || ""}>
-                {" "}
-                {/* Ensure empty value initially */}
                 <FormControl>
                   <SelectTrigger className="bg-white/50">
-                    <SelectValue placeholder="Gender" /> {/* Placeholder stays until selection */}
+                    <SelectValue placeholder="Gender" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -339,7 +524,7 @@ export function RegisterForm() {
               <div className="space-y-1 leading-none">
                 <FormLabel className="text-sm text-gray-600">
                   I have read and agreed to{" "}
-                  <Link href="/terms" className="text-primary hover:underline">
+                  <Link href="/customer/terms" className="text-primary hover:underline">
                     Terms and Conditions
                   </Link>
                 </FormLabel>
@@ -350,8 +535,12 @@ export function RegisterForm() {
         />
 
         <div className="space-y-2">
-          <Button type="submit" className="w-full bg-primary text-white">
-            Register
+          <Button
+            type="submit"
+            className="w-full bg-primary text-white"
+            disabled={isLoading || !!usernameError || !!phoneError || !!emailError}
+          >
+            {isLoading ? "Registering..." : "Register"}
           </Button>
           <div className="text-center text-sm">
             <span className="text-gray-600">or </span>

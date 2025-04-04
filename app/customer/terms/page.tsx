@@ -19,11 +19,11 @@ export default function TermsPage() {
             <span className="text-primary font-bold">MAR & NOR AUTO REPAIR</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="text-primary hover:text-secondary font-semibold">
+            <Link href="/admin/login" className="text-primary hover:text-secondary font-semibold">
               Login
             </Link>
             <Link
-              href="/register"
+              href="/customer/register"
               className="bg-[#2A69AC] text-white hover:bg-[#1E4E8C] transition-colors rounded-md px-4 py-2 font-semibold"
             >
               Register

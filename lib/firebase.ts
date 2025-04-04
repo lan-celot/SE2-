@@ -3,9 +3,9 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBoTY0dw2X3vvNNN36ajHvZpO926eHCebY",
-  authDomain: "autotrack-3982e.firebaseapp.com",
-  projectId: "autotrack-3982e",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBoTY0dw2X3vvNNN36ajHvZpO926eHCebY",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "autotrack-3982e.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "autotrack-3982e",
   storageBucket: "autotrack-3982e.firebasestorage.app",
   messagingSenderId: "197356954496",
   appId: "1:197356954496:web:9df3e88b7bb6eba35b9765",

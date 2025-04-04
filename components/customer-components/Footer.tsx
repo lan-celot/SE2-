@@ -45,7 +45,7 @@ export function Footer({ isLoggedIn = false }: FooterProps) {
             Copyright 2024 • Mar & Nor Auto Repair, All Rights Reserved
           </p>
           <Link
-            href={isLoggedIn ? "/terms/logged-in" : "/terms"}
+            href={isLoggedIn ? "/customer/terms/logged-in" : "/customer/terms"}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-white"
           >
             <Shield className="w-4 h-4" />
