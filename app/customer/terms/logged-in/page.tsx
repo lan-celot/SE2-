@@ -8,7 +8,7 @@ export default function LoggedInTermsPage() {
     <div className="min-h-screen bg-[#ebf8ff] flex flex-col">
       <header className="p-6 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/customer/logged-in" className="flex items-center gap-2">
             <Image
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-IvHIqsnbZo32MpjL3mD01Urzi5xkwE.svg"
               alt="MAR & NOR AUTO REPAIR"
