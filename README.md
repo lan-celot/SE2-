@@ -1,29 +1,3 @@
-# Installations needed
-## run one by one in terminal!
-```bash
-npm install
-```
-```bash
-npm install firebase
-```
-```bash
-npm install -g firebase-tools
-```
-# not required to run as always: Update All Dependencies & Dev Dependencies (except tailwind)
-```bash
-npx npm-check-updates -u --reject tailwindcss
-```
-
-# run this after checking for updates
-```bash
-npm install
-```
-
-# Check for Updates Without Applying Changes
-```bash
-npx npm-check-updates
-```
-
 # Mar & Nor Auto Repair - Management System
 
 A full-stack web application for managing car repair and maintenance services. This application provides separate interfaces for administrators and customers, with robust authentication and role-based access control.
@@ -109,7 +83,7 @@ The application follows Next.js 13+ App Router structure:
     npm install -g firebase-tools
     ```
 
-4. Not required to run as always: Update All Dependencies & Dev Dependencies (except tailwind)
+4. Check for dependency updates without updating (optional) (except tailwind)
     ```bash
     npx npm-check-updates -u --reject tailwindcss
     ```
@@ -119,12 +93,7 @@ The application follows Next.js 13+ App Router structure:
     npm install
     ```
 
-6. Check for dependency updates without updating (optional):
-    ```bash
-    npx npm-check-updates
-    ```
-
-4. Run the development server:
+6. Run the development server:
    ```bash
    npm run dev
    ```
