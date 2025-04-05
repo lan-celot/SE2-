@@ -1,3 +1,5 @@
+"use client";
+
 import { ProfileHeader } from "@/components/customer-components/dashboard/profile/profile-header"
 import { PersonalInformation } from "@/components/customer-components/dashboard/profile/personal-information"
 import { AddressInformation } from "@/components/customer-components/dashboard/profile/address-information"
@@ -18,12 +20,19 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-6">
-            <MetricCard title="COMPLETED RESERVATIONS" value="20" className="bg-white" />
-            <MetricCard title="ON-GOING REPAIRS" value="1" className="bg-white" />
+            <MetricCard 
+              title="COMPLETED RESERVATIONS" 
+              type="completed" 
+              className="bg-white" 
+            />
+            <MetricCard 
+              title="ON-GOING REPAIRS" 
+              type="repairing" 
+              className="bg-white" 
+            />
           </div>
         </div>
       </div>
     </div>
   )
 }
-
