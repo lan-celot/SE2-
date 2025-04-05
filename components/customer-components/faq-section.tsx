@@ -1,12 +1,8 @@
 "use client"
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/customer-components/ui/accordion"
+import { useState } from "react"
 import { BackgroundLogo } from "./background-logo"
+import { ChevronDown } from "lucide-react"
 
 // Organize FAQs by category
 const faqCategories = [
@@ -108,41 +104,68 @@ const faqCategories = [
       },
       {
         question: "Can I get a digital receipt or invoice?",
-        answer: "Yes. Through Gmail, WhatsApp, WeChat, Telegram and Viber."
+        answer: "Yes. Through Gmail, WhatsApp, WeChat, Telegram and Viber.",
       },
     ],
   },
 ]
 
 export function FAQSection() {
+  // Track open/closed state for each question
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({})
+
+  const toggleItem = (id: string) => {
+    setOpenItems((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
+
   return (
     <section id="faqs" className="relative py-16 md:py-24 overflow-hidden">
       <BackgroundLogo position="right" className="-z-10" />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-center text-3xl md:text-4xl font-bold mb-16">
           <span className="text-primary-dark">Frequently Asked</span> <span className="text-secondary">Questions</span>
         </h2>
 
-        <div className="space-y-10">
+        <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
           {faqCategories.map((category, categoryIndex) => (
-            <div key={categoryIndex} className="space-y-4">
-              <h3 className="text-xl font-semibold text-primary-dark mb-4">{category.category}</h3>
-              <Accordion type="single" collapsible className="space-y-4">
-                {category.questions.map((faq, index) => (
-                  <AccordionItem
-                    key={index}
-                    value={`${categoryIndex}-item-${index}`}
-                    className="bg-white/50 rounded-lg"
-                  >
-                    <AccordionTrigger className="text-left px-6 hover:no-underline hover:text-secondary [&[data-state=open]]:text-secondary">
-                      {faq.question}
-                    </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-4 text-gray-600 whitespace-pre-line">
-                      {faq.answer}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+            <div key={categoryIndex} className="bg-blue-50 rounded-lg overflow-hidden">
+              <h3 className="text-xl font-semibold text-primary-dark p-6 pb-4">{category.category}</h3>
+              <div className="flex flex-col">
+                {category.questions.map((faq, index) => {
+                  const itemId = `${categoryIndex}-item-${index}`
+                  const isOpen = openItems[itemId] || false
+
+                  return (
+                    <div key={index} className="border-t border-blue-100">
+                      <div className="w-full">
+                        <button
+                          onClick={() => toggleItem(itemId)}
+                          className="flex justify-between items-center w-full px-6 py-4 text-left hover:text-secondary transition-colors duration-200 focus:outline-none"
+                          aria-expanded={isOpen}
+                        >
+                          <span className={`text-sm md:text-base font-medium ${isOpen ? "text-secondary" : ""}`}>
+                            {faq.question}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "transform rotate-180" : ""}`}
+                          />
+                        </button>
+
+                        <div
+                          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                            isOpen ? "max-h-96" : "max-h-0"
+                          }`}
+                        >
+                          <div className="px-6 pb-4 text-gray-600 text-sm">{faq.answer}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ))}
         </div>
