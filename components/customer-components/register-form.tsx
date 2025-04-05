@@ -768,7 +768,7 @@ export function RegisterForm() {
                   id="terms-checkbox"
                   onClick={handleCheckboxClick}  
                 />
-              </FormControl>
+              </FormControl>  
               <div className="space-y-1 leading-none">
                 <FormLabel className="text-sm text-gray-600">
                   I have read and agreed to{" "}
@@ -797,7 +797,7 @@ export function RegisterForm() {
           <div className="text-center text-sm">
             <span className="text-gray-600">or </span>
             <Link href="/admin/login" className="text-[#2A69AC] hover:underline">
-              Login
+              Already have an account? Login
             </Link>
           </div>
         </div>
