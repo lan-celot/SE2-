@@ -4,17 +4,18 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin-components/table"
 import { ReservationCalendar } from "@/components/admin-components/reservation-calendar"
 import { DashboardLayout } from "@/components/admin-components/dashboard-layout"
-import { collection, query, getDocs, orderBy, where } from "firebase/firestore"
+import { collection, query, getDocs, orderBy, where, onSnapshot, Timestamp, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import Loading from "@/components/admin-components/loading"
 import { formatDateTime } from "@/lib/date-utils"
-import { ArrowUp, ArrowDown, Activity, Users, Calendar, Car, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 
 // Define types for our data
 interface Log {
-  id: number
+  id: string
   message: string
-  timestamp: Date
+  timestamp: Timestamp
+  userId?: string
+  type?: string
 }
 
 interface Reservation {
@@ -29,38 +30,211 @@ interface Booking {
   lastName: string
   carModel: string
   status: string
-  reservationDate: string | Date
+  reservationDate: string | Date | Timestamp
   userId?: string
-}
-
-interface MetricWithTrend {
-  current: number
-  previous: number
-  percentChange: number
+  createdAt?: Timestamp
+  updatedAt?: Timestamp
 }
 
 export default function DashboardPage() {
-  const [pendingMetrics, setPendingMetrics] = useState<MetricWithTrend>({ current: 0, previous: 0, percentChange: 0 })
-  const [completedTodayMetrics, setCompletedTodayMetrics] = useState<MetricWithTrend>({ current: 0, previous: 0, percentChange: 0 })
-  const [repairingTodayMetrics, setRepairingTodayMetrics] = useState<MetricWithTrend>({ current: 0, previous: 0, percentChange: 0 })
-  const [confirmedTodayMetrics, setConfirmedTodayMetrics] = useState<MetricWithTrend>({ current: 0, previous: 0, percentChange: 0 })
-  const [newClientsMetrics, setNewClientsMetrics] = useState<MetricWithTrend>({ current: 0, previous: 0, percentChange: 0 })
-  const [returningClientsMetrics, setReturningClientsMetrics] = useState<MetricWithTrend>({ current: 0, previous: 0, percentChange: 0 })
+  const [pendingCount, setPendingCount] = useState(0)
+  const [completedToday, setCompletedToday] = useState(0)
+  const [repairingToday, setRepairingToday] = useState(0)
+  const [confirmedToday, setConfirmedToday] = useState(0)
+  const [newClientsCount, setNewClientsCount] = useState(0)
+  const [returningClientsCount, setReturningClientsCount] = useState(0)
   const [arrivingToday, setArrivingToday] = useState<Reservation[]>([])
   const [logs, setLogs] = useState<Log[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [totalThisMonth, setTotalThisMonth] = useState(0)
-  const [totalLastMonth, setTotalLastMonth] = useState(0)
+  const [isRealtime, setIsRealtime] = useState(true)
 
+  // Set up real-time listeners for Firestore collections
   useEffect(() => {
-    void fetchDashboardData()
-  }, [])
+    // Only use real-time updates if enabled
+    if (!isRealtime) {
+      fetchDashboardData()
+      return
+    }
 
-  const calculatePercentChange = (current: number, previous: number): number => {
-    if (previous === 0) return current > 0 ? 100 : 0
-    return Number(((current - previous) / previous) * 100).toFixed(1) as unknown as number
-  }
+    setIsLoading(true)
 
+    // Get today's date at midnight
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Get tomorrow's date for comparison
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Get first day of current month
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    // Convert dates to Firestore Timestamps
+    const todayTimestamp = Timestamp.fromDate(today)
+    const tomorrowTimestamp = Timestamp.fromDate(tomorrow)
+    const firstDayOfMonthTimestamp = Timestamp.fromDate(firstDayOfMonth)
+
+    // Set up listeners
+
+    // 1. All bookings for general stats
+    const bookingsQuery = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
+    const unsubscribeBookings = onSnapshot(bookingsQuery, (snapshot) => {
+      const bookings = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Booking[]
+
+      // Calculate counts based on status
+      const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
+      setPendingCount(pendingBookings.length)
+
+      // For today's stats, filter by date
+      const todayBookings = bookings.filter((booking) => {
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
+        return bookingDate >= today && bookingDate < tomorrow
+      })
+
+      const completedTodayCount = todayBookings.filter((booking) => booking.status === "COMPLETED").length
+      setCompletedToday(completedTodayCount)
+
+      const repairingTodayCount = todayBookings.filter((booking) => booking.status === "REPAIRING").length
+      setRepairingToday(repairingTodayCount)
+
+      const confirmedTodayCount = todayBookings.filter((booking) => booking.status === "CONFIRMED").length
+      setConfirmedToday(confirmedTodayCount)
+
+      // Get arriving today (bookings for today with status PENDING or CONFIRMED)
+      const arrivingTodayBookings = todayBookings
+        .filter((booking) => booking.status === "PENDING" || booking.status === "CONFIRMED")
+        .slice(0, 5) // Limit to 5 for display
+
+      setArrivingToday(
+        arrivingTodayBookings.map((booking) => ({
+          id: booking.id,
+          customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
+          carModel: booking.carModel,
+        }))
+      )
+
+      // For clients this month, filter by date and count unique customer IDs
+      const thisMonthBookings = bookings.filter((booking) => {
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
+        return bookingDate >= firstDayOfMonth
+      })
+
+      // Count unique users
+      const uniqueUserIds = new Set<string>()
+      const returningUserIds = new Set<string>()
+      
+      // Process bookings to identify new vs returning users
+      // A returning user is one who has more than one booking
+      const userBookingCounts: Record<string, number> = {}
+      
+      bookings.forEach(booking => {
+        if (booking.userId) {
+          if (userBookingCounts[booking.userId]) {
+            userBookingCounts[booking.userId]++
+            returningUserIds.add(booking.userId)
+          } else {
+            userBookingCounts[booking.userId] = 1
+            uniqueUserIds.add(booking.userId)
+          }
+        }
+      })
+      
+      // New clients are those who only appear in this month's bookings and have only one booking
+      const newClientThisMonth = thisMonthBookings.filter(booking => 
+        booking.userId && 
+        userBookingCounts[booking.userId] === 1 &&
+        !returningUserIds.has(booking.userId)
+      )
+      
+      // Returning clients are those who have more than one booking
+      const returningClientsThisMonth = thisMonthBookings.filter(booking => 
+        booking.userId && 
+        returningUserIds.has(booking.userId)
+      )
+      
+      // Count unique client IDs
+      const uniqueNewClients = new Set(newClientThisMonth.map(b => b.userId))
+      const uniqueReturningClients = new Set(returningClientsThisMonth.map(b => b.userId))
+      
+      setNewClientsCount(uniqueNewClients.size)
+      setReturningClientsCount(uniqueReturningClients.size)
+
+      setIsLoading(false)
+    }, (error) => {
+      console.error("Error fetching bookings:", error)
+      setIsLoading(false)
+    })
+
+    // 2. Logs collection
+    const logsQuery = query(
+      collection(db, "logs"), 
+      orderBy("timestamp", "desc"),
+      limit(10)
+    )
+    
+    const unsubscribeLogs = onSnapshot(logsQuery, (snapshot) => {
+      const logData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Log[]
+      
+      setLogs(logData)
+    }, (error) => {
+      console.error("Error fetching logs:", error)
+      // If logs collection doesn't exist or has permission issues, 
+      // use demo data instead
+      const dummyLogs: Log[] = [
+        {
+          id: "1",
+          message: "Transaction #T1234 completed for Andrea Salazar",
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
+          type: "transaction"
+        },
+        {
+          id: "2",
+          message: "New reservation #R00101 created for John Doe",
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
+          type: "reservation"
+        },
+        { 
+          id: "3", 
+          message: "Employee Mark Johnson logged in", 
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
+          type: "auth"
+        },
+        { 
+          id: "4", 
+          message: "Inventory update: 5 oil filters added", 
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
+          type: "inventory"
+        },
+        {
+          id: "5",
+          message: "Customer feedback received for service #S0098",
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
+          type: "feedback"
+        }
+      ]
+      setLogs(dummyLogs)
+    })
+
+    // Clean up listeners on unmount
+    return () => {
+      unsubscribeBookings()
+      unsubscribeLogs()
+    }
+  }, [isRealtime])
+
+  // Regular fetch method (used if real-time updates are disabled)
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true)
@@ -69,20 +243,12 @@ export default function DashboardPage() {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      // Get yesterday's date for comparison
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
-
       // Get tomorrow's date for comparison
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
 
       // Get first day of current month
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
-      // Get first day of previous month
-      const firstDayOfPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-      const lastDayOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0)
 
       // Fetch all bookings to calculate counts
       const bookingsQuery = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
@@ -94,57 +260,25 @@ export default function DashboardPage() {
 
       // Calculate counts based on status
       const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
-      
-      // Compare with previous day's pending count (for trend)
-      const prevDayBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
-        return bookingDate >= yesterday && bookingDate < today
-      })
-      const prevDayPendingCount = prevDayBookings.filter((booking) => booking.status === "PENDING").length
-      
-      setPendingMetrics({
-        current: pendingBookings.length,
-        previous: prevDayPendingCount,
-        percentChange: calculatePercentChange(pendingBookings.length, prevDayPendingCount)
-      })
+      setPendingCount(pendingBookings.length)
 
       // For today's stats, filter by date
       const todayBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
         return bookingDate >= today && bookingDate < tomorrow
       })
 
-      const yesterdayBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
-        return bookingDate >= yesterday && bookingDate < today
-      })
-
-      // Calculate completed metrics with trend
       const completedTodayCount = todayBookings.filter((booking) => booking.status === "COMPLETED").length
-      const completedYesterdayCount = yesterdayBookings.filter((booking) => booking.status === "COMPLETED").length
-      setCompletedTodayMetrics({
-        current: completedTodayCount,
-        previous: completedYesterdayCount,
-        percentChange: calculatePercentChange(completedTodayCount, completedYesterdayCount)
-      })
+      setCompletedToday(completedTodayCount)
 
-      // Calculate repairing metrics with trend
       const repairingTodayCount = todayBookings.filter((booking) => booking.status === "REPAIRING").length
-      const repairingYesterdayCount = yesterdayBookings.filter((booking) => booking.status === "REPAIRING").length
-      setRepairingTodayMetrics({
-        current: repairingTodayCount,
-        previous: repairingYesterdayCount,
-        percentChange: calculatePercentChange(repairingTodayCount, repairingYesterdayCount)
-      })
+      setRepairingToday(repairingTodayCount)
 
-      // Calculate confirmed metrics with trend
       const confirmedTodayCount = todayBookings.filter((booking) => booking.status === "CONFIRMED").length
-      const confirmedYesterdayCount = yesterdayBookings.filter((booking) => booking.status === "CONFIRMED").length
-      setConfirmedTodayMetrics({
-        current: confirmedTodayCount,
-        previous: confirmedYesterdayCount,
-        percentChange: calculatePercentChange(confirmedTodayCount, confirmedYesterdayCount)
-      })
+      setConfirmedToday(confirmedTodayCount)
 
       // Get arriving today (bookings for today with status PENDING or CONFIRMED)
       const arrivingTodayBookings = todayBookings
@@ -159,77 +293,126 @@ export default function DashboardPage() {
         })),
       )
 
-      // For clients this month vs. last month
+      // For clients this month, we'll use a more sophisticated approach
       const thisMonthBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
         return bookingDate >= firstDayOfMonth
       })
 
-      const lastMonthBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
-        return bookingDate >= firstDayOfPrevMonth && bookingDate <= lastDayOfPrevMonth
+      // Process bookings to identify new vs returning users
+      const userBookingCounts: Record<string, number> = {}
+      
+      bookings.forEach(booking => {
+        if (booking.userId) {
+          userBookingCounts[booking.userId] = (userBookingCounts[booking.userId] || 0) + 1
+        }
       })
-
-      // Count unique customer IDs for this month and last month
-      const thisMonthUniqueCustomerIds = new Set<string>()
-      thisMonthBookings.forEach((booking) => {
-        if (booking.userId) thisMonthUniqueCustomerIds.add(booking.userId)
+      
+      // Count new vs returning clients
+      const uniqueNewClients = new Set()
+      const uniqueReturningClients = new Set()
+      
+      thisMonthBookings.forEach(booking => {
+        if (booking.userId) {
+          if (userBookingCounts[booking.userId] > 1) {
+            uniqueReturningClients.add(booking.userId)
+          } else {
+            uniqueNewClients.add(booking.userId)
+          }
+        }
       })
+      
+      setNewClientsCount(uniqueNewClients.size)
+      setReturningClientsCount(uniqueReturningClients.size)
 
-      const lastMonthUniqueCustomerIds = new Set<string>()
-      lastMonthBookings.forEach((booking) => {
-        if (booking.userId) lastMonthUniqueCustomerIds.add(booking.userId)
-      })
-
-      // Calculate total booking counts for month-over-month comparison
-      setTotalThisMonth(thisMonthBookings.length)
-      setTotalLastMonth(lastMonthBookings.length)
-
-      // For demo purposes, split these into new and returning with trends
-      const newClientsThisMonth = Math.ceil(thisMonthUniqueCustomerIds.size * 0.6)
-      const newClientsLastMonth = Math.ceil(lastMonthUniqueCustomerIds.size * 0.6)
-      setNewClientsMetrics({
-        current: newClientsThisMonth,
-        previous: newClientsLastMonth,
-        percentChange: calculatePercentChange(newClientsThisMonth, newClientsLastMonth)
-      })
-
-      const returningClientsThisMonth = Math.floor(thisMonthUniqueCustomerIds.size * 0.4)
-      const returningClientsLastMonth = Math.floor(lastMonthUniqueCustomerIds.size * 0.4)
-      setReturningClientsMetrics({
-        current: returningClientsThisMonth,
-        previous: returningClientsLastMonth,
-        percentChange: calculatePercentChange(returningClientsThisMonth, returningClientsLastMonth)
-      })
-
-      // For logs, we'll use a simplified approach with dummy data
-      // In a real app, you'd have a dedicated logs collection
-      const dummyLogs: Log[] = [
-        {
-          id: 1,
-          message: "Transaction #T1234 completed for Andrea Salazar",
-          timestamp: new Date(Date.now() - 15 * 60000),
-        },
-        {
-          id: 2,
-          message: "New reservation #R00101 created for John Doe",
-          timestamp: new Date(Date.now() - 28 * 60000),
-        },
-        { id: 3, message: "Employee Mark Johnson logged in", timestamp: new Date(Date.now() - 35 * 60000) },
-        { id: 4, message: "Inventory update: 5 oil filters added", timestamp: new Date(Date.now() - 50 * 60000) },
-        {
-          id: 5,
-          message: "Customer feedback received for service #S0098",
-          timestamp: new Date(Date.now() - 58 * 60000),
-        },
-        { id: 6, message: "Employee Sarah Lee logged out", timestamp: new Date(Date.now() - 75 * 60000) },
-        {
-          id: 7,
-          message: "Reservation #R00100 status changed to 'In Progress'",
-          timestamp: new Date(Date.now() - 90 * 60000),
-        },
-      ]
-      setLogs(dummyLogs)
+      // Try to fetch real logs data first
+      try {
+        const logsQuery = query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(7))
+        const logsSnapshot = await getDocs(logsQuery)
+        
+        if (!logsSnapshot.empty) {
+          const logData = logsSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Log[]
+          
+          setLogs(logData)
+        } else {
+          // If logs collection is empty, use demo data
+          const dummyLogs: Log[] = [
+            {
+              id: "1",
+              message: "Transaction #T1234 completed for Andrea Salazar",
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
+              type: "transaction"
+            },
+            {
+              id: "2",
+              message: "New reservation #R00101 created for John Doe",
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
+              type: "reservation"
+            },
+            { 
+              id: "3", 
+              message: "Employee Mark Johnson logged in", 
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
+              type: "auth"
+            },
+            { 
+              id: "4", 
+              message: "Inventory update: 5 oil filters added", 
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
+              type: "inventory"
+            },
+            {
+              id: "5",
+              message: "Customer feedback received for service #S0098",
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
+              type: "feedback"
+            }
+          ]
+          setLogs(dummyLogs)
+        }
+      } catch (error) {
+        console.error("Error fetching logs:", error)
+        // Use dummy logs as fallback
+        const dummyLogs: Log[] = [
+          {
+            id: "1",
+            message: "Transaction #T1234 completed for Andrea Salazar",
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
+            type: "transaction"
+          },
+          {
+            id: "2",
+            message: "New reservation #R00101 created for John Doe",
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
+            type: "reservation"
+          },
+          { 
+            id: "3", 
+            message: "Employee Mark Johnson logged in", 
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
+            type: "auth"
+          },
+          { 
+            id: "4", 
+            message: "Inventory update: 5 oil filters added", 
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
+            type: "inventory"
+          },
+          {
+            id: "5",
+            message: "Customer feedback received for service #S0098",
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
+            type: "feedback"
+          }
+        ]
+        setLogs(dummyLogs)
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
     } finally {
@@ -237,99 +420,40 @@ export default function DashboardPage() {
     }
   }
 
-  const formatLogDate = (timestamp: Date | null | undefined): string => {
+  const formatLogDate = (timestamp: Timestamp | Date | null | undefined): string => {
     if (!timestamp) return ""
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+    
+    let date: Date
+    if (timestamp instanceof Timestamp) {
+      date = timestamp.toDate()
+    } else if (timestamp instanceof Date) {
+      date = timestamp
+    } else {
+      date = new Date(timestamp)
+    }
+    
     return formatDateTime(date.toString())
-  }
-
-  // Helper to render trend indicator
-  const renderTrendIndicator = (percentChange: number) => {
-    if (percentChange === 0) return null
-    
-    const isPositive = percentChange > 0
-    const absoluteChange = Math.abs(percentChange)
-    
-    return (
-      <div className={`flex items-center ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-        {isPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-        <span className="text-xs font-medium ml-1">{absoluteChange}%</span>
-      </div>
-    )
   }
 
   return (
     <DashboardLayout>
       <div className="grid gap-4">
-        {/* Monthly Performance Overview */}
-        <div className="rounded-xl bg-gradient-to-r from-[#1A365D] to-[#2A69AC] p-5 shadow-md text-white">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-            <div>
-              <h2 className="text-xl font-bold">Monthly Performance</h2>
-              <p className="text-blue-100 text-sm">
-                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-            <div className="mt-2 md:mt-0 bg-white/10 rounded-lg px-3 py-1 flex items-center">
-              <Activity className="h-4 w-4 mr-2" />
-              <span className="text-sm font-medium">
-                {totalThisMonth} bookings 
-                {totalLastMonth > 0 && (
-                  <span className={totalThisMonth >= totalLastMonth ? "text-green-300 ml-1" : "text-red-300 ml-1"}>
-                    ({calculatePercentChange(totalThisMonth, totalLastMonth)}% {totalThisMonth >= totalLastMonth ? "↑" : "↓"})
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white/10 rounded-lg p-3">
-              <div className="flex items-center text-blue-100 mb-1">
-                <Calendar className="h-4 w-4 mr-1" />
-                <span className="text-xs">Pending</span>
-              </div>
-              <div className="flex items-baseline">
-                <span className="text-2xl font-bold">{pendingMetrics.current}</span>
-                {renderTrendIndicator(pendingMetrics.percentChange)}
-              </div>
-            </div>
-            
-            <div className="bg-white/10 rounded-lg p-3">
-              <div className="flex items-center text-blue-100 mb-1">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                <span className="text-xs">Completed Today</span>
-              </div>
-              <div className="flex items-baseline">
-                <span className="text-2xl font-bold">{completedTodayMetrics.current}</span>
-                {renderTrendIndicator(completedTodayMetrics.percentChange)}
-              </div>
-            </div>
-            
-            <div className="bg-white/10 rounded-lg p-3">
-              <div className="flex items-center text-blue-100 mb-1">
-                <Users className="h-4 w-4 mr-1" />
-                <span className="text-xs">New Clients</span>
-              </div>
-              <div className="flex items-baseline">
-                <span className="text-2xl font-bold">{newClientsMetrics.current}</span>
-                {renderTrendIndicator(newClientsMetrics.percentChange)}
-              </div>
-            </div>
-            
-            <div className="bg-white/10 rounded-lg p-3">
-              <div className="flex items-center text-blue-100 mb-1">
-                <Users className="h-4 w-4 mr-1" />
-                <span className="text-xs">Returning Clients</span>
-              </div>
-              <div className="flex items-baseline">
-                <span className="text-2xl font-bold">{returningClientsMetrics.current}</span>
-                {renderTrendIndicator(returningClientsMetrics.percentChange)}
-              </div>
-            </div>
+        {/* Toggle for real-time updates */}
+        <div className="flex justify-end mb-2">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">Real-time updates:</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={isRealtime}
+                onChange={() => setIsRealtime(!isRealtime)}
+              />
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2a69ac]"></div>
+            </label>
           </div>
         </div>
-        
+
         {/* First row: Calendar and Logs */}
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Calendar */}
@@ -338,17 +462,13 @@ export default function DashboardPage() {
           </div>
 
           {/* Logs */}
-          <div className="rounded-xl bg-white p-5 shadow-sm flex flex-col">
-            <div className="flex items-center mb-3">
-              <Activity className="h-5 w-5 text-[#2a69ac] mr-2" />
-              <h3 className="text-lg font-semibold text-[#2a69ac]">Activity Log</h3>
-            </div>
+          <div className="rounded-xl bg-white p-4 shadow-sm flex flex-col">
+            <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Logs</h3>
             <div className="flex-1 overflow-auto text-sm">
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {logs.map((log) => (
-                  <div key={log.id} className="pb-2 border-b border-gray-100">
-                    <div className="text-[#1A365D] font-medium">{log.message}</div>
-                    <div className="text-xs text-[#8B909A]">{formatLogDate(log.timestamp)}</div>
+                  <div key={log.id} className="text-[#8B909A]">
+                    {log.message} at {formatLogDate(log.timestamp)}
                   </div>
                 ))}
               </div>
@@ -356,206 +476,87 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Second row: Daily Metrics */}
+        {/* Second row: Pending Reservations, Clients, Today */}
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Pending Reservations */}
-          <div className="rounded-xl bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <div className="bg-[#2a69ac]/10 p-2 rounded-lg mr-3">
-                  <Calendar className="h-5 w-5 text-[#2a69ac]" />
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A365D]">Pending Reservations</h3>
-              </div>
-              {!isLoading && (
-                <div 
-                  className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                    pendingMetrics.percentChange > 0 
-                      ? 'bg-amber-100 text-amber-800' 
-                      : pendingMetrics.percentChange < 0 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {pendingMetrics.percentChange > 0 ? '↑' : pendingMetrics.percentChange < 0 ? '↓' : '='} {Math.abs(pendingMetrics.percentChange)}%
-                </div>
-              )}
-            </div>
-            
-            <div className="flex items-baseline justify-start">
-              {isLoading ? (
-                <Loading />
-              ) : (
-                <>
-                  <span className="text-5xl font-bold text-[#1A365D]">{pendingMetrics.current}</span>
-                  {pendingMetrics.previous > 0 && (
-                    <span className="ml-2 text-sm text-gray-500">vs {pendingMetrics.previous} yesterday</span>
-                  )}
-                </>
-              )}
-            </div>
-            
-            <div className="mt-2 text-xs text-gray-500">
-              {!isLoading && pendingMetrics.percentChange !== 0 && (
-                <span>
-                  {pendingMetrics.percentChange > 0 
-                    ? `Increased by ${pendingMetrics.percentChange}% from yesterday` 
-                    : `Decreased by ${Math.abs(pendingMetrics.percentChange)}% from yesterday`}
-                </span>
-              )}
+          <div className="rounded-xl bg-white p-4 shadow-sm flex flex-col">
+            <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Pending Reservations</h3>
+            <div className="flex items-start justify-start flex-1">
+              {isLoading && <Loading />}
+              <span className="text-6xl leading-none font-bold text-[#1A365D]">{isLoading ? "..." : pendingCount}</span>
             </div>
           </div>
 
           {/* Clients */}
-          <div className="rounded-xl bg-white p-5 shadow-sm">
-            <div className="flex items-center mb-4">
-              <div className="bg-[#2a69ac]/10 p-2 rounded-lg mr-3">
-                <Users className="h-5 w-5 text-[#2a69ac]" />
-              </div>
-              <h2 className="text-lg font-semibold text-[#1A365D]">Clients This Month</h2>
-            </div>
-            
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Clients</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <h3 className="mb-1 text-xs font-medium text-[#2A69AC]">New Clients</h3>
-                {isLoading ? (
-                  <Loading />
-                ) : (
-                  <div>
-                    <p className="text-3xl font-bold text-[#1A365D]">{newClientsMetrics.current}</p>
-                    <div className="flex items-center mt-1">
-                      <span className={`text-xs font-medium ${newClientsMetrics.percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {newClientsMetrics.percentChange >= 0 ? '↑' : '↓'} {Math.abs(newClientsMetrics.percentChange)}%
-                      </span>
-                      <span className="text-xs text-gray-500 ml-1">vs last month</span>
-                    </div>
-                  </div>
-                )}
+              <div>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">New This Month</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : newClientsCount}</p>
               </div>
-              
-              <div className="bg-indigo-50 p-3 rounded-lg">
-                <h3 className="mb-1 text-xs font-medium text-indigo-600">Returning Clients</h3>
-                {isLoading ? (
-                  <Loading />
-                ) : (
-                  <div>
-                    <p className="text-3xl font-bold text-[#1A365D]">{returningClientsMetrics.current}</p>
-                    <div className="flex items-center mt-1">
-                      <span className={`text-xs font-medium ${returningClientsMetrics.percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {returningClientsMetrics.percentChange >= 0 ? '↑' : '↓'} {Math.abs(returningClientsMetrics.percentChange)}%
-                      </span>
-                      <span className="text-xs text-gray-500 ml-1">vs last month</span>
-                    </div>
-                  </div>
-                )}
+              <div>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Returning This Month</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : returningClientsCount}</p>
               </div>
             </div>
           </div>
 
           {/* Today's Stats */}
-          <div className="rounded-xl bg-white p-5 shadow-sm">
-            <div className="flex items-center mb-4">
-              <div className="bg-[#2a69ac]/10 p-2 rounded-lg mr-3">
-                <Clock className="h-5 w-5 text-[#2a69ac]" />
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Today</h2>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Completed</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : completedToday}</p>
               </div>
-              <h2 className="text-lg font-semibold text-[#1A365D]">Today's Activity</h2>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-green-50 p-3 rounded-lg">
-                <h3 className="mb-1 text-xs font-medium text-green-600 flex items-center">
-                  <CheckCircle className="h-3 w-3 mr-1" /> Completed
-                </h3>
-                {isLoading ? (
-                  <Loading />
-                ) : (
-                  <div>
-                    <p className="text-3xl font-bold text-[#1A365D]">{completedTodayMetrics.current}</p>
-                    {completedTodayMetrics.previous > 0 && (
-                      <div className="mt-1 text-xs text-gray-500">vs {completedTodayMetrics.previous} yesterday</div>
-                    )}
-                  </div>
-                )}
+              <div>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Repairing</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : repairingToday}</p>
               </div>
-              
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <h3 className="mb-1 text-xs font-medium text-blue-600 flex items-center">
-                  <Activity className="h-3 w-3 mr-1" /> Repairing
-                </h3>
-                {isLoading ? (
-                  <Loading />
-                ) : (
-                  <div>
-                    <p className="text-3xl font-bold text-[#1A365D]">{repairingTodayMetrics.current}</p>
-                    {repairingTodayMetrics.previous > 0 && (
-                      <div className="mt-1 text-xs text-gray-500">vs {repairingTodayMetrics.previous} yesterday</div>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <div className="bg-amber-50 p-3 rounded-lg">
-                <h3 className="mb-1 text-xs font-medium text-amber-600 flex items-center">
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Confirmed
-                </h3>
-                {isLoading ? (
-                  <Loading />
-                ) : (
-                  <div>
-                    <p className="text-3xl font-bold text-[#1A365D]">{confirmedTodayMetrics.current}</p>
-                    {confirmedTodayMetrics.previous > 0 && (
-                      <div className="mt-1 text-xs text-gray-500">vs {confirmedTodayMetrics.previous} yesterday</div>
-                    )}
-                  </div>
-                )}
+              <div>
+                <h3 className="mb-1 text-xs font-medium text-[#8B909A]">Confirmed</h3>
+                {isLoading && <Loading />}
+                <p className="text-4xl font-bold text-[#1A365D]">{isLoading ? "..." : confirmedToday}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Third row: Arriving Today */}
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <div className="bg-[#2a69ac]/10 p-2 rounded-lg mr-3">
-                <Car className="h-5 w-5 text-[#2a69ac]" />
-              </div>
-              <h2 className="text-lg font-semibold text-[#1A365D]">Arriving Today</h2>
-            </div>
-            {!isLoading && (
-              <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full">
-                {arrivingToday.length} appointments
-              </div>
-            )}
-          </div>
-          
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-lg font-bold text-[#2A69AC]">Arriving Today</h2>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="text-[#2A69AC] font-medium">Reservation ID</TableHead>
-                  <TableHead className="text-[#2A69AC] font-medium">Customer</TableHead>
-                  <TableHead className="text-[#2A69AC] font-medium">Car Model</TableHead>
+                <TableRow>
+                  <TableHead className="text-[#8B909A]">Reservation ID</TableHead>
+                  <TableHead className="text-[#8B909A]">Customer</TableHead>
+                  <TableHead className="text-[#8B909A]">Car Model</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-6">
-                      <Loading />
+                    <TableCell colSpan={3} className="text-center text-[#8B909A]">
+                      Loading...
                     </TableCell>
                   </TableRow>
                 ) : arrivingToday.length > 0 ? (
                   arrivingToday.map((reservation) => (
-                    <TableRow key={reservation.id} className="hover:bg-gray-50">
-                      <TableCell className="text-[#1A365D] font-medium">#{reservation.id}</TableCell>
-                      <TableCell className="text-[#1A365D]">{reservation.customerName}</TableCell>
-                      <TableCell className="text-[#1A365D]">{reservation.carModel}</TableCell>
+                    <TableRow key={reservation.id}>
+                      <TableCell className="text-[#1A365D] uppercase">#{reservation.id}</TableCell>
+                      <TableCell className="text-[#1A365D] uppercase">{reservation.customerName}</TableCell>
+                      <TableCell className="text-[#1A365D] uppercase">{reservation.carModel}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-[#8B909A] py-6">
+                    <TableCell colSpan={3} className="text-center text-[#8B909A]">
                       No reservations arriving today
                     </TableCell>
                   </TableRow>
