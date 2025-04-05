@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db, auth, storage } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Pencil, Save, X, Upload, User } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
@@ -103,19 +103,52 @@ export default function ProfilePage() {
     
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `profileImages/${auth.currentUser.uid}`);
-      await uploadBytes(storageRef, imageFile);
-      const downloadUrl = await getDownloadURL(storageRef);
+      // Simpler upload approach to work with RLS policies
+      const fileExt = imageFile.name.split('.').pop();
+      // Use a simple file path that's likely to be allowed by your policy
+      const fileName = `${Date.now()}.${fileExt}`;
+      // Try without any folders first
+      const filePath = fileName;
       
+      console.log("Attempting upload:", { 
+        bucket: 'profile-pics',
+        filePath,
+        fileType: imageFile.type,
+        fileSize: `${(imageFile.size / 1024).toFixed(2)} KB`
+      });
+      
+      // Simple upload without extra options
+      const { data, error } = await supabase.storage
+        .from('profile-pics') 
+        .upload(filePath, imageFile, {
+          upsert: true
+        });
+      
+      if (error) {
+        console.error("Upload error details:", error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+      
+      console.log("Upload successful:", data);
+      
+      // Get the public URL
+      const publicUrlResult = supabase.storage
+        .from('profile-pics')
+        .getPublicUrl(filePath);
+      
+      const publicUrl = publicUrlResult.data.publicUrl;
+      
+      // Update Firebase profile
       const profileRef = doc(db, "accounts", auth.currentUser.uid);
-      await updateDoc(profileRef, { photoURL: downloadUrl });
+      await updateDoc(profileRef, { photoURL: publicUrl });
       
-      setProfile(prev => ({ ...prev, photoURL: downloadUrl }));
+      // Update local state
+      setProfile(prev => ({ ...prev, photoURL: publicUrl }));
       setImageFile(null);
       alert("Profile picture uploaded successfully!");
     } catch (error) {
       console.error("Error uploading profile image:", error);
-      alert("Failed to upload profile picture. Please try again.");
+      alert(`Failed to upload profile picture: ${(error as Error).message || "Unknown error"}`);
     } finally {
       setIsUploading(false);
     }

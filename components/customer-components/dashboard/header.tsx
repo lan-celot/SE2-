@@ -1,16 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell } from "lucide-react"
-import Image from "next/image"
+import { Bell, User as LucideUser } from "lucide-react"
 import { Button } from "@/components/customer-components/ui/button"
-import { db, auth } from "@/lib/firebase" // Import Firebase
-import { doc, getDoc } from "firebase/firestore" // Firestore functions
-import { onAuthStateChanged } from "firebase/auth" // Firebase Auth
+import { db, auth } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
 import Cookies from "js-cookie"
 
 interface HeaderProps {
   title?: string
+}
+
+interface UserData {
+  firstName: string;
+  photoURL?: string;
 }
 
 export function DashboardHeader({ title }: HeaderProps) {
@@ -23,6 +27,12 @@ export function DashboardHeader({ title }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [userFirstName, setUserFirstName] = useState<string | null>(null)
+  const [user, setUser] = useState<UserData>({
+    firstName: "",
+    photoURL: ""
+  })
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -36,25 +46,37 @@ export function DashboardHeader({ title }: HeaderProps) {
     const firstName = Cookies.get("userFirstName")
     if (firstName) {
       setUserFirstName(firstName)
-      return
     }
 
     // If not in cookies, fall back to Firebase Auth
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userDocRef = doc(db, "accounts", user.uid)
-        const userDocSnap = await getDoc(userDocRef)
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        setFirebaseUser(authUser)
+        const userDocRef = doc(db, "accounts", authUser.uid)
+        
+        try {
+          const userDocSnap = await getDoc(userDocRef)
 
-        if (userDocSnap.exists()) {
-          const firstName = userDocSnap.data().firstName
-          setUserFirstName(firstName)
-          // Save to cookies for future use
-          Cookies.set("userFirstName", firstName, { expires: 7 })
-        } else {
-          console.log("User document not found in Firestore")
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data() as UserData
+            setUser(userData)
+            setUserFirstName(userData.firstName)
+            
+            // Save to cookies for future use
+            if (userData.firstName) {
+              Cookies.set("userFirstName", userData.firstName, { expires: 7 })
+            }
+          } else {
+            console.log("User document not found in Firestore")
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error)
+        } finally {
+          setIsLoading(false)
         }
       } else {
         setUserFirstName(null)
+        setIsLoading(false)
       }
     })
 
@@ -78,13 +100,27 @@ export function DashboardHeader({ title }: HeaderProps) {
     setShowNotifications(false)
   }
 
+  if (isLoading) {
+    return (
+      <header className="bg-[#EBF8FF]">
+        <div className="flex justify-between items-center px-6 py-4 animate-pulse">
+          <div className="h-8 w-48 bg-gray-200 rounded"></div>
+          <div className="flex items-center gap-4">
+            <div className="h-8 w-24 bg-gray-200 rounded"></div>
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="bg-[#EBF8FF]">
       <div className="flex justify-between items-center px-6 py-4">
         <h1 className="text-2xl font-semibold text-gray-900">
           {title || (
             <>
-              Welcome back, <span className="text-[#2a69ac]">{userFirstName ? userFirstName : "User"}</span>
+              Welcome back, <span className="text-[#2a69ac]">{userFirstName || "User"}</span>
             </>
           )}
         </h1>
@@ -148,18 +184,19 @@ export function DashboardHeader({ title }: HeaderProps) {
             )}
           </div>
 
-          <div className="h-8 w-8 rounded-full overflow-hidden">
-            <Image
-              src="/placeholder.svg"
-              alt="User avatar"
-              width={32}
-              height={32}
-              className="h-full w-full object-cover"
-            />
+          <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-[#3579b8]/20">
+            {user.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt="Profile" 
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <LucideUser className="h-5 w-5 text-gray-400" />
+            )}
           </div>
         </div>
       </div>
     </header>
   )
 }
-
