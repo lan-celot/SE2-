@@ -178,6 +178,17 @@ export function RegisterForm() {
     setShowTermsPopup(false)
   }
 
+  // Handle checkbox click
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    // If checkbox is not already checked and user tries to check it directly
+    if (!form.getValues().terms) {
+      e.preventDefault() // Prevent default checkbox behavior
+      setShowTermsPopup(true)
+      setHasScrolledToBottom(false)
+    }
+    // If it's already checked, allow unchecking
+  }
+
   // Check if username exists in database
   const checkUsername = React.useCallback(async (username: string) => {
     if (username.length < 3) {
@@ -751,7 +762,12 @@ export function RegisterForm() {
           render={({ field }) => (
             <FormItem className="flex flex-row items-start space-x-3 space-y-0">
               <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} id="terms-checkbox" />
+                <Checkbox 
+                  checked={field.value} 
+                  onCheckedChange={field.onChange} 
+                  id="terms-checkbox"
+                  onClick={handleCheckboxClick}  
+                />
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel className="text-sm text-gray-600">
