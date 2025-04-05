@@ -4,90 +4,122 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/customer-components/ui/button"
 import { useEffect, useState } from "react"
 import { db, auth } from "@/lib/firebase"
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+
+// Updated to match Firestore document structure
+interface BookingData {
+  id: string;
+  createdAt?: any; // Can be Firestore timestamp or string
+  carModel?: string;
+  reservationDate?: string;
+  userId?: string;
+}
 
 interface ConfirmationPageProps {
-  formData: any
-  onBookAgain: () => void
-  bookingId?: string // Optional direct booking ID if available
+  formData: any;
+  onBookAgain: () => void;
+  bookingId?: string; // Optional direct booking ID if available
 }
 
 export function ConfirmationPage({ formData, onBookAgain, bookingId }: ConfirmationPageProps) {
-  const router = useRouter()
-  const [reservationId, setReservationId] = useState<string>("Loading...")
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const [reservationId, setReservationId] = useState<string>("Loading...");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReservationId = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-        const user = auth.currentUser
+        setIsLoading(true);
+        setError(null);
+        const user = auth.currentUser;
         
         if (!user) {
-          console.log("User not authenticated")
-          setError("Authentication required")
-          setIsLoading(false)
-          return
+          console.log("User not authenticated");
+          setError("Authentication required");
+          setIsLoading(false);
+          return;
         }
 
         // Option 1: If we have a direct booking ID, use it
         if (bookingId) {
-          console.log("Using provided bookingId:", bookingId)
-          const bookingRef = doc(db, "bookings", bookingId)
-          const bookingSnap = await getDoc(bookingRef)
+          console.log("Using provided bookingId:", bookingId);
+          const bookingRef = doc(db, "bookings", bookingId);
+          const bookingSnap = await getDoc(bookingRef);
           
           if (bookingSnap.exists()) {
-            console.log("Found booking with ID:", bookingSnap.id)
-            setReservationId(bookingSnap.id)
+            console.log("Found booking with ID:", bookingSnap.id);
+            setReservationId(bookingSnap.id);
           } else {
-            console.log("Booking document not found with ID:", bookingId)
-            setError("Booking not found")
+            console.log("Booking document not found with ID:", bookingId);
+            setError("Booking not found");
           }
-          setIsLoading(false)
-          return
+          setIsLoading(false);
+          return;
         }
         
         // Option 2: Get the most recent booking
         try {
-          console.log("Fetching most recent booking for user:", user.uid)
-          const bookingsRef = collection(db, "bookings")
+          console.log("Fetching most recent booking for user:", user.uid);
+          const bookingsRef = collection(db, "bookings");
           const q = query(
             bookingsRef,
             where("userId", "==", user.uid)
-          )
+          );
           
-          const querySnapshot = await getDocs(q)
+          const querySnapshot = await getDocs(q);
           
           if (querySnapshot.empty) {
-            console.log("No bookings found for user")
-            setError("No bookings found")
-            setIsLoading(false)
-            return
+            console.log("No bookings found for user");
+            setError("No bookings available");
+            setIsLoading(false);
+            return;
           }
           
           // Get all bookings and sort them by createdAt (most recent first)
-          // This avoids the need for Firestore indexes
-          const allBookings = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+          const allBookings: BookingData[] = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              createdAt: data.createdAt,
+              carModel: data.carModel,
+              reservationDate: data.reservationDate,
+              userId: data.userId
+            };
+          });
           
           // Sort by createdAt if available, newest first
           allBookings.sort((a, b) => {
-            if (a.createdAt && b.createdAt) {
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            }
-            return 0;
+            // Handle Firestore timestamps or string dates
+            const getTime = (timestamp: any): number => {
+              if (!timestamp) return 0;
+              
+              if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+                // Handle Firestore Timestamp
+                return timestamp.toDate().getTime();
+              }
+              
+              if (timestamp.seconds && timestamp.nanoseconds) {
+                // Handle Firestore Timestamp in a different format
+                return new Date(timestamp.seconds * 1000).getTime();
+              }
+              
+              // Handle string dates or other formats
+              return new Date(timestamp).getTime();
+            };
+            
+            const timeA = getTime(a.createdAt);
+            const timeB = getTime(b.createdAt);
+            
+            return timeB - timeA;
           });
           
           // For debugging
           console.log("All bookings:", allBookings.map(b => ({
             id: b.id,
-            createdAt: b.createdAt,
-            carModel: b.carModel,
-            reservationDate: b.reservationDate
+            createdAt: b.createdAt ? (typeof b.createdAt === 'object' ? 'timestamp' : b.createdAt) : 'undefined',
+            carModel: b.carModel || 'undefined',
+            reservationDate: b.reservationDate || 'undefined'
           })));
           
           // Take the most recent booking regardless of other criteria
@@ -103,15 +135,15 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
           setError("Error fetching bookings");
         }
       } catch (error) {
-        console.error("Error in fetchReservationId:", error)
-        setError("Error retrieving booking ID")
+        console.error("Error in fetchReservationId:", error);
+        setError("Error retrieving booking ID");
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchReservationId()
-  }, [bookingId, formData])
+    fetchReservationId();
+  }, [bookingId, formData]);
 
   return (
     <div className="space-y-6">
@@ -196,5 +228,5 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
         </Button>
       </div>
     </div>
-  )
+  );
 }
