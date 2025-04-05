@@ -41,8 +41,7 @@ const formSchema = z
     username: z.string().min(3, "Username must be at least 3 characters"),
     phoneNumber: z
       .string()
-      .regex(/^09\d{9}$/, "Phone number must be in format: 09XXXXXXXXX")
-      .length(11, "Phone number must be exactly 11 digits"),
+      .regex(/^09\d{9}$/, "Phone number must start with 09 and be exactly 11 digits"),
     gender: z.enum(["MALE", "FEMALE", "OTHERS"]),
     dateOfBirth: z
       .string()
@@ -111,11 +110,7 @@ export function RegisterForm() {
   const [showTermsPopup, setShowTermsPopup] = React.useState(false)
   const [hasScrolledToBottom, setHasScrolledToBottom] = React.useState(false)
   const termsContainerRef = React.useRef<HTMLDivElement>(null)
-
-  // Track if fields are being edited
-  const [isEditingEmail, setIsEditingEmail] = React.useState(false)
-  const [isEditingUsername, setIsEditingUsername] = React.useState(false)
-  const [isEditingPhone, setIsEditingPhone] = React.useState(false)
+  const [termsContentHeight, setTermsContentHeight] = React.useState(0)
 
   // Debounce timers
   const usernameTimer = React.useRef<NodeJS.Timeout | null>(null)
@@ -138,7 +133,7 @@ export function RegisterForm() {
       confirmPassword: "",
       terms: false,
     },
-    mode: "onBlur", // Change to onBlur so validation happens after focus leaves the field
+    mode: "onChange", // Add this to enable real-time validation
   })
 
   // Clear error message when user interacts with the form
@@ -149,9 +144,28 @@ export function RegisterForm() {
     return () => subscription.unsubscribe()
   }, [form, error])
 
+  // Reset scroll state when popup opens and measure content height
+  React.useEffect(() => {
+    if (showTermsPopup) {
+      setHasScrolledToBottom(false)
+
+      // Use a timeout to ensure the DOM has rendered
+      setTimeout(() => {
+        if (termsContainerRef.current) {
+          // Store the actual content height
+          setTermsContentHeight(termsContainerRef.current.scrollHeight)
+
+          // Reset scroll position to top
+          termsContainerRef.current.scrollTop = 0
+        }
+      }, 100)
+    }
+  }, [showTermsPopup])
+
   // Handle terms popup scroll event
   const handleTermsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget
+
     // Check if scrolled to bottom (with a small threshold)
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 5) {
       setHasScrolledToBottom(true)
@@ -166,7 +180,10 @@ export function RegisterForm() {
 
   // Check if username exists in database
   const checkUsername = React.useCallback(async (username: string) => {
-    if (username.length < 3) return
+    if (username.length < 3) {
+      setUsernameError("Username must be at least 3 characters")
+      return
+    }
 
     try {
       const usernameQuery = query(collection(db, "accounts"), where("username", "==", username))
@@ -182,27 +199,34 @@ export function RegisterForm() {
     }
   }, [])
 
-  // Check if phone number exists in database
-  const checkPhoneNumber = React.useCallback(async (phoneNumber: string) => {
-    if (!phoneNumber.match(/^09\d{9}$/)) return
-
-    try {
-      const phoneQuery = query(collection(db, "accounts"), where("phoneNumber", "==", phoneNumber))
-      const phoneSnapshot = await getDocs(phoneQuery)
-
-      if (!phoneSnapshot.empty) {
-        setPhoneError("Phone number already registered. Please use another one.")
-      } else {
-        setPhoneError(null)
-      }
-    } catch (err) {
-      console.error("Error checking phone number:", err)
+  // Validate email format
+  const validateEmail = (email: string) => {
+    // Count @ symbols
+    const atSymbols = (email.match(/@/g) || []).length
+    // Check for .com (case insensitive)
+    const hasDotCom = /.com$/i.test(email)
+    
+    if (email.length === 0) {
+      return "Email Address is required"
+    } else if (atSymbols === 0) {
+      return "Email must contain an @ symbol"
+    } else if (atSymbols > 1) {
+      return "Email must contain only one @ symbol"
+    } else if (!hasDotCom) {
+      return "Email must end with .com"
     }
-  }, [])
+    
+    return null
+  }
 
-  // Check if email exists in database
+  // Check if email exists in database and validate format
   const checkEmail = React.useCallback(async (email: string) => {
-    if (!email.includes("@")) return
+    // First validate email format
+    const formatError = validateEmail(email)
+    if (formatError) {
+      setEmailError(formatError)
+      return
+    }
 
     try {
       const emailQuery = query(collection(db, "accounts"), where("email", "==", email))
@@ -215,6 +239,36 @@ export function RegisterForm() {
       }
     } catch (err) {
       console.error("Error checking email:", err)
+    }
+  }, [])
+
+  // Check if phone number exists in database and validate format
+  const checkPhoneNumber = React.useCallback(async (phoneNumber: string) => {
+    if (phoneNumber.length > 0 && !phoneNumber.startsWith('09')) {
+      setPhoneError("Phone number must start with 09")
+      return
+    }
+    
+    if (phoneNumber.length > 0 && phoneNumber.length !== 11) {
+      setPhoneError("Phone number must be exactly 11 digits")
+      return
+    }
+
+    if (!phoneNumber.match(/^09\d{9}$/)) {
+      return
+    }
+
+    try {
+      const phoneQuery = query(collection(db, "accounts"), where("phoneNumber", "==", phoneNumber))
+      const phoneSnapshot = await getDocs(phoneQuery)
+
+      if (!phoneSnapshot.empty) {
+        setPhoneError("Phone number already registered. Please use another one.")
+      } else {
+        setPhoneError(null)
+      }
+    } catch (err) {
+      console.error("Error checking phone number:", err)
     }
   }, [])
 
@@ -357,27 +411,26 @@ export function RegisterForm() {
 
     // Update the form
     form.setValue("phoneNumber", limitedValue)
-    setPhoneError(null)
-
-    // Mark as editing
-    setIsEditingPhone(true)
+    
+    // Immediate feedback if doesn't start with 09
+    if (limitedValue.length > 0 && !limitedValue.startsWith('09')) {
+      setPhoneError("Phone number must start with 09")
+    } else if (limitedValue.length > 0 && limitedValue.length !== 11) {
+      setPhoneError("Phone number must be exactly 11 digits")
+    } else {
+      setPhoneError(null)
+    }
 
     // Clear any existing timer
     if (phoneTimer.current) clearTimeout(phoneTimer.current)
-  }
 
-  // Check if terms content needs scrolling when popup opens
-  React.useEffect(() => {
-    if (showTermsPopup && termsContainerRef.current) {
-      const container = termsContainerRef.current
-      // If content height is less than or equal to container height, no scrolling is needed
-      if (container.scrollHeight <= container.clientHeight) {
-        setHasScrolledToBottom(true)
-      } else {
-        setHasScrolledToBottom(false)
-      }
+    // Set a new timer to check phone number after typing stops
+    if (limitedValue.length > 0) {
+      phoneTimer.current = setTimeout(() => {
+        checkPhoneNumber(limitedValue)
+      }, 500)
     }
-  }, [showTermsPopup])
+  }
 
   return (
     <Form {...form}>
@@ -415,22 +468,26 @@ export function RegisterForm() {
               </button>
             </div>
 
-            {/* Scrollable terms content */}
+            {/* Scrollable terms content - Fixed height to ensure scrollability */}
             <div
               ref={termsContainerRef}
               className="overflow-y-auto px-5 py-4 text-[#1A365D] text-sm"
               style={{
-                maxHeight: "calc(90vh - 150px)",
+                height: "300px", // Fixed height to ensure scrolling is required
                 scrollbarWidth: "thin",
                 scrollbarColor: "#2A69AC #ebf8ff",
               }}
               onScroll={handleTermsScroll}
             >
-              {termsContent.split("\n\n").map((paragraph, index) => (
-                <p key={index} className="mb-4">
-                  {paragraph}
-                </p>
-              ))}
+              <div className="pb-4">
+                {termsContent.split("\n\n").map((paragraph, index) => (
+                  <p key={index} className="mb-4">
+                    {paragraph}
+                  </p>
+                ))}
+                {/* Add a note at the bottom to indicate end of terms */}
+                <p className="text-center text-[#2A69AC] font-medium pt-2">--- End of Terms and Conditions ---</p>
+              </div>
             </div>
 
             {/* Bottom button area */}
@@ -482,51 +539,39 @@ export function RegisterForm() {
         <FormField
           control={form.control}
           name="email"
-          render={({ field }) => {
-            return (
-              <FormItem>
-                <FormControl>
-                  <Input
-                    placeholder="Email"
-                    className={cn("bg-white/50", emailError && "border-red-500 focus-visible:ring-red-500")}
-                    {...field}
-                    onFocus={() => {
-                      setIsEditingEmail(true)
-                      // Clear errors while typing
-                      setEmailError(null)
-                      form.clearErrors("email")
-                    }}
-                    onChange={(e) => {
-                      field.onChange(e)
-                      setEmailError(null)
-                      // Clear any existing timer
-                      if (emailTimer.current) clearTimeout(emailTimer.current)
-                    }}
-                    onBlur={(e) => {
-                      field.onBlur()
-                      setIsEditingEmail(false)
-                      
-                      // Only validate after user stops typing
-                      if (e.target.value) {
-                        // Clear any existing timer
-                        if (emailTimer.current) clearTimeout(emailTimer.current)
-                        
-                        // Set a new timer to check email after typing stops
-                        emailTimer.current = setTimeout(() => {
-                          checkEmail(e.target.value)
-                        }, 500)
-                      }
-                    }}
-                  />
-                </FormControl>
-                {emailError ? (
-                  <p className="text-sm font-medium text-red-500">{emailError}</p>
-                ) : (
-                  !isEditingEmail && <FormMessage />
-                )}
-              </FormItem>
-            )
-          }}
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  placeholder="Email"
+                  className={cn("bg-white/50", emailError && "border-red-500 focus-visible:ring-red-500")}
+                  {...field}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    // Clear any existing timer
+                    if (emailTimer.current) clearTimeout(emailTimer.current)
+
+                    // Set a new timer to check email after typing stops
+                    emailTimer.current = setTimeout(() => {
+                      checkEmail(e.target.value)
+                    }, 3000) // 3 seconds delay as requested
+                  }}
+                  onChange={(e) => {
+                    field.onChange(e)
+
+                    // Clear any existing timer
+                    if (emailTimer.current) clearTimeout(emailTimer.current)
+
+                    // Set a new timer to check email after typing stops
+                    emailTimer.current = setTimeout(() => {
+                      checkEmail(e.target.value)
+                    }, 3000) // 3 seconds delay as requested
+                  }}
+                />
+              </FormControl>
+              {emailError ? <p className="text-sm font-medium text-red-500">{emailError}</p> : <FormMessage />}
+            </FormItem>
+          )}
         />
 
         <FormField
@@ -539,40 +584,28 @@ export function RegisterForm() {
                   placeholder="Username"
                   className={cn("bg-white/50", usernameError && "border-red-500 focus-visible:ring-red-500")}
                   {...field}
-                  onFocus={() => {
-                    setIsEditingUsername(true)
-                    // Clear errors while typing
-                    setUsernameError(null)
-                    form.clearErrors("username")
+                  onBlur={(e) => {
+                    field.onBlur()
+                    // Clear any existing timer
+                    if (usernameTimer.current) clearTimeout(usernameTimer.current)
+
+                    // Check username immediately on blur
+                    checkUsername(e.target.value)
                   }}
                   onChange={(e) => {
                     field.onChange(e)
-                    setUsernameError(null)
+                    
                     // Clear any existing timer
                     if (usernameTimer.current) clearTimeout(usernameTimer.current)
-                  }}
-                  onBlur={(e) => {
-                    field.onBlur()
-                    setIsEditingUsername(false)
-                    
-                    // Only validate after user stops typing
-                    if (e.target.value) {
-                      // Clear any existing timer
-                      if (usernameTimer.current) clearTimeout(usernameTimer.current)
-                      
-                      // Set a new timer to check username after typing stops
-                      usernameTimer.current = setTimeout(() => {
-                        checkUsername(e.target.value)
-                      }, 500)
-                    }
+
+                    // Set a new timer to check username after typing stops
+                    usernameTimer.current = setTimeout(() => {
+                      checkUsername(e.target.value)
+                    }, 3000) // 3 seconds delay as requested
                   }}
                 />
               </FormControl>
-              {usernameError ? (
-                <p className="text-sm font-medium text-red-500">{usernameError}</p>
-              ) : (
-                !isEditingUsername && <FormMessage />
-              )}
+              {usernameError ? <p className="text-sm font-medium text-red-500">{usernameError}</p> : <FormMessage />}
             </FormItem>
           )}
         />
@@ -590,37 +623,13 @@ export function RegisterForm() {
                   type="tel"
                   inputMode="numeric"
                   value={field.value}
-                  onFocus={() => {
-                    setIsEditingPhone(true)
-                    // Clear errors while typing
-                    setPhoneError(null)
-                    form.clearErrors("phoneNumber")
-                  }}
                   onChange={(e) => {
                     handlePhoneNumberInput(e)
                   }}
-                  onBlur={(e) => {
-                    field.onBlur()
-                    setIsEditingPhone(false)
-                    
-                    // Only check phone number after field loses focus
-                    if (e.target.value && e.target.value.match(/^09\d{9}$/)) {
-                      // Clear any existing timer
-                      if (phoneTimer.current) clearTimeout(phoneTimer.current)
-                      
-                      // Set a new timer to check phone after typing stops
-                      phoneTimer.current = setTimeout(() => {
-                        checkPhoneNumber(e.target.value)
-                      }, 500)
-                    }
-                  }}
+                  onBlur={field.onBlur}
                 />
               </FormControl>
-              {phoneError ? (
-                <p className="text-sm font-medium text-red-500">{phoneError}</p>
-              ) : (
-                !isEditingPhone && <FormMessage />
-              )}
+              {phoneError ? <p className="text-sm font-medium text-red-500">{phoneError}</p> : <FormMessage />}
             </FormItem>
           )}
         />
