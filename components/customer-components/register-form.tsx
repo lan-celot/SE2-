@@ -112,7 +112,12 @@ export function RegisterForm() {
   const [hasScrolledToBottom, setHasScrolledToBottom] = React.useState(false)
   const termsContainerRef = React.useRef<HTMLDivElement>(null)
 
-  // Debounce timers\
+  // Track if fields are being edited
+  const [isEditingEmail, setIsEditingEmail] = React.useState(false)
+  const [isEditingUsername, setIsEditingUsername] = React.useState(false)
+  const [isEditingPhone, setIsEditingPhone] = React.useState(false)
+
+  // Debounce timers
   const usernameTimer = React.useRef<NodeJS.Timeout | null>(null)
   const phoneTimer = React.useRef<NodeJS.Timeout | null>(null)
   const emailTimer = React.useRef<NodeJS.Timeout | null>(null)
@@ -133,7 +138,7 @@ export function RegisterForm() {
       confirmPassword: "",
       terms: false,
     },
-    mode: "onChange", // Add this to enable real-time validation
+    mode: "onBlur", // Change to onBlur so validation happens after focus leaves the field
   })
 
   // Clear error message when user interacts with the form
@@ -354,15 +359,11 @@ export function RegisterForm() {
     form.setValue("phoneNumber", limitedValue)
     setPhoneError(null)
 
+    // Mark as editing
+    setIsEditingPhone(true)
+
     // Clear any existing timer
     if (phoneTimer.current) clearTimeout(phoneTimer.current)
-
-    // Set a new timer to check phone number after typing stops
-    if (limitedValue.match(/^09\d{9}$/)) {
-      phoneTimer.current = setTimeout(() => {
-        checkPhoneNumber(limitedValue)
-      }, 500)
-    }
   }
 
   // Check if terms content needs scrolling when popup opens
@@ -481,40 +482,51 @@ export function RegisterForm() {
         <FormField
           control={form.control}
           name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  placeholder="Email"
-                  className={cn("bg-white/50", emailError && "border-red-500 focus-visible:ring-red-500")}
-                  {...field}
-                  onBlur={(e) => {
-                    field.onBlur()
-                    // Clear any existing timer
-                    if (emailTimer.current) clearTimeout(emailTimer.current)
-
-                    // Set a new timer to check email after typing stops
-                    emailTimer.current = setTimeout(() => {
-                      checkEmail(e.target.value)
-                    }, 500)
-                  }}
-                  onChange={(e) => {
-                    field.onChange(e)
-                    setEmailError(null)
-
-                    // Clear any existing timer
-                    if (emailTimer.current) clearTimeout(emailTimer.current)
-
-                    // Set a new timer to check email after typing stops
-                    emailTimer.current = setTimeout(() => {
-                      checkEmail(e.target.value)
-                    }, 500)
-                  }}
-                />
-              </FormControl>
-              {emailError ? <p className="text-sm font-medium text-red-500">{emailError}</p> : <FormMessage />}
-            </FormItem>
-          )}
+          render={({ field }) => {
+            return (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    placeholder="Email"
+                    className={cn("bg-white/50", emailError && "border-red-500 focus-visible:ring-red-500")}
+                    {...field}
+                    onFocus={() => {
+                      setIsEditingEmail(true)
+                      // Clear errors while typing
+                      setEmailError(null)
+                      form.clearErrors("email")
+                    }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      setEmailError(null)
+                      // Clear any existing timer
+                      if (emailTimer.current) clearTimeout(emailTimer.current)
+                    }}
+                    onBlur={(e) => {
+                      field.onBlur()
+                      setIsEditingEmail(false)
+                      
+                      // Only validate after user stops typing
+                      if (e.target.value) {
+                        // Clear any existing timer
+                        if (emailTimer.current) clearTimeout(emailTimer.current)
+                        
+                        // Set a new timer to check email after typing stops
+                        emailTimer.current = setTimeout(() => {
+                          checkEmail(e.target.value)
+                        }, 500)
+                      }
+                    }}
+                  />
+                </FormControl>
+                {emailError ? (
+                  <p className="text-sm font-medium text-red-500">{emailError}</p>
+                ) : (
+                  !isEditingEmail && <FormMessage />
+                )}
+              </FormItem>
+            )
+          }}
         />
 
         <FormField
@@ -527,31 +539,40 @@ export function RegisterForm() {
                   placeholder="Username"
                   className={cn("bg-white/50", usernameError && "border-red-500 focus-visible:ring-red-500")}
                   {...field}
-                  onBlur={(e) => {
-                    field.onBlur()
-                    // Clear any existing timer
-                    if (usernameTimer.current) clearTimeout(usernameTimer.current)
-
-                    // Set a new timer to check username after typing stops
-                    usernameTimer.current = setTimeout(() => {
-                      checkUsername(e.target.value)
-                    }, 500)
+                  onFocus={() => {
+                    setIsEditingUsername(true)
+                    // Clear errors while typing
+                    setUsernameError(null)
+                    form.clearErrors("username")
                   }}
                   onChange={(e) => {
                     field.onChange(e)
                     setUsernameError(null)
-
                     // Clear any existing timer
                     if (usernameTimer.current) clearTimeout(usernameTimer.current)
-
-                    // Set a new timer to check username after typing stops
-                    usernameTimer.current = setTimeout(() => {
-                      checkUsername(e.target.value)
-                    }, 500)
+                  }}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    setIsEditingUsername(false)
+                    
+                    // Only validate after user stops typing
+                    if (e.target.value) {
+                      // Clear any existing timer
+                      if (usernameTimer.current) clearTimeout(usernameTimer.current)
+                      
+                      // Set a new timer to check username after typing stops
+                      usernameTimer.current = setTimeout(() => {
+                        checkUsername(e.target.value)
+                      }, 500)
+                    }
                   }}
                 />
               </FormControl>
-              {usernameError ? <p className="text-sm font-medium text-red-500">{usernameError}</p> : <FormMessage />}
+              {usernameError ? (
+                <p className="text-sm font-medium text-red-500">{usernameError}</p>
+              ) : (
+                !isEditingUsername && <FormMessage />
+              )}
             </FormItem>
           )}
         />
@@ -569,13 +590,37 @@ export function RegisterForm() {
                   type="tel"
                   inputMode="numeric"
                   value={field.value}
+                  onFocus={() => {
+                    setIsEditingPhone(true)
+                    // Clear errors while typing
+                    setPhoneError(null)
+                    form.clearErrors("phoneNumber")
+                  }}
                   onChange={(e) => {
                     handlePhoneNumberInput(e)
                   }}
-                  onBlur={field.onBlur}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    setIsEditingPhone(false)
+                    
+                    // Only check phone number after field loses focus
+                    if (e.target.value && e.target.value.match(/^09\d{9}$/)) {
+                      // Clear any existing timer
+                      if (phoneTimer.current) clearTimeout(phoneTimer.current)
+                      
+                      // Set a new timer to check phone after typing stops
+                      phoneTimer.current = setTimeout(() => {
+                        checkPhoneNumber(e.target.value)
+                      }, 500)
+                    }
+                  }}
                 />
               </FormControl>
-              {phoneError ? <p className="text-sm font-medium text-red-500">{phoneError}</p> : <FormMessage />}
+              {phoneError ? (
+                <p className="text-sm font-medium text-red-500">{phoneError}</p>
+              ) : (
+                !isEditingPhone && <FormMessage />
+              )}
             </FormItem>
           )}
         />
@@ -735,4 +780,3 @@ export function RegisterForm() {
     </Form>
   )
 }
-
