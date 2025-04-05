@@ -111,9 +111,8 @@ export function RegisterForm() {
   const [showTermsPopup, setShowTermsPopup] = React.useState(false)
   const [hasScrolledToBottom, setHasScrolledToBottom] = React.useState(false)
   const termsContainerRef = React.useRef<HTMLDivElement>(null)
-  const [termsContentHeight, setTermsContentHeight] = React.useState(0)
 
-  // Debounce timers
+  // Debounce timers\
   const usernameTimer = React.useRef<NodeJS.Timeout | null>(null)
   const phoneTimer = React.useRef<NodeJS.Timeout | null>(null)
   const emailTimer = React.useRef<NodeJS.Timeout | null>(null)
@@ -145,28 +144,9 @@ export function RegisterForm() {
     return () => subscription.unsubscribe()
   }, [form, error])
 
-  // Reset scroll state when popup opens and measure content height
-  React.useEffect(() => {
-    if (showTermsPopup) {
-      setHasScrolledToBottom(false)
-
-      // Use a timeout to ensure the DOM has rendered
-      setTimeout(() => {
-        if (termsContainerRef.current) {
-          // Store the actual content height
-          setTermsContentHeight(termsContainerRef.current.scrollHeight)
-
-          // Reset scroll position to top
-          termsContainerRef.current.scrollTop = 0
-        }
-      }, 100)
-    }
-  }, [showTermsPopup])
-
   // Handle terms popup scroll event
   const handleTermsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget
-
     // Check if scrolled to bottom (with a small threshold)
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 5) {
       setHasScrolledToBottom(true)
@@ -385,6 +365,19 @@ export function RegisterForm() {
     }
   }
 
+  // Check if terms content needs scrolling when popup opens
+  React.useEffect(() => {
+    if (showTermsPopup && termsContainerRef.current) {
+      const container = termsContainerRef.current
+      // If content height is less than or equal to container height, no scrolling is needed
+      if (container.scrollHeight <= container.clientHeight) {
+        setHasScrolledToBottom(true)
+      } else {
+        setHasScrolledToBottom(false)
+      }
+    }
+  }, [showTermsPopup])
+
   return (
     <Form {...form}>
       {error && (
@@ -421,26 +414,22 @@ export function RegisterForm() {
               </button>
             </div>
 
-            {/* Scrollable terms content - Fixed height to ensure scrollability */}
+            {/* Scrollable terms content */}
             <div
               ref={termsContainerRef}
               className="overflow-y-auto px-5 py-4 text-[#1A365D] text-sm"
               style={{
-                height: "300px", // Fixed height to ensure scrolling is required
+                maxHeight: "calc(90vh - 150px)",
                 scrollbarWidth: "thin",
                 scrollbarColor: "#2A69AC #ebf8ff",
               }}
               onScroll={handleTermsScroll}
             >
-              <div className="pb-4">
-                {termsContent.split("\n\n").map((paragraph, index) => (
-                  <p key={index} className="mb-4">
-                    {paragraph}
-                  </p>
-                ))}
-                {/* Add a note at the bottom to indicate end of terms */}
-                <p className="text-center text-[#2A69AC] font-medium pt-2">--- End of Terms and Conditions ---</p>
-              </div>
+              {termsContent.split("\n\n").map((paragraph, index) => (
+                <p key={index} className="mb-4">
+                  {paragraph}
+                </p>
+              ))}
             </div>
 
             {/* Bottom button area */}
