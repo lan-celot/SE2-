@@ -137,7 +137,7 @@ export default function LoginPage() {
               router.push("/admin/dashboard")
             } else {
               // Customer goes to logged-in home page
-              router.push("/customer/logged-in")
+              router.push("/customer/dashboard")
             }
           }, 2000)
         } else {

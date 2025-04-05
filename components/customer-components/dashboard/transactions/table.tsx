@@ -148,7 +148,11 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined | null) => {
+    // Check if amount is undefined, null, or NaN
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return "₱0.00";
+    }
     return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 

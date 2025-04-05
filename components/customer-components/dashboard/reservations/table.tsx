@@ -152,6 +152,11 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     }
   }, [showStatusNotification]);
 
+  const handleAddService = (reservationId: string) => {
+    setExpandedRow(reservationId);
+    setShowAddService(true);
+  };
+
   const handleAddServices = async (selectedServices: string[]) => {
     if (!expandedRow) return;
     const user = auth.currentUser;
@@ -400,7 +405,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                                   {canAddServices(reservation.status) ? (
                                     <Button
                                       className="bg-[#2A69AC] hover:bg-[#1A365D] text-white text-sm font-medium px-4 py-2 rounded-md"
-                                      onClick={() => setShowAddService(true)}
+                                      onClick={() => handleAddService(reservation.id)}
                                     >
                                       Add Service
                                     </Button>
@@ -507,7 +512,16 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         </DialogContent>
       </Dialog>
 
-      <AddServiceDialog open={showAddService} onOpenChange={setShowAddService} onConfirm={handleAddServices} />
+      <AddServiceDialog 
+        open={showAddService} 
+        onOpenChange={setShowAddService} 
+        onConfirm={handleAddServices} 
+        existingServices={
+          expandedRow 
+            ? reservations.find(res => res.id === expandedRow)?.services.map(s => s.service.toUpperCase()) || []
+            : []
+        }
+      />
     </div>
   );
 }
@@ -524,4 +538,3 @@ const getStatusStyle = (status?: string) => {
     default: return "bg-[#8B909A]/10 text-[#8B909A]";
   }
 };
-

@@ -79,7 +79,7 @@ export function ConfirmationPage({ formData, onBookAgain }: ConfirmationPageProp
         <Button onClick={onBookAgain} variant="outline" className="border-[#1e4e8c] text-[#1e4e8c]">
           Book Again
         </Button>
-        <Button onClick={() => router.push("/dashboard/reservations")} className="bg-[#1e4e8c] text-white">
+        <Button onClick={() => router.push("/customer/dashboard/reservations")} className="bg-[#1e4e8c] text-white">
           Go to Reservations
         </Button>
       </div>

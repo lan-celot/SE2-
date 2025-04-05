@@ -4,6 +4,7 @@ import * as React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/customer-components/ui/dialog"
 import { Button } from "@/components/customer-components/ui/button"
 import { Checkbox } from "@/components/customer-components/ui/checkbox"
+import { toast } from "@/hooks/use-toast" // You'll need to make sure this toast import exists or create a similar toast function
 
 interface Service {
   id: string
@@ -11,32 +12,95 @@ interface Service {
 }
 
 const services: Service[] = [
-  { id: "paint_jobs", label: "PAINT JOBS" },
-  { id: "brake_shoes_clean", label: "BRAKE SHOES CLEAN" },
-  { id: "engine_overhaul", label: "ENGINE OVERHAUL" },
-  { id: "suspension_systems", label: "SUSPENSION SYSTEMS" },
-  { id: "brake_shoes_replace", label: "BRAKE SHOES REPLACE" },
-  { id: "brake_clean", label: "BRAKE CLEAN" },
-  { id: "engine_tuning", label: "ENGINE TUNING" },
-  { id: "air_conditioning", label: "AIR CONDITIONING" },
-  { id: "brake_replace", label: "BRAKE REPLACE" },
-  { id: "oil_change", label: "OIL CHANGE" },
+  { id: "PAINT JOBS", label: "PAINT JOBS" },
+  { id: "BRAKE SHOES CLEAN", label: "BRAKE SHOES CLEAN" },
+  { id: "ENGINE OVERHAUL", label: "ENGINE OVERHAUL" },
+  { id: "SUSPENSION SYSTEMS", label: "SUSPENSION SYSTEMS" },
+  { id: "BRAKE SHOES REPLACE", label: "BRAKE SHOES REPLACE" },
+  { id: "BRAKE CLEAN", label: "BRAKE CLEAN" },
+  { id: "ENGINE TUNING", label: "ENGINE TUNING" },
+  { id: "AIR CONDITIONING", label: "AIR CONDITIONING" },
+  { id: "BRAKE REPLACE", label: "BRAKE REPLACE" },
+  { id: "OIL CHANGE", label: "OIL CHANGE" },
 ]
 
 interface AddServiceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: (selectedServices: string[]) => void
+  existingServices?: string[] // New prop to receive existing services
 }
 
-export function AddServiceDialog({ open, onOpenChange, onConfirm }: AddServiceDialogProps) {
+export function AddServiceDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  existingServices = [], // Default to empty array if not provided
+}: AddServiceDialogProps) {
   const [selectedServices, setSelectedServices] = React.useState<string[]>([])
 
-  const handleConfirm = () => {
-    onConfirm(selectedServices.map((id) => id.split("_").join(" ").toUpperCase()))
-    setSelectedServices([])
-    onOpenChange(false)
+  // Format service names to match the format used in the existingServices array
+  const normalizeServiceName = (service: string) => {
+    return service.toUpperCase().replace(/_/g, " ");
   }
+
+  const handleServiceSelection = (serviceId: string, checked: boolean) => {
+    const normalizedServiceId = normalizeServiceName(serviceId);
+    
+    if (checked) {
+      // Check if service already exists in existing services
+      if (existingServices.includes(normalizedServiceId)) {
+        // Use toast if available, or fallback to alert
+        if (typeof toast === 'function') {
+          toast({
+            title: "Service already exists",
+            description: "This service is already added to the reservation.",
+            variant: "destructive",
+          })
+        } else {
+          alert("This service is already added to the reservation.");
+        }
+        return;
+      }
+
+      setSelectedServices((prev) => [...prev, serviceId]);
+    } else {
+      setSelectedServices((prev) => prev.filter((id) => id !== serviceId));
+    }
+  }
+
+  const handleConfirm = () => {
+    // Additional check before confirming
+    const normalizedSelected = selectedServices.map(normalizeServiceName);
+    const duplicates = normalizedSelected.filter((service) => 
+      existingServices.includes(service)
+    );
+
+    if (duplicates.length > 0) {
+      // Use toast if available, or fallback to alert
+      if (typeof toast === 'function') {
+        toast({
+          title: "Duplicate services found",
+          description: "Some selected services are already in the reservation.",
+          variant: "destructive",
+        })
+      } else {
+        alert("Some selected services are already in the reservation.");
+      }
+      return;
+    }
+
+    onConfirm(selectedServices);
+    setSelectedServices([]);
+    onOpenChange(false);
+  }
+
+  // Reset selected services when dialog opens/closes
+  React.useEffect(() => {
+    if (!open) {
+      setSelectedServices([]);
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -45,22 +109,32 @@ export function AddServiceDialog({ open, onOpenChange, onConfirm }: AddServiceDi
           <DialogTitle className="text-center">What services do you want to add?</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 py-4">
-          {services.map((service) => (
-            <div key={service.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={service.id}
-                checked={selectedServices.includes(service.id)}
-                onCheckedChange={(checked) => {
-                  setSelectedServices((prev) =>
-                    checked ? [...prev, service.id] : prev.filter((id) => id !== service.id),
-                  )
-                }}
-              />
-              <label htmlFor={service.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-                {service.label}
-              </label>
-            </div>
-          ))}
+          {services.map((service) => {
+            const normalizedServiceName = normalizeServiceName(service.id);
+            const isExisting = existingServices.includes(normalizedServiceName);
+            
+            return (
+              <div key={service.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={service.id}
+                  checked={selectedServices.includes(service.id)}
+                  onCheckedChange={(checked) => {
+                    handleServiceSelection(service.id, checked as boolean);
+                  }}
+                  disabled={isExisting} // Disable checkbox if service already exists
+                />
+                <label
+                  htmlFor={service.id}
+                  className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed ${
+                    isExisting ? "text-gray-400" : ""
+                  }`}
+                >
+                  {service.label}
+                  {isExisting && " (Already added)"}
+                </label>
+              </div>
+            );
+          })}
         </div>
         <div className="flex justify-center space-x-2">
           <Button
@@ -73,6 +147,7 @@ export function AddServiceDialog({ open, onOpenChange, onConfirm }: AddServiceDi
           <Button
             variant="outline"
             onClick={handleConfirm}
+            disabled={selectedServices.length === 0}
             className="bg-[#E6FFF3] hover:bg-[#28C76F]/30 text-[#28C76F] hover:text-[#28C76F]"
           >
             Confirm
@@ -82,4 +157,3 @@ export function AddServiceDialog({ open, onOpenChange, onConfirm }: AddServiceDi
     </Dialog>
   )
 }
-
