@@ -598,7 +598,7 @@ export default function LoginPage() {
                   <Button 
                     type="submit" 
                     className="h-12 flex-1 bg-[#2A69AC] hover:bg-[#1A365D]" 
-                    disabled={isResetLoading || (resetCooldownEnd && Date.now() < resetCooldownEnd)}
+                    disabled={isResetLoading || (!!resetCooldownEnd && Date.now() < resetCooldownEnd)}
                   >
                     {isResetLoading ? "Sending..." : "Send Reset Link"}
                   </Button>
