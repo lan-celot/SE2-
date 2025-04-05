@@ -384,58 +384,80 @@ export function RegisterForm() {
       )}
 
       {/* Terms and Conditions Popup */}
-      {showTermsPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowTermsPopup(false)}>
-          <div 
-            className="relative w-full max-w-4xl max-h-[90vh] bg-[#ebf8ff] rounded-lg shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* X button and title */}
-            <div className="p-5 border-b border-[#1A365D]/20 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-[#1A365D]">TERMS AND CONDITIONS</h2>
-              <button 
-                onClick={() => setShowTermsPopup(false)} 
-                className="text-[#1A365D] hover:text-[#2A69AC] transition-colors"
-                aria-label="Close terms and conditions"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            
-            {/* Scrollable terms content */}
-            <div 
-              ref={termsContainerRef}
-              className="overflow-y-auto px-5 py-4 text-[#1A365D] text-sm"
-              style={{ 
-                maxHeight: "calc(90vh - 150px)",
-                scrollbarWidth: "thin",
-                scrollbarColor: "#2A69AC #ebf8ff"
-              }}
-              onScroll={handleTermsScroll}
-            >
-              {termsContent.split('\n\n').map((paragraph, index) => (
-                <p key={index} className="mb-4">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-            
-            {/* Bottom button area */}
-            <div className="p-5 border-t border-[#1A365D]/20 flex justify-center">
-              <Button 
-                onClick={acceptTerms}
-                disabled={!hasScrolledToBottom}
-                className={cn(
-                  "bg-[#2A69AC] hover:bg-[#1A365D] text-white w-full py-3 text-lg font-medium transition-all duration-300",
-                  !hasScrolledToBottom ? "opacity-50 cursor-not-allowed" : ""
-                )}
-              >
-                I HAVE READ THE TERMS AND CONDITIONS
-              </Button>
+{showTermsPopup && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowTermsPopup(false)}>
+    <div 
+      className="relative w-full max-w-4xl max-h-[90vh] bg-[#ebf8ff] rounded-lg shadow-xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* X button and title */}
+      <div className="p-5 border-b border-[#1A365D]/20 flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-[#1A365D]">TERMS AND CONDITIONS</h2>
+        <button 
+          onClick={() => setShowTermsPopup(false)} 
+          className="text-[#1A365D] hover:text-[#2A69AC] transition-colors"
+          aria-label="Close terms and conditions"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+      
+      {/* Scrollable terms content */}
+      <div 
+        ref={termsContainerRef}
+        className="overflow-y-auto px-5 py-4 text-[#1A365D] text-sm"
+        style={{ 
+          maxHeight: "calc(90vh - 150px)",
+          scrollbarWidth: "thin",
+          scrollbarColor: "#2A69AC #ebf8ff"
+        }}
+        onScroll={handleTermsScroll}
+      >
+        {termsContent.split('\n\n').map((paragraph, index) => (
+          <p key={index} className="mb-4">
+            {paragraph}
+          </p>
+        ))}
+        
+        {/* Add a visual indicator to show there's more content */}
+        {!hasScrolledToBottom && (
+          <div className="sticky bottom-0 w-full py-4 bg-gradient-to-t from-[#ebf8ff] to-transparent text-center">
+            <div className="animate-bounce text-[#2A69AC]">
+              <span className="block mb-1">Scroll to continue</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
             </div>
           </div>
+        )}
+        
+        {/* Place the accept button at the end of the scrollable content when scrolled to bottom */}
+        {hasScrolledToBottom && (
+          <div className="mt-6 mb-4 text-center">
+            <Button 
+              onClick={acceptTerms}
+              className="bg-[#2A69AC] hover:bg-[#1A365D] text-white py-3 px-6 text-lg font-medium transition-all duration-300 w-full md:w-auto"
+            >
+              I HAVE READ THE TERMS AND CONDITIONS
+            </Button>
+          </div>
+        )}
+      </div>
+      
+      {/* Bottom button area - only show when not scrolled to bottom */}
+      {!hasScrolledToBottom && (
+        <div className="p-5 border-t border-[#1A365D]/20 flex justify-center">
+          <Button 
+            disabled={true}
+            className="bg-[#2A69AC] opacity-50 cursor-not-allowed text-white w-full py-3 text-lg font-medium"
+          >
+            I HAVE READ THE TERMS AND CONDITIONS
+          </Button>
         </div>
       )}
+    </div>
+  </div>
+)}
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
