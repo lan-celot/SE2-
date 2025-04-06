@@ -4,18 +4,27 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/customer-components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/customer-components/ui/dialog"
 import { Input } from "@/components/customer-components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/customer-components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/customer-components/ui/select"
 import { PencilIcon, XIcon } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/customer-components/ui/form"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { doc, getDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase" // Adjust the import path to your Firebase config
+import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 // Type definitions for location data
-type Region = string;
-type City = string;
-type Municipality = string;
-type Province = string;
+type Region = string
+type City = string
+type Municipality = string
+type Province = string
 
 interface LocationData {
   provinces: Province[]
@@ -39,104 +48,65 @@ interface LocationHierarchy {
 
 // Philippine location data
 const philippineRegions: Region[] = [
-  "Metro Manila",
+  "Region I (Ilocos Region)",
+  "Region II (Cagayan Valley)",
   "Region III (Central Luzon)",
-  "Region IV-A (CALABARZON)"
-].sort();
+  "Region IV-A (CALABARZON)",
+  "Region IV-B (MIMAROPA)",
+  "Region V (Bicol Region)",
+  "Region VI (Western Visayas)",
+  "Region VII (Central Visayas)",
+  "Region VIII (Eastern Visayas)",
+  "Region IX (Zamboanga Peninsula)",
+  "Region X (Northern Mindanao)",
+  "Region XI (Davao Region)",
+  "Region XII (SOCCSKSARGEN)",
+  "Region XIII (Caraga)",
+  "National Capital Region (NCR)",
+  "Cordillera Administrative Region (CAR)",
+  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
+].sort()
 
-// Location hierarchy with separate city and municipality data
+// Location Hierarchy with separate city and municipality data
 const locationHierarchy: LocationHierarchy = {
-  "Metro Manila": {
-    provinces: ["Metro Manila"],
+  "Region I (Ilocos Region)": {
+    provinces: ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
     cities: {
-      "Metro Manila": ["Manila", "Caloocan", "Makati", "Taguig", "Pasay", "Pasig"]
+      "Ilocos Norte": ["Laoag", "Batac"],
+      "Ilocos Sur": ["Vigan", "Candon"],
+      "La Union": ["San Fernando"],
+      Pangasinan: ["Dagupan", "Alaminos", "San Carlos", "Urdaneta"],
     },
     municipalities: {
-      "Metro Manila": []
+      "Ilocos Norte": ["Paoay", "Pagudpud"],
+      "Ilocos Sur": ["Bantay", "Narvacan"],
+      "La Union": ["Agoo", "Bauang"],
+      Pangasinan: [],
     },
     cityZipCodes: {
-      "Manila": "1000",
-      "Caloocan": "1400",
-      "Makati": "1200",
-      "Taguig": "1630",
-      "Pasay": "1300",
-      "Pasig": "1600"
-    },
-    municipalityZipCodes: {}
-  },
-  "Region IV-A (CALABARZON)": {
-    provinces: ["Cavite", "Laguna", "Batangas", "Rizal", "Quezon"],
-    cities: {
-      "Cavite": ["Bacoor", "Dasmariñas", "Imus"],
-      "Laguna": ["Biñan", "Calamba", "Santa Rosa"],
-      "Rizal": ["Antipolo"],
-      "Batangas": ["Batangas City", "Lipa"],
-      "Quezon": ["Lucena"]
-    },
-    municipalities: {
-      "Cavite": ["Kawit", "Carmona"],
-      "Laguna": ["Los Baños", "Pagsanjan"],
-      "Rizal": ["Cainta", "Taytay"],
-      "Batangas": ["Nasugbu", "San Juan"],
-      "Quezon": ["Sariaya", "Tayabas"]
-    },
-    cityZipCodes: {
-      "Bacoor": "4102",
-      "Dasmariñas": "4114",
-      "Imus": "4103",
-      "Biñan": "4024",
-      "Calamba": "4027",
-      "Santa Rosa": "4026",
-      "Antipolo": "1870",
-      "Batangas City": "4200",
-      "Lipa": "4217",
-      "Lucena": "4301"
+      Laoag: "2900",
+      Batac: "2906",
+      Vigan: "2700",
+      Candon: "2713",
+      "San Fernando": "2500",
+      Dagupan: "2400",
+      Alaminos: "2404",
+      "San Carlos": "2420",
+      Urdaneta: "2428",
     },
     municipalityZipCodes: {
-      "Kawit": "4104",
-      "Carmona": "4116",
-      "Los Baños": "4030",
-      "Pagsanjan": "4008",
-      "Cainta": "1900",
-      "Taytay": "1920",
-      "Nasugbu": "4231",
-      "San Juan": "4226",
-      "Sariaya": "4322",
-      "Tayabas": "4327"
-    }
+      Paoay: "2909",
+      Pagudpud: "2919",
+      Bantay: "2728",
+      Narvacan: "2712",
+      Agoo: "2508",
+      Bauang: "2501",
+    },
   },
-  "Region III (Central Luzon)": {
-    provinces: ["Bulacan", "Pampanga", "Nueva Ecija"],
-    cities: {
-      "Bulacan": ["Malolos", "Meycauayan"],
-      "Pampanga": ["Angeles", "San Fernando"],
-      "Nueva Ecija": ["Cabanatuan", "Palayan"]
-    },
-    municipalities: {
-      "Bulacan": ["Bocaue", "Marilao"],
-      "Pampanga": ["Apalit", "Porac"],
-      "Nueva Ecija": ["Talavera", "Zaragoza"]
-    },
-    cityZipCodes: {
-      "Malolos": "3000",
-      "Meycauayan": "3020",
-      "Angeles": "2009",
-      "San Fernando": "2000",
-      "Cabanatuan": "3100",
-      "Palayan": "3132"
-    },
-    municipalityZipCodes: {
-      "Bocaue": "3012",
-      "Marilao": "3019",
-      "Apalit": "2016",
-      "Porac": "2008",
-      "Talavera": "3114",
-      "Zaragoza": "3110"
-    }
-  }
-};
+  // Add more regions here as needed
+}
 
-// Address schema with validation
+// Updated schema with proper validation chain
 const addressSchema = z
   .object({
     region: z.string().min(1, "Region is required"),
@@ -150,49 +120,49 @@ const addressSchema = z
     (data) => {
       // If region is selected, province is required
       if (data.region) {
-        return !!data.province;
+        return !!data.province
       }
-      return true;
+      return true
     },
     {
       message: "Province is required",
       path: ["province"],
-    }
+    },
   )
   .refine(
     (data) => {
       // If province is selected, either city or municipality must be selected
-      const selectedProvince = data.province;
-      const selectedRegion = data.region;
-      
+      const selectedProvince = data.province
+      const selectedRegion = data.region
+
       if (selectedProvince && selectedRegion) {
-        const hasCities = locationHierarchy[selectedRegion]?.cities[selectedProvince]?.length > 0;
-        const hasMunicipalities = locationHierarchy[selectedRegion]?.municipalities[selectedProvince]?.length > 0;
-        
+        const hasCities = locationHierarchy[selectedRegion]?.cities[selectedProvince]?.length > 0
+        const hasMunicipalities = locationHierarchy[selectedRegion]?.municipalities[selectedProvince]?.length > 0
+
         if (hasCities || hasMunicipalities) {
-          return !!data.city || !!data.municipality;
+          return !!data.city || !!data.municipality
         }
       }
-      return true;
+      return true
     },
     {
       message: "City or Municipality is required",
       path: ["city"],
-    }
+    },
   )
   .refine(
     (data) => {
       // Only validate zipCode if city or municipality is selected
       if (data.city || data.municipality) {
-        return data.zipCode ? /^\d{4}$/.test(data.zipCode) : false;
+        return data.zipCode ? /^\d{4}$/.test(data.zipCode) : false
       }
-      return true;
+      return true
     },
     {
       message: "A valid ZIP code is required",
       path: ["zipCode"],
-    }
-  );
+    },
+  )
 
 // Default empty address
 const emptyAddress = {
@@ -201,148 +171,250 @@ const emptyAddress = {
   city: "",
   municipality: "",
   zipCode: "",
-  streetAddress: ""
-};
+  streetAddress: "",
+}
 
-export function AddressInformation({ 
-  userId, 
-  initialAddress = emptyAddress 
-}: { 
-  userId?: string, 
-  initialAddress?: z.infer<typeof addressSchema> 
+export function AddressInformation({
+  userId: providedUserId,
+  initialAddress = emptyAddress, // Provide default value
+}: {
+  userId?: string
+  initialAddress?: z.infer<typeof addressSchema>
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  
-  const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
-  const [availableCities, setAvailableCities] = useState<string[]>([]);
-  const [availableMunicipalities, setAvailableMunicipalities] = useState<string[]>([]);
-  
+  const [isEditing, setIsEditing] = useState(false)
+  const [availableProvinces, setAvailableProvinces] = useState<string[]>([])
+  const [availableCities, setAvailableCities] = useState<string[]>([])
+  const [availableMunicipalities, setAvailableMunicipalities] = useState<string[]>([])
+
+  // State for the effective userId (from props or auth)
+  const [effectiveUserId, setEffectiveUserId] = useState<string | null>(providedUserId || null)
+
+  // Auth state loading
+  const [authLoading, setAuthLoading] = useState(!providedUserId)
+
   // Initialize with empty or provided address
-  const [savedAddress, setSavedAddress] = useState<z.infer<typeof addressSchema>>(
-    initialAddress || emptyAddress
-  );
+  const [savedAddress, setSavedAddress] = useState<z.infer<typeof addressSchema>>(initialAddress || emptyAddress)
+
+  // Add loading state to show feedback when saving
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Add error state for displaying form submission errors
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const [showEditConfirmation, setShowEditConfirmation] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+
+  // Get current user from Firebase Auth if userId is not provided
+  useEffect(() => {
+    if (providedUserId) {
+      setEffectiveUserId(providedUserId)
+      setAuthLoading(false)
+      return
+    }
+
+    const auth = getAuth()
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setEffectiveUserId(user.uid)
+        // Try to load user's address if not provided
+        if (!initialAddress || Object.values(initialAddress).every((v) => !v)) {
+          loadUserAddress(user.uid)
+        }
+      } else {
+        setEffectiveUserId(null)
+      }
+      setAuthLoading(false)
+    })
+
+    return () => unsubscribe() // Clean up the subscription
+  }, [providedUserId, initialAddress])
+
+  // Function to load address data from Firestore
+  const loadUserAddress = async (userId: string) => {
+    try {
+      const userDocRef = doc(db, "users", userId)
+      const userDoc = await getDoc(userDocRef)
+
+      if (userDoc.exists() && userDoc.data().address) {
+        const addressData = userDoc.data().address
+        setSavedAddress(addressData)
+        form.reset(addressData)
+      }
+    } catch (error) {
+      console.error("Error loading user address:", error)
+    }
+  }
 
   const form = useForm<z.infer<typeof addressSchema>>({
     resolver: zodResolver(addressSchema),
-    defaultValues: savedAddress,
-    mode: "onChange" // Validate on change for better user feedback
-  });
+    defaultValues: savedAddress || emptyAddress,
+    mode: "onChange", // Validate on change for better user feedback
+  })
 
   // Watch form values
-  const currentRegion = form.watch("region");
-  const currentProvince = form.watch("province");
-  const currentCity = form.watch("city");
-  const currentMunicipality = form.watch("municipality");
+  const currentRegion = form.watch("region")
+  const currentProvince = form.watch("province")
+  const currentCity = form.watch("city")
+  const currentMunicipality = form.watch("municipality")
 
   // Update available provinces when region changes
   useEffect(() => {
     if (currentRegion && locationHierarchy[currentRegion]) {
-      const provinces = locationHierarchy[currentRegion].provinces;
-      setAvailableProvinces([...provinces].sort());
+      const provinces = locationHierarchy[currentRegion].provinces
+      setAvailableProvinces([...provinces].sort())
     }
-  }, [currentRegion]);
+  }, [currentRegion])
 
   // Update cities and municipalities when province changes
   useEffect(() => {
     if (currentRegion && currentProvince) {
-      const regionData = locationHierarchy[currentRegion];
-      
+      const regionData = locationHierarchy[currentRegion]
+
       // Update cities
       if (regionData?.cities[currentProvince]) {
-        const cities = regionData.cities[currentProvince];
-        setAvailableCities([...cities].sort());
+        const cities = regionData.cities[currentProvince]
+        setAvailableCities([...cities].sort())
       } else {
-        setAvailableCities([]);
+        setAvailableCities([])
       }
-      
+
       // Update municipalities
       if (regionData?.municipalities[currentProvince]) {
-        const municipalities = regionData.municipalities[currentProvince];
-        setAvailableMunicipalities([...municipalities].sort());
+        const municipalities = regionData.municipalities[currentProvince]
+        setAvailableMunicipalities([...municipalities].sort())
       } else {
-        setAvailableMunicipalities([]);
+        setAvailableMunicipalities([])
       }
     }
-  }, [currentProvince, currentRegion]);
+  }, [currentProvince, currentRegion])
 
   // Update ZIP code when city changes
   useEffect(() => {
     if (currentCity && currentRegion) {
       // Safely access cityZipCodes with optional chaining
-      const zipCode = locationHierarchy[currentRegion]?.cityZipCodes?.[currentCity];
+      const zipCode = locationHierarchy[currentRegion]?.cityZipCodes?.[currentCity]
       if (zipCode) {
-        form.setValue("zipCode", zipCode);
+        form.setValue("zipCode", zipCode)
       }
     }
-  }, [currentCity, currentRegion, form]);
+  }, [currentCity, currentRegion, form])
 
   // Update ZIP code when municipality changes
   useEffect(() => {
     if (currentMunicipality && currentRegion) {
       // Safely access municipalityZipCodes with optional chaining
-      const zipCode = locationHierarchy[currentRegion]?.municipalityZipCodes?.[currentMunicipality];
+      const zipCode = locationHierarchy[currentRegion]?.municipalityZipCodes?.[currentMunicipality]
       if (zipCode) {
-        form.setValue("zipCode", zipCode);
+        form.setValue("zipCode", zipCode)
       }
     }
-  }, [currentMunicipality, currentRegion, form]);
+  }, [currentMunicipality, currentRegion, form])
 
   const handleSubmit = async (data: z.infer<typeof addressSchema>) => {
     // Clear any previous errors
-    setSubmitError(null);
-    setIsSaving(true);
-    
+    setSubmitError(null)
+    setIsSaving(true)
+
     try {
       // Simulate API call with timeout
       setTimeout(() => {
-        setSavedAddress({ ...data });
-        setIsEditing(false);
-        setIsSaving(false);
-      }, 800); // Simulated delay for API call
+        setSavedAddress({ ...data })
+        setIsEditing(false)
+        setIsSaving(false)
+        setShowSuccessMessage(true)
+
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setShowSuccessMessage(false)
+        }, 3000)
+      }, 800) // Simulated delay for API call
     } catch (error) {
-      console.error("Error updating address:", error);
-      setSubmitError("Failed to update address. Please try again.");
+      console.error("Error updating address:", error)
+      setSubmitError("Failed to update address. Please try again.")
     } finally {
-      setIsSaving(false);
+      setIsSaving(false)
     }
-  };
-  
+  }
+
   const handleClear = () => {
     // Reset form to empty state
-    form.reset(emptyAddress);
-    
+    form.reset(emptyAddress)
+
     // Reset available options
-    setAvailableProvinces([]);
-    setAvailableCities([]);
-    setAvailableMunicipalities([]);
-    
+    setAvailableProvinces([])
+    setAvailableCities([])
+    setAvailableMunicipalities([])
+
     // Clear any errors
-    setSubmitError(null);
-  };
-  
+    setSubmitError(null)
+  }
+
   const handleCancel = () => {
     // Revert form to last saved state
-    form.reset(savedAddress);
-    setIsEditing(false);
-    
+    form.reset(savedAddress)
+    setIsEditing(false)
+
     // Clear any errors
-    setSubmitError(null);
-  };
+    setSubmitError(null)
+  }
+
+  // Show login message if no userId
+  if (!authLoading && !effectiveUserId) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="text-center py-8">
+          <h3 className="text-lg font-semibold text-[#2A69AC] mb-4">ADDRESS INFORMATION</h3>
+          <p className="text-[#1A365D] mb-4">You need to be logged in to view and edit your address information.</p>
+          <Button className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]">Sign In</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading state
+  if (authLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-[#2A69AC]">ADDRESS</h3>
+        </div>
+        <div className="py-6 text-center">
+          <p className="text-[#718096]">Loading address information...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Memoized display values to improve performance
-  const displayCity = savedAddress?.city || savedAddress?.municipality || "-";
+  const displayCity = savedAddress?.city || savedAddress?.municipality || "-"
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
+      {showSuccessMessage && (
+        <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4 mx-6 mt-6 rounded">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-green-700">Address updated successfully!</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-[#2A69AC]">ADDRESS</h3>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsEditing(true)}
+            onClick={() => setShowEditConfirmation(true)}
             className="text-[#1A365D] hover:text-[#2A69AC] hover:bg-[#EBF8FF]"
           >
             <PencilIcon className="h-4 w-4" />
@@ -378,14 +450,24 @@ export function AddressInformation({
           <DialogHeader>
             <DialogTitle>Edit Address</DialogTitle>
           </DialogHeader>
-          
+
+          <div className="text-sm text-muted-foreground mt-2 p-3 bg-blue-50 rounded-md border border-blue-100">
+            <h4 className="font-medium text-blue-700 mb-1">Address Editing Rules:</h4>
+            <ul className="list-disc pl-5 space-y-1 text-blue-600">
+              <li>Select your region first, then province</li>
+              <li>Choose either a city OR municipality (not both)</li>
+              <li>ZIP code is automatically determined based on your selection</li>
+              <li>Street address should include house number, street name, and barangay</li>
+            </ul>
+          </div>
+
           {submitError && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
               <strong className="font-bold">Error: </strong>
               <span className="block sm:inline">{submitError}</span>
             </div>
           )}
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
               <FormField
@@ -396,34 +478,34 @@ export function AddressInformation({
                     <label htmlFor="region" className="text-sm font-medium">
                       Region
                     </label>
-                    <Select 
+                    <Select
                       onValueChange={(value) => {
                         // Handle region change explicitly
-                        field.onChange(value);
-                        
+                        field.onChange(value)
+
                         // Save the current street address
-                        const streetAddress = form.getValues("streetAddress");
-                        
+                        const streetAddress = form.getValues("streetAddress")
+
                         // Clear dependent fields
-                        form.setValue("province", "");
-                        form.setValue("city", "");
-                        form.setValue("municipality", "");
-                        form.setValue("zipCode", "");
-                        
+                        form.setValue("province", "")
+                        form.setValue("city", "")
+                        form.setValue("municipality", "")
+                        form.setValue("zipCode", "")
+
                         // Update available provinces
                         if (locationHierarchy[value]) {
-                          const provinces = locationHierarchy[value].provinces;
-                          setAvailableProvinces([...provinces].sort());
+                          const provinces = locationHierarchy[value].provinces
+                          setAvailableProvinces([...provinces].sort())
                         } else {
-                          setAvailableProvinces([]);
+                          setAvailableProvinces([])
                         }
-                        
+
                         // Clear available cities and municipalities
-                        setAvailableCities([]);
-                        setAvailableMunicipalities([]);
-                        
+                        setAvailableCities([])
+                        setAvailableMunicipalities([])
+
                         // Restore the street address
-                        form.setValue("streetAddress", streetAddress);
+                        form.setValue("streetAddress", streetAddress)
                       }}
                       value={field.value}
                     >
@@ -455,31 +537,31 @@ export function AddressInformation({
                     </label>
                     <Select
                       onValueChange={(value) => {
-                        field.onChange(value);
-                        
+                        field.onChange(value)
+
                         // Clear city, municipality and zipCode when province changes
-                        form.setValue("city", "");
-                        form.setValue("municipality", "");
-                        form.setValue("zipCode", "");
-                        
+                        form.setValue("city", "")
+                        form.setValue("municipality", "")
+                        form.setValue("zipCode", "")
+
                         // Update available cities and municipalities
                         if (currentRegion) {
-                          const regionData = locationHierarchy[currentRegion];
-                          
+                          const regionData = locationHierarchy[currentRegion]
+
                           // Update cities
                           if (regionData?.cities[value]) {
-                            const cities = regionData.cities[value];
-                            setAvailableCities([...cities].sort());
+                            const cities = regionData.cities[value]
+                            setAvailableCities([...cities].sort())
                           } else {
-                            setAvailableCities([]);
+                            setAvailableCities([])
                           }
-                          
+
                           // Update municipalities
                           if (regionData?.municipalities[value]) {
-                            const municipalities = regionData.municipalities[value];
-                            setAvailableMunicipalities([...municipalities].sort());
+                            const municipalities = regionData.municipalities[value]
+                            setAvailableMunicipalities([...municipalities].sort())
                           } else {
-                            setAvailableMunicipalities([]);
+                            setAvailableMunicipalities([])
                           }
                         }
                       }}
@@ -504,7 +586,7 @@ export function AddressInformation({
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="city"
@@ -515,11 +597,11 @@ export function AddressInformation({
                       </label>
                       <Select
                         onValueChange={(value) => {
-                          field.onChange(value);
+                          field.onChange(value)
                           // Clear municipality when city is selected
-                          form.setValue("municipality", "");
+                          form.setValue("municipality", "")
                           // Clear zip code so it can be set by the useEffect
-                          form.setValue("zipCode", "");
+                          form.setValue("zipCode", "")
                         }}
                         value={field.value}
                         disabled={availableCities.length === 0}
@@ -552,11 +634,11 @@ export function AddressInformation({
                       </label>
                       <Select
                         onValueChange={(value) => {
-                          field.onChange(value);
+                          field.onChange(value)
                           // Clear city when municipality is selected
-                          form.setValue("city", "");
+                          form.setValue("city", "")
                           // Clear zip code so it can be set by the useEffect
-                          form.setValue("zipCode", "");
+                          form.setValue("zipCode", "")
                         }}
                         value={field.value}
                         disabled={availableMunicipalities.length === 0}
@@ -589,15 +671,11 @@ export function AddressInformation({
                       ZIP Code
                     </label>
                     <FormControl>
-                      <Input
-                        id="zipCode"
-                        placeholder="ZIP Code"
-                        className="bg-white/50"
-                        readOnly
-                        {...field}
-                      />
+                      <Input id="zipCode" placeholder="ZIP Code" className="bg-white/50" readOnly {...field} />
                     </FormControl>
-                    <p className="text-xs text-gray-500">ZIP code is automatically determined by city/municipality selection</p>
+                    <p className="text-xs text-gray-500">
+                      ZIP code is automatically determined by city/municipality selection
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -612,12 +690,7 @@ export function AddressInformation({
                       House No. & Street, Subdivision/Barangay
                     </label>
                     <FormControl>
-                      <Input
-                        id="streetAddress"
-                        placeholder="Enter street address"
-                        className="bg-white/50"
-                        {...field}
-                      />
+                      <Input id="streetAddress" placeholder="Enter street address" className="bg-white/50" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -641,11 +714,7 @@ export function AddressInformation({
                 >
                   <XIcon className="mr-2 h-4 w-4" /> Clear
                 </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]"
-                  disabled={isSaving}
-                >
+                <Button type="submit" className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]" disabled={isSaving}>
                   {isSaving ? "Saving..." : "Save changes"}
                 </Button>
               </div>
@@ -653,6 +722,45 @@ export function AddressInformation({
           </Form>
         </DialogContent>
       </Dialog>
+      <Dialog open={showEditConfirmation} onOpenChange={setShowEditConfirmation}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Address Edit</DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-sm text-gray-600 mb-4">You are about to edit your address information. Please note:</p>
+            <ul className="list-disc pl-5 space-y-2 text-sm text-gray-600 mb-4">
+              <li>Changing your region will reset province, city, and municipality selections</li>
+              <li>Changing your province will reset city and municipality selections</li>
+              <li>You can select either a city OR a municipality, not both</li>
+              <li>ZIP code will be automatically updated based on your selection</li>
+            </ul>
+            <p className="text-sm font-medium text-gray-700">Do you want to proceed with editing your address?</p>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowEditConfirmation(false)}
+              className="border-gray-300 text-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowEditConfirmation(false)
+                setIsEditing(true)
+              }}
+              className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]"
+            >
+              Edit Address
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+  )
 }
+
