@@ -1,36 +1,50 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/customer-components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/customer-components/ui/dialog"
 import { Input } from "@/components/customer-components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/customer-components/ui/select"
 import { PencilIcon, XIcon } from "lucide-react"
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/customer-components/ui/form"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 
-// Philippine location data (simplified version)
-const regions = ["Metro Manila", "Region IV-A (CALABARZON)", "Region III (Central Luzon)"] as const;
-type RegionType = typeof regions[number];
+// Type definitions for location data
+type Region = string;
+type City = string;
+type Municipality = string;
+type Province = string;
 
-// Define the type for the location hierarchy
-type LocationHierarchy = {
-  [region in RegionType]: {
-    provinces: string[];
-    cities: {
-      [province: string]: string[];
-    };
-    municipalities: {
-      [province: string]: string[];
-    };
-    cityZipCodes: {
-      [city: string]: string;
-    };
-    municipalityZipCodes: {
-      [municipality: string]: string;
-    };
-  };
-};
+interface LocationData {
+  provinces: Province[]
+  cities: {
+    [province: string]: City[]
+  }
+  municipalities: {
+    [province: string]: Municipality[]
+  }
+  cityZipCodes: {
+    [city: string]: string
+  }
+  municipalityZipCodes: {
+    [municipality: string]: string
+  }
+}
 
-// Location hierarchy
+interface LocationHierarchy {
+  [region: string]: LocationData
+}
+
+// Philippine location data
+const philippineRegions: Region[] = [
+  "Metro Manila",
+  "Region III (Central Luzon)",
+  "Region IV-A (CALABARZON)"
+].sort();
+
+// Location hierarchy with separate city and municipality data
 const locationHierarchy: LocationHierarchy = {
   "Metro Manila": {
     provinces: ["Metro Manila"],
@@ -120,167 +134,205 @@ const locationHierarchy: LocationHierarchy = {
       "Zaragoza": "3110"
     }
   }
-}
+};
 
-// Type for the form data
-interface AddressFormData {
-  region: string;
-  province: string;
-  city: string;
-  municipality: string;
-  zipCode: string;
-  streetAddress: string;
-}
-
-export function AddressInformation() {
-  const [isEditing, setIsEditing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [formData, setFormData] = useState<AddressFormData>({
-    region: "Metro Manila",
-    province: "Metro Manila",
-    city: "Caloocan",
-    municipality: "",
-    zipCode: "1400",
-    streetAddress: "123 Apple Street",
+// Address schema with validation
+const addressSchema = z
+  .object({
+    region: z.string().min(1, "Region is required"),
+    province: z.string().min(1, "Province is required"),
+    city: z.string().optional(),
+    municipality: z.string().optional(),
+    zipCode: z.string().optional(),
+    streetAddress: z.string().min(1, "Street address is required"),
   })
-  
-  const [savedAddress, setSavedAddress] = useState<AddressFormData>({
-    region: "Metro Manila",
-    province: "Metro Manila",
-    city: "Caloocan",
-    municipality: "",
-    zipCode: "1400",
-    streetAddress: "123 Apple Street",
-  })
-  
-  // States for managing dependent dropdowns
-  const [availableProvinces, setAvailableProvinces] = useState<string[]>(
-    formData.region && regions.includes(formData.region as RegionType) 
-      ? locationHierarchy[formData.region as RegionType]?.provinces || []
-      : []
+  .refine(
+    (data) => {
+      // If region is selected, province is required
+      if (data.region) {
+        return !!data.province;
+      }
+      return true;
+    },
+    {
+      message: "Province is required",
+      path: ["province"],
+    }
   )
-  const [availableCities, setAvailableCities] = useState<string[]>(
-    formData.region && formData.province && regions.includes(formData.region as RegionType)
-      ? locationHierarchy[formData.region as RegionType]?.cities[formData.province] || []
-      : []
+  .refine(
+    (data) => {
+      // If province is selected, either city or municipality must be selected
+      const selectedProvince = data.province;
+      const selectedRegion = data.region;
+      
+      if (selectedProvince && selectedRegion) {
+        const hasCities = locationHierarchy[selectedRegion]?.cities[selectedProvince]?.length > 0;
+        const hasMunicipalities = locationHierarchy[selectedRegion]?.municipalities[selectedProvince]?.length > 0;
+        
+        if (hasCities || hasMunicipalities) {
+          return !!data.city || !!data.municipality;
+        }
+      }
+      return true;
+    },
+    {
+      message: "City or Municipality is required",
+      path: ["city"],
+    }
   )
-  const [availableMunicipalities, setAvailableMunicipalities] = useState<string[]>(
-    formData.region && formData.province && regions.includes(formData.region as RegionType)
-      ? locationHierarchy[formData.region as RegionType]?.municipalities[formData.province] || []
-      : []
-  )
+  .refine(
+    (data) => {
+      // Only validate zipCode if city or municipality is selected
+      if (data.city || data.municipality) {
+        return data.zipCode ? /^\d{4}$/.test(data.zipCode) : false;
+      }
+      return true;
+    },
+    {
+      message: "A valid ZIP code is required",
+      path: ["zipCode"],
+    }
+  );
 
-  // Handle region change and update provinces
-  const handleRegionChange = (value: string) => {
-    const newFormData = { ...formData, region: value }
-    
-    // Reset dependent fields
-    newFormData.province = ""
-    newFormData.city = ""
-    newFormData.municipality = ""
-    newFormData.zipCode = ""
-    
-    // Update available provinces
-    const provinces = regions.includes(value as RegionType)
-      ? locationHierarchy[value as RegionType]?.provinces || []
-      : []
-    setAvailableProvinces([...provinces])
-    
-    // Reset cities and municipalities
-    setAvailableCities([])
-    setAvailableMunicipalities([])
-    
-    setFormData(newFormData)
-  }
-  
-  // Handle province change and update cities/municipalities
-  const handleProvinceChange = (value: string) => {
-    const newFormData = { ...formData, province: value }
-    
-    // Reset dependent fields
-    newFormData.city = ""
-    newFormData.municipality = ""
-    newFormData.zipCode = ""
-    
-    // Update available cities and municipalities
-    const cities = regions.includes(formData.region as RegionType)
-      ? locationHierarchy[formData.region as RegionType]?.cities[value] || []
-      : []
-    const municipalities = regions.includes(formData.region as RegionType)
-      ? locationHierarchy[formData.region as RegionType]?.municipalities[value] || []
-      : []
-    
-    setAvailableCities([...cities])
-    setAvailableMunicipalities([...municipalities])
-    
-    setFormData(newFormData)
-  }
-  
-  // Handle city change and update zip code
-  const handleCityChange = (value: string) => {
-    const zipCode = regions.includes(formData.region as RegionType)
-      ? locationHierarchy[formData.region as RegionType]?.cityZipCodes[value] || ""
-      : ""
-    
-    setFormData({
-      ...formData,
-      city: value,
-      municipality: "", // Clear municipality when city is selected
-      zipCode: zipCode
-    })
-  }
-  
-  // Handle municipality change and update zip code
-  const handleMunicipalityChange = (value: string) => {
-    const zipCode = regions.includes(formData.region as RegionType)
-      ? locationHierarchy[formData.region as RegionType]?.municipalityZipCodes[value] || ""
-      : ""
-    
-    setFormData({
-      ...formData,
-      municipality: value,
-      city: "", // Clear city when municipality is selected
-      zipCode: zipCode
-    })
-  }
+// Default empty address
+const emptyAddress = {
+  region: "",
+  province: "",
+  city: "",
+  municipality: "",
+  zipCode: "",
+  streetAddress: ""
+};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSaving(true)
-    
-    // Simulate API call with timeout
-    setTimeout(() => {
-      setSavedAddress({ ...formData })
-      setIsEditing(false)
-      setIsSaving(false)
-    }, 800) // Simulated delay for API call
-  }
+export function AddressInformation({ 
+  userId, 
+  initialAddress = emptyAddress 
+}: { 
+  userId?: string, 
+  initialAddress?: z.infer<typeof addressSchema> 
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
-  const handleCancel = () => {
-    // Reset form to saved state
-    setFormData({ ...savedAddress })
-    setIsEditing(false)
-  }
+  const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [availableMunicipalities, setAvailableMunicipalities] = useState<string[]>([]);
+  
+  // Initialize with empty or provided address
+  const [savedAddress, setSavedAddress] = useState<z.infer<typeof addressSchema>>(
+    initialAddress || emptyAddress
+  );
+
+  const form = useForm<z.infer<typeof addressSchema>>({
+    resolver: zodResolver(addressSchema),
+    defaultValues: savedAddress,
+    mode: "onChange" // Validate on change for better user feedback
+  });
+
+  // Watch form values
+  const currentRegion = form.watch("region");
+  const currentProvince = form.watch("province");
+  const currentCity = form.watch("city");
+  const currentMunicipality = form.watch("municipality");
+
+  // Update available provinces when region changes
+  useEffect(() => {
+    if (currentRegion && locationHierarchy[currentRegion]) {
+      const provinces = locationHierarchy[currentRegion].provinces;
+      setAvailableProvinces([...provinces].sort());
+    }
+  }, [currentRegion]);
+
+  // Update cities and municipalities when province changes
+  useEffect(() => {
+    if (currentRegion && currentProvince) {
+      const regionData = locationHierarchy[currentRegion];
+      
+      // Update cities
+      if (regionData?.cities[currentProvince]) {
+        const cities = regionData.cities[currentProvince];
+        setAvailableCities([...cities].sort());
+      } else {
+        setAvailableCities([]);
+      }
+      
+      // Update municipalities
+      if (regionData?.municipalities[currentProvince]) {
+        const municipalities = regionData.municipalities[currentProvince];
+        setAvailableMunicipalities([...municipalities].sort());
+      } else {
+        setAvailableMunicipalities([]);
+      }
+    }
+  }, [currentProvince, currentRegion]);
+
+  // Update ZIP code when city changes
+  useEffect(() => {
+    if (currentCity && currentRegion) {
+      // Safely access cityZipCodes with optional chaining
+      const zipCode = locationHierarchy[currentRegion]?.cityZipCodes?.[currentCity];
+      if (zipCode) {
+        form.setValue("zipCode", zipCode);
+      }
+    }
+  }, [currentCity, currentRegion, form]);
+
+  // Update ZIP code when municipality changes
+  useEffect(() => {
+    if (currentMunicipality && currentRegion) {
+      // Safely access municipalityZipCodes with optional chaining
+      const zipCode = locationHierarchy[currentRegion]?.municipalityZipCodes?.[currentMunicipality];
+      if (zipCode) {
+        form.setValue("zipCode", zipCode);
+      }
+    }
+  }, [currentMunicipality, currentRegion, form]);
+
+  const handleSubmit = async (data: z.infer<typeof addressSchema>) => {
+    // Clear any previous errors
+    setSubmitError(null);
+    setIsSaving(true);
+    
+    try {
+      // Simulate API call with timeout
+      setTimeout(() => {
+        setSavedAddress({ ...data });
+        setIsEditing(false);
+        setIsSaving(false);
+      }, 800); // Simulated delay for API call
+    } catch (error) {
+      console.error("Error updating address:", error);
+      setSubmitError("Failed to update address. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
   
   const handleClear = () => {
-    // Reset the form to empty values
-    setFormData({
-      region: "",
-      province: "",
-      city: "",
-      municipality: "",
-      zipCode: "",
-      streetAddress: ""
-    })
+    // Reset form to empty state
+    form.reset(emptyAddress);
     
     // Reset available options
-    setAvailableProvinces([])
-    setAvailableCities([])
-    setAvailableMunicipalities([])
-  }
+    setAvailableProvinces([]);
+    setAvailableCities([]);
+    setAvailableMunicipalities([]);
+    
+    // Clear any errors
+    setSubmitError(null);
+  };
+  
+  const handleCancel = () => {
+    // Revert form to last saved state
+    form.reset(savedAddress);
+    setIsEditing(false);
+    
+    // Clear any errors
+    setSubmitError(null);
+  };
 
-  // Display either city or municipality
-  const displayCity = savedAddress.city || savedAddress.municipality || "-"
+  // Memoized display values to improve performance
+  const displayCity = savedAddress?.city || savedAddress?.municipality || "-";
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
@@ -300,11 +352,11 @@ export function AddressInformation() {
         <dl className="space-y-4">
           <div>
             <dt className="text-sm text-[#8B909A]">Region</dt>
-            <dd className="text-[#1A365D]">{savedAddress.region || "-"}</dd>
+            <dd className="text-[#1A365D]">{savedAddress?.region || "-"}</dd>
           </div>
           <div>
             <dt className="text-sm text-[#8B909A]">Province</dt>
-            <dd className="text-[#1A365D]">{savedAddress.province || "-"}</dd>
+            <dd className="text-[#1A365D]">{savedAddress?.province || "-"}</dd>
           </div>
           <div>
             <dt className="text-sm text-[#8B909A]">City/Municipality</dt>
@@ -312,11 +364,11 @@ export function AddressInformation() {
           </div>
           <div>
             <dt className="text-sm text-[#8B909A]">Zip Code</dt>
-            <dd className="text-[#1A365D]">{savedAddress.zipCode || "-"}</dd>
+            <dd className="text-[#1A365D]">{savedAddress?.zipCode || "-"}</dd>
           </div>
           <div>
             <dt className="text-sm text-[#8B909A]">Street Address</dt>
-            <dd className="text-[#1A365D]">{savedAddress.streetAddress || "-"}</dd>
+            <dd className="text-[#1A365D]">{savedAddress?.streetAddress || "-"}</dd>
           </div>
         </dl>
       </div>
@@ -326,146 +378,281 @@ export function AddressInformation() {
           <DialogHeader>
             <DialogTitle>Edit Address</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="region" className="text-sm font-medium">
-                Region
-              </label>
-              <Select value={formData.region} onValueChange={handleRegionChange}>
-                <SelectTrigger className="bg-white/50">
-                  <SelectValue placeholder="Select Region" />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((region) => (
-                    <SelectItem key={region} value={region}>
-                      {region}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+              <strong className="font-bold">Error: </strong>
+              <span className="block sm:inline">{submitError}</span>
             </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="province" className="text-sm font-medium">
-                Province
-              </label>
-              <Select 
-                value={formData.province} 
-                onValueChange={handleProvinceChange}
-                disabled={availableProvinces.length === 0}
-              >
-                <SelectTrigger className="bg-white/50">
-                  <SelectValue placeholder="Select Province" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProvinces.map((province) => (
-                    <SelectItem key={province} value={province}>
-                      {province}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="city" className="text-sm font-medium">
-                  City
-                </label>
-                <Select 
-                  value={formData.city} 
-                  onValueChange={handleCityChange}
-                  disabled={availableCities.length === 0}
-                >
-                  <SelectTrigger className="bg-white/50">
-                    <SelectValue placeholder="Select City" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableCities.map((city) => (
-                      <SelectItem key={city} value={city}>
-                        {city}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="municipality" className="text-sm font-medium">
-                  Municipality
-                </label>
-                <Select 
-                  value={formData.municipality} 
-                  onValueChange={handleMunicipalityChange}
-                  disabled={availableMunicipalities.length === 0}
-                >
-                  <SelectTrigger className="bg-white/50">
-                    <SelectValue placeholder="Select Municipality" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableMunicipalities.map((municipality) => (
-                      <SelectItem key={municipality} value={municipality}>
-                        {municipality}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="zipCode" className="text-sm font-medium">
-                Zip Code
-              </label>
-              <Input
-                id="zipCode"
-                value={formData.zipCode}
-                readOnly
-                className="bg-white/50 text-gray-600"
+          )}
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="region"
+                render={({ field }) => (
+                  <FormItem>
+                    <label htmlFor="region" className="text-sm font-medium">
+                      Region
+                    </label>
+                    <Select 
+                      onValueChange={(value) => {
+                        // Handle region change explicitly
+                        field.onChange(value);
+                        
+                        // Save the current street address
+                        const streetAddress = form.getValues("streetAddress");
+                        
+                        // Clear dependent fields
+                        form.setValue("province", "");
+                        form.setValue("city", "");
+                        form.setValue("municipality", "");
+                        form.setValue("zipCode", "");
+                        
+                        // Update available provinces
+                        if (locationHierarchy[value]) {
+                          const provinces = locationHierarchy[value].provinces;
+                          setAvailableProvinces([...provinces].sort());
+                        } else {
+                          setAvailableProvinces([]);
+                        }
+                        
+                        // Clear available cities and municipalities
+                        setAvailableCities([]);
+                        setAvailableMunicipalities([]);
+                        
+                        // Restore the street address
+                        form.setValue("streetAddress", streetAddress);
+                      }}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="bg-white/50">
+                          <SelectValue placeholder="Select Region" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {philippineRegions.map((region) => (
+                          <SelectItem key={region} value={region}>
+                            {region}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-gray-500">ZIP code is automatically determined by city/municipality selection</p>
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="streetAddress" className="text-sm font-medium">
-                House No. & Street, Subdivision/Barangay
-              </label>
-              <Input
-                id="streetAddress"
-                value={formData.streetAddress}
-                onChange={(e) => setFormData({ ...formData, streetAddress: e.target.value })}
-                className="bg-white/50"
+
+              <FormField
+                control={form.control}
+                name="province"
+                render={({ field }) => (
+                  <FormItem>
+                    <label htmlFor="province" className="text-sm font-medium">
+                      Province
+                    </label>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        
+                        // Clear city, municipality and zipCode when province changes
+                        form.setValue("city", "");
+                        form.setValue("municipality", "");
+                        form.setValue("zipCode", "");
+                        
+                        // Update available cities and municipalities
+                        if (currentRegion) {
+                          const regionData = locationHierarchy[currentRegion];
+                          
+                          // Update cities
+                          if (regionData?.cities[value]) {
+                            const cities = regionData.cities[value];
+                            setAvailableCities([...cities].sort());
+                          } else {
+                            setAvailableCities([]);
+                          }
+                          
+                          // Update municipalities
+                          if (regionData?.municipalities[value]) {
+                            const municipalities = regionData.municipalities[value];
+                            setAvailableMunicipalities([...municipalities].sort());
+                          } else {
+                            setAvailableMunicipalities([]);
+                          }
+                        }
+                      }}
+                      value={field.value}
+                      disabled={availableProvinces.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="bg-white/50">
+                          <SelectValue placeholder="Select Province" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableProvinces.map((province) => (
+                          <SelectItem key={province} value={province}>
+                            {province}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            
-            <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                className="border-[#EA5455] text-[#EA5455] hover:bg-[#EA5455]/10"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClear}
-                className="border-[#718096] text-[#718096] hover:bg-[#718096]/10"
-              >
-                <XIcon className="mr-2 h-4 w-4" /> Clear
-              </Button>
-              <Button 
-                type="submit" 
-                className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]"
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "Save changes"}
-              </Button>
-            </div>
-          </form>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <label htmlFor="city" className="text-sm font-medium">
+                        City
+                      </label>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Clear municipality when city is selected
+                          form.setValue("municipality", "");
+                          // Clear zip code so it can be set by the useEffect
+                          form.setValue("zipCode", "");
+                        }}
+                        value={field.value}
+                        disabled={availableCities.length === 0}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white/50">
+                            <SelectValue placeholder="Select City" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableCities.map((city) => (
+                            <SelectItem key={city} value={city}>
+                              {city}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="municipality"
+                  render={({ field }) => (
+                    <FormItem>
+                      <label htmlFor="municipality" className="text-sm font-medium">
+                        Municipality
+                      </label>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Clear city when municipality is selected
+                          form.setValue("city", "");
+                          // Clear zip code so it can be set by the useEffect
+                          form.setValue("zipCode", "");
+                        }}
+                        value={field.value}
+                        disabled={availableMunicipalities.length === 0}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white/50">
+                            <SelectValue placeholder="Select Municipality" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableMunicipalities.map((municipality) => (
+                            <SelectItem key={municipality} value={municipality}>
+                              {municipality}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="zipCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <label htmlFor="zipCode" className="text-sm font-medium">
+                      ZIP Code
+                    </label>
+                    <FormControl>
+                      <Input
+                        id="zipCode"
+                        placeholder="ZIP Code"
+                        className="bg-white/50"
+                        readOnly
+                        {...field}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-gray-500">ZIP code is automatically determined by city/municipality selection</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="streetAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <label htmlFor="streetAddress" className="text-sm font-medium">
+                      House No. & Street, Subdivision/Barangay
+                    </label>
+                    <FormControl>
+                      <Input
+                        id="streetAddress"
+                        placeholder="Enter street address"
+                        className="bg-white/50"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="border-[#EA5455] text-[#EA5455] hover:bg-[#EA5455]/10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClear}
+                  className="border-[#718096] text-[#718096] hover:bg-[#718096]/10"
+                >
+                  <XIcon className="mr-2 h-4 w-4" /> Clear
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-[#1E4E8C] text-white hover:bg-[#1A365D]"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
