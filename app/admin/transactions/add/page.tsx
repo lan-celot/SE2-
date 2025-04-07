@@ -9,7 +9,7 @@ import { Input } from "@/components/admin-components/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin-components/select"
 import { toast } from "@/hooks/use-toast"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, Timestamp } from "firebase/firestore"
+import { collection, addDoc, Timestamp, getDocs, query, orderBy, limit } from "firebase/firestore"
 import { getActiveEmployees, type Employee } from "@/lib/employee-utils"
 
 // Define types for services and customers
@@ -65,16 +65,6 @@ const services: Service[] = [
   { id: "OIL_CHANGE", label: "OIL CHANGE" },
 ]
 
-// Dummy customers data for the dropdown
-const initialCustomers: Customer[] = [
-  { id: "#C00100", name: "ANDREA SALAZAR", username: "andeng", phone: "09171234567" },
-  { id: "#C00099", name: "BLAINE RAMOS", username: "blainey", phone: "09380605349" },
-  { id: "#C00098", name: "LEO MACAYA", username: "oel", phone: "09283429109" },
-  { id: "#C00097", name: "RUSS DE GUZMAN", username: "roired", phone: "09489539463" },
-  { id: "#C00096", name: "AVERILL BUENVENIDA", username: "ave", phone: "09409450648" },
-  { id: "#C00095", name: "HAN BASCAO", username: "hanning", phone: "09982603116" },
-]
-
 // Transmission options
 const transmissionOptions = ["AUTOMATIC", "MANUAL", "CVT", "SEMI-AUTOMATIC", "DUAL-CLUTCH"]
 
@@ -99,15 +89,63 @@ export default function AddTransactionPage() {
     quantity: "",
     discount: "",
   })
-  const [customers] = useState<Customer[]>(initialCustomers)
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([])
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [isCustomService, setIsCustomService] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [activeEmployees, setActiveEmployees] = useState<Employee[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true)
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
 
   const customerDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fetch customers from Firestore
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setIsLoadingCustomers(true)
+        const accountsCollection = collection(db, "accounts")
+        // Sorting by createdAt or lastName to get a consistent order
+        const q = query(accountsCollection, orderBy("createdAt", "desc"), limit(100))
+        
+        const querySnapshot = await getDocs(q)
+        const fetchedCustomers: Customer[] = []
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data()
+          
+          // Skip accounts with admin role
+          if (
+            data.role === 'admin' || 
+            (typeof data.role === 'string' && data.role.toLowerCase().includes('admin'))
+          ) {
+            return
+          }
+          
+          fetchedCustomers.push({
+            id: doc.id,
+            name: `${data.firstName || ''} ${data.lastName || ''}`.trim().toUpperCase(),
+            username: data.username || '',
+            phone: data.phoneNumber || '',
+          })
+        })
+        
+        setCustomers(fetchedCustomers)
+      } catch (error) {
+        console.error("Error fetching customers:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load customers. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingCustomers(false)
+      }
+    }
+
+    fetchCustomers()
+  }, [])
 
   // Fetch active employees on component mount
   useEffect(() => {
@@ -209,10 +247,13 @@ export default function AddTransactionPage() {
   // Filter customers when customerName changes
   useEffect(() => {
     if (formData.customerName) {
+      const searchTerm = formData.customerName.toLowerCase()
       const filtered = customers.filter(
         (customer) =>
-          customer.name.toLowerCase().includes(formData.customerName.toLowerCase()) ||
-          customer.id.toLowerCase().includes(formData.customerName.toLowerCase()),
+          customer.name.toLowerCase().includes(searchTerm) ||
+          customer.id.toLowerCase().includes(searchTerm) ||
+          (customer.username && customer.username.toLowerCase().includes(searchTerm)) ||
+          (customer.phone && customer.phone.includes(searchTerm))
       )
       setFilteredCustomers(filtered)
     } else {
@@ -399,10 +440,11 @@ export default function AddTransactionPage() {
               {/* Customer Information */}
               <div className="relative" ref={customerDropdownRef}>
                 <Input
-                  placeholder="Customer Name or ID"
+                  placeholder={isLoadingCustomers ? "Loading customers..." : "Customer Name, ID, or Username"}
                   value={formData.customerName}
                   onChange={(e) => handleInputChange("customerName", e.target.value)}
                   className="w-full"
+                  disabled={isLoadingCustomers}
                 />
                 {showCustomerDropdown && filteredCustomers.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
@@ -417,9 +459,26 @@ export default function AddTransactionPage() {
                             <span>{customer.name}</span>
                             <span className="text-gray-500">{customer.id}</span>
                           </div>
+                          {customer.username && (
+                            <div className="text-sm text-gray-500">
+                              Username: {customer.username}
+                            </div>
+                          )}
+                          {customer.phone && (
+                            <div className="text-sm text-gray-500">
+                              Phone: {customer.phone}
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+                {showCustomerDropdown && formData.customerName && filteredCustomers.length === 0 && (
+                  <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      No customers found matching "{formData.customerName}"
+                    </div>
                   </div>
                 )}
               </div>
@@ -675,7 +734,7 @@ export default function AddTransactionPage() {
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={isLoading}
+                disabled={isLoading || isLoadingCustomers}
                 className="bg-[#2A69AC] hover:bg-[#1A365D] text-white"
               >
                 {isLoading ? "Processing..." : "Create Transaction"}
@@ -687,4 +746,3 @@ export default function AddTransactionPage() {
     </div>
   )
 }
-
