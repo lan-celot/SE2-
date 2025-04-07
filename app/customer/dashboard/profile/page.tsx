@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { db, auth } from "@/lib/firebase"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
-import { Pencil, Upload, User } from "lucide-react"
+import { Pencil, Upload, User, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 // Create local component imports to resolve missing type declarations
@@ -58,6 +58,18 @@ const Label = ({ htmlFor, children }: { htmlFor: string; children: React.ReactNo
   return <label htmlFor={htmlFor}>{children}</label>
 }
 
+// Toast Component
+const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) => {
+  return (
+    <div className={`fixed bottom-4 right-4 z-50 rounded-md shadow-md py-3 px-4 flex items-center justify-between ${type === 'success' ? 'bg-green-100 border-l-4 border-green-500 text-green-700' : 'bg-red-100 border-l-4 border-red-500 text-red-700'}`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-4 text-gray-500 hover:text-gray-700">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
     username: "",
@@ -77,7 +89,7 @@ export default function ProfilePage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [editingAddress, setEditingAddress] = useState(false)
-  const [isPhotoConfirmationOpen, setIsPhotoConfirmationOpen] = useState(false);
+  const [isPhotoConfirmationOpen, setIsPhotoConfirmationOpen] = useState(false)
   const [updatedProfile, setUpdatedProfile] = useState<Record<string, any>>({})
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -91,12 +103,25 @@ export default function ProfilePage() {
   const [ageError, setAgeError] = useState<string | null>(null)
   const [isAddressConfirmationOpen, setIsAddressConfirmationOpen] = useState(false)
 
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; visible: boolean } | null>(null)
+
   const [regions, setRegions] = useState<string[]>([])
   const [provinces, setProvinces] = useState<Record<string, string[]>>({})
   const [cities, setCities] = useState<Record<string, string[]>>({})
   const [municipalities, setMunicipalities] = useState<Record<string, string[]>>({})
   const [zipCodes, setZipCodes] = useState<Record<string, string>>({})
   const [addressType, setAddressType] = useState<"city" | "municipality">("city")
+
+  // Function to show toast notification
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type, visible: true })
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setToast(null)
+    }, 3000)
+  }
 
   useEffect(() => {
     const checkAuthAndFetchProfile = async () => {
@@ -173,49 +198,59 @@ export default function ProfilePage() {
       // Add more as needed
     })
   }, [])
-// Add this somewhere in your layout component that contains the header
-// This would typically be in a separate component that wraps your profile page
-const HeaderAvatar = () => {
-  const [avatarUrl, setAvatarUrl] = useState("");
-  
-  useEffect(() => {
-    const fetchAvatar = async () => {
-      if (auth.currentUser) {
-        try {
-          const profileRef = doc(db, "accounts", auth.currentUser.uid);
-          const profileSnap = await getDoc(profileRef);
-          
-          if (profileSnap.exists() && profileSnap.data().photoURL) {
-            setAvatarUrl(profileSnap.data().photoURL);
+  // Add this somewhere in your layout component that contains the header
+  // This would typically be in a separate component that wraps your profile page
+  const HeaderAvatar = () => {
+    const [avatarUrl, setAvatarUrl] = useState("")
+
+    useEffect(() => {
+      const fetchAvatar = async () => {
+        if (auth.currentUser) {
+          try {
+            const profileRef = doc(db, "accounts", auth.currentUser.uid)
+            const profileSnap = await getDoc(profileRef)
+
+            if (profileSnap.exists() && profileSnap.data().photoURL) {
+              setAvatarUrl(profileSnap.data().photoURL)
+            }
+          } catch (error) {
+            console.error("Error fetching avatar:", error)
           }
-        } catch (error) {
-          console.error("Error fetching avatar:", error);
         }
       }
-    };
-    
-    fetchAvatar();
-    
-    // Set up a listener for real-time updates
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) fetchAvatar();
-    });
-    
-    return () => unsubscribe();
-  }, []);
-  
-  return (
-    <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-      ) : (
-        <div className="h-full w-full bg-gray-200 flex items-center justify-center">
-          <User className="h-4 w-4 text-gray-500" />
-        </div>
-      )}
-    </div>
-  );
-};
+
+      fetchAvatar()
+
+      // Set up a listener for real-time updates
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) fetchAvatar()
+      })
+
+      // Listen for profile photo updates
+      const handleProfilePhotoUpdate = (event: CustomEvent) => {
+        setAvatarUrl(event.detail.photoURL)
+      }
+
+      window.addEventListener("profilePhotoUpdated", handleProfilePhotoUpdate as EventListener)
+
+      return () => {
+        unsubscribe()
+        window.removeEventListener("profilePhotoUpdated", handleProfilePhotoUpdate as EventListener)
+      }
+    }, [])
+
+    return (
+      <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
+        {avatarUrl ? (
+          <img src={avatarUrl || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
+        ) : (
+          <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+            <User className="h-4 w-4 text-gray-500" />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const fetchProfile = async () => {
     const user = auth.currentUser
@@ -240,6 +275,7 @@ const HeaderAvatar = () => {
       }
     } catch (error) {
       console.error("Error fetching profile:", error)
+      showToast("Failed to load profile data", "error")
     } finally {
       setIsLoading(false)
     }
@@ -374,7 +410,7 @@ const HeaderAvatar = () => {
       city: "",
       municipality: "",
       zipCode: "",
-      streetAddress: ""
+      streetAddress: "",
     }))
     setAddressType("city")
   }
@@ -390,10 +426,10 @@ const HeaderAvatar = () => {
       setEditingAddress(false)
       setIsAddressConfirmationOpen(false)
 
-      alert("Address updated successfully!")
+      showToast("Address updated successfully!", "success")
     } catch (error) {
       console.error("Error updating address:", error)
-      alert("Failed to update address. Please try again.")
+      showToast("Failed to update address. Please try again.", "error")
     }
   }
 
@@ -427,10 +463,10 @@ const HeaderAvatar = () => {
       setIsEditingPersonal(false)
       setIsConfirmationOpen(false)
 
-      alert("Personal information updated successfully!")
+      showToast("Personal information updated successfully!", "success")
     } catch (error) {
       console.error("Error updating profile:", error)
-      alert("Failed to update profile. Please try again.")
+      showToast("Failed to update profile. Please try again.", "error")
     }
   }
 
@@ -445,68 +481,73 @@ const HeaderAvatar = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      
+      const file = e.target.files[0]
+
       // Add validation for file size and type
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      
+      const validTypes = ["image/jpeg", "image/png", "image/gif"]
+      const maxSize = 5 * 1024 * 1024 // 5MB
+
       if (!validTypes.includes(file.type)) {
-        alert('Please select a valid image file (JPEG, PNG, or GIF)');
-        return;
+        showToast("Please select a valid image file (JPEG, PNG, or GIF)", "error")
+        return
       }
-      
+
       if (file.size > maxSize) {
-        alert('File size should be less than 5MB');
-        return;
+        showToast("File size should be less than 5MB", "error")
+        return
       }
-      
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
     }
   }
 
   const uploadProfileImage = async () => {
-    if (!imageFile || !auth.currentUser) return;
-  
-    setIsUploading(true);
+    if (!imageFile || !auth.currentUser) return
+
+    setIsUploading(true)
     try {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${auth.currentUser.uid}_${Date.now()}.${fileExt}`;
-      const filePath = fileName;
-  
+      const fileExt = imageFile.name.split(".").pop()
+      const fileName = `${auth.currentUser.uid}_${Date.now()}.${fileExt}`
+      const filePath = fileName
+
       // Upload to storage
-      const { data, error } = await supabase.storage
-        .from("profile-pics")
-        .upload(filePath, imageFile, {
-          upsert: true,
-          cacheControl: '3600'
-        });
-  
+      const { data, error } = await supabase.storage.from("profile-pics").upload(filePath, imageFile, {
+        upsert: true,
+        cacheControl: "3600",
+      })
+
       if (error) {
-        throw new Error(`Upload failed: ${error.message}`);
+        throw new Error(`Upload failed: ${error.message}`)
       }
-  
+
       // Get the public URL
-      const publicUrlResult = supabase.storage.from("profile-pics").getPublicUrl(filePath);
-      const publicUrl = publicUrlResult.data.publicUrl;
-  
+      const publicUrlResult = supabase.storage.from("profile-pics").getPublicUrl(filePath)
+      const publicUrl = publicUrlResult.data.publicUrl
+
       // Update Firestore document
-      const profileRef = doc(db, "accounts", auth.currentUser.uid);
-      await updateDoc(profileRef, { photoURL: publicUrl });
-  
+      const profileRef = doc(db, "accounts", auth.currentUser.uid)
+      await updateDoc(profileRef, { photoURL: publicUrl })
+
       // Update local state
-      setProfile((prev) => ({ ...prev, photoURL: publicUrl }));
-      setImageFile(null);
-      setImagePreview(null);
-      
-      // Confirmation message
-      alert("Profile picture uploaded successfully!");
+      setProfile((prev) => ({ ...prev, photoURL: publicUrl }))
+
+      // Dispatch a custom event to notify other components about the profile update
+      const profileUpdateEvent = new CustomEvent("profilePhotoUpdated", {
+        detail: { photoURL: publicUrl },
+      })
+      window.dispatchEvent(profileUpdateEvent)
+
+      setImageFile(null)
+      setImagePreview(null)
+
+      // Show toast notification instead of alert
+      showToast("Profile picture uploaded successfully!", "success")
     } catch (error) {
-      console.error("Error uploading profile image:", error);
-      alert(`Failed to upload profile picture: ${(error as Error).message || "Unknown error"}`);
+      console.error("Error uploading profile image:", error)
+      showToast(`Failed to upload profile picture: ${(error as Error).message || "Unknown error"}`, "error")
     } finally {
-      setIsUploading(false);
+      setIsUploading(false)
     }
   }
 
@@ -536,11 +577,20 @@ const HeaderAvatar = () => {
 
   // If profile isn't fetched yet, show loading or "Not set" placeholders
   const displayValue = (value: string | undefined) => {
-    return profileFetched ? (value || "Not set") : "Not set"
+    return profileFetched ? value || "Not set" : "Not set"
   }
 
   return (
     <div className="space-y-6 px-0">
+      {/* Toast Notification */}
+      {toast && toast.visible && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
+
       {/* Profile Header with Photo */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
         <div className="flex flex-col md:flex-row items-center gap-6">
@@ -568,24 +618,24 @@ const HeaderAvatar = () => {
             <p className="text-[#3579b8]">@{displayValue(profile.username)}</p>
 
             {imagePreview && (
-  <div className="mt-3 flex gap-2">
-    <button
-      onClick={() => setIsPhotoConfirmationOpen(true)}
-      className="px-3 py-1 bg-[#3579b8] text-white text-sm rounded-md flex items-center gap-1"
-    >
-      Save Photo
-    </button>
-    <button
-      onClick={() => {
-        setImagePreview(null);
-        setImageFile(null);
-      }}
-      className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-md"
-    >
-      Cancel
-    </button>
-  </div>
-)}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setIsPhotoConfirmationOpen(true)}
+                  className="px-3 py-1 bg-[#3579b8] text-white text-sm rounded-md flex items-center gap-1"
+                >
+                  Save Photo
+                </button>
+                <button
+                  onClick={() => {
+                    setImagePreview(null)
+                    setImageFile(null)
+                  }}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-md"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -640,57 +690,55 @@ const HeaderAvatar = () => {
           </div>
         </div>
         <Dialog open={isPhotoConfirmationOpen} onOpenChange={setIsPhotoConfirmationOpen}>
-  <DialogContent className="sm:max-w-[425px]">
-    <DialogHeader>
-      <DialogTitle>Save Profile Photo</DialogTitle>
-      <DialogDescription>
-        Are you sure you want to save this as your profile photo?
-      </DialogDescription>
-    </DialogHeader>
-    <div className="mt-4 flex justify-center">
-      <img 
-        src={imagePreview} 
-        alt="Profile Preview" 
-        className="h-32 w-32 rounded-full object-cover"
-      />
-    </div>
-    <div className="flex justify-end space-x-2 mt-4">
-      <button
-        onClick={() => {
-          setIsPhotoConfirmationOpen(false);
-          setImagePreview(null);
-          setImageFile(null);
-        }}
-        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-      >
-        Cancel
-      </button>
-      <button
-        onClick={() => {
-          uploadProfileImage();
-          setIsPhotoConfirmationOpen(false);
-        }}
-        className="px-4 py-2 bg-[#3579b8] text-white rounded-md hover:bg-[#2A69AC]"
-      >
-        Save Photo
-      </button>
-    </div>
-  </DialogContent>
-</Dialog>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Save Profile Photo</DialogTitle>
+              <DialogDescription>Are you sure you want to save this as your profile photo?</DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 flex justify-center">
+              <img
+                src={imagePreview || "/placeholder.svg"}
+                alt="Profile Preview"
+                className="h-32 w-32 rounded-full object-cover"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => {
+                  setIsPhotoConfirmationOpen(false)
+                  setImagePreview(null)
+                  setImageFile(null)
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  uploadProfileImage()
+                  setIsPhotoConfirmationOpen(false)
+                }}
+                className="px-4 py-2 bg-[#3579b8] text-white rounded-md hover:bg-[#2A69AC]"
+              >
+                Save Photo
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-{isUploading && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg">
-      <div className="flex items-center space-x-2">
-        <div className="w-6 h-6 border-4 border-t-[#3579b8] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-        <p>Uploading photo...</p>
-      </div>
-    </div>
-  </div>
-)}
+        {isUploading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 border-4 border-t-[#3579b8] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                <p>Uploading photo...</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Personal Information Edit Dialog */}
         <Dialog open={isEditingPersonal} onOpenChange={cancelPersonalEdit}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
               <DialogTitle>Edit Personal Information</DialogTitle>
             </DialogHeader>
@@ -701,6 +749,36 @@ const HeaderAvatar = () => {
               }}
               className="space-y-4"
             >
+              {/* First row - Name fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="firstName" className="text-sm text-gray-500">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="firstName"
+                    value={updatedProfile.firstName || ""}
+                    onChange={(e) => handleInputChange("personal", "firstName", e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md mt-1"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="lastName" className="text-sm text-gray-500">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="lastName"
+                    value={updatedProfile.lastName || ""}
+                    onChange={(e) => handleInputChange("personal", "lastName", e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Second row - Username and Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label htmlFor="username" className="text-sm text-gray-500">
@@ -730,34 +808,7 @@ const HeaderAvatar = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="firstName" className="text-sm text-gray-500">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    value={updatedProfile.firstName || ""}
-                    onChange={(e) => handleInputChange("personal", "firstName", e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="lastName" className="text-sm text-gray-500">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    value={updatedProfile.lastName || ""}
-                    onChange={(e) => handleInputChange("personal", "lastName", e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                  />
-                </div>
-              </div>
-
+              {/* Third row - Gender and Phone */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label htmlFor="gender" className="text-sm text-gray-500">
@@ -792,6 +843,7 @@ const HeaderAvatar = () => {
                 </div>
               </div>
 
+              {/* Fourth row - Date of Birth */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label htmlFor="dateOfBirth" className="text-sm text-gray-500">
@@ -826,7 +878,7 @@ const HeaderAvatar = () => {
 
         {/* Confirmation Dialog */}
         <Dialog open={isConfirmationOpen} onOpenChange={setIsConfirmationOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Confirm Changes</DialogTitle>
               <DialogDescription>
@@ -901,7 +953,7 @@ const HeaderAvatar = () => {
             }
           }}
         >
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
               <DialogTitle>Edit Address</DialogTitle>
               <DialogDescription>Update your address information.</DialogDescription>
@@ -913,48 +965,56 @@ const HeaderAvatar = () => {
               }}
               className="space-y-4"
             >
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="region" className="text-sm text-gray-500">
-                    Region
-                  </label>
-                  <select
-                    id="region"
-                    value={updatedProfile.region || ""}
-                    onChange={(e) => handleRegionChange(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Select Region</option>
-                    {regions.map((region) => (
-                      <option key={region} value={region}>
-                        {region}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="province" className="text-sm text-gray-500">
-                    Province
-                  </label>
-                  <select
-                    id="province"
-                    value={updatedProfile.province || ""}
-                    onChange={(e) => handleProvinceChange(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    disabled={!updatedProfile.region}
-                  >
-                    <option value="">Select Province</option>
-                    {updatedProfile.region &&
-                      provinces[updatedProfile.region]?.map((province) => (
-                        <option key={province} value={province}>
-                          {province}
+              {/* Region and Province - First Level */}
+              <div className="space-y-4 p-3 border border-gray-100 rounded-md bg-gray-50">
+                <h4 className="font-medium text-[#3579b8]">Location</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="region" className="text-sm text-gray-500">
+                      Region
+                    </label>
+                    <select
+                      id="region"
+                      value={updatedProfile.region || ""}
+                      onChange={(e) => handleRegionChange(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Select Region</option>
+                      {regions.map((region) => (
+                        <option key={region} value={region}>
+                          {region}
                         </option>
                       ))}
-                  </select>
-                </div>
+                    </select>
+                  </div>
 
-                {updatedProfile.province && (
+                  <div className="space-y-2">
+                    <label htmlFor="province" className="text-sm text-gray-500">
+                      Province
+                    </label>
+                    <select
+                      id="province"
+                      value={updatedProfile.province || ""}
+                      onChange={(e) => handleProvinceChange(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      disabled={!updatedProfile.region}
+                    >
+                      <option value="">Select Province</option>
+                      {updatedProfile.region &&
+                        provinces[updatedProfile.region]?.map((province) => (
+                          <option key={province} value={province}>
+                            {province}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* City/Municipality and Zip Code - Second Level */}
+              {updatedProfile.province && (
+                <div className="space-y-4 p-3 border border-gray-100 rounded-md bg-gray-50">
+                  <h4 className="font-medium text-[#3579b8]">City/Municipality</h4>
                   <div className="flex items-center space-x-4 mb-2">
                     <label className="inline-flex items-center">
                       <input
@@ -979,56 +1039,59 @@ const HeaderAvatar = () => {
                       <span className="ml-2">Municipality</span>
                     </label>
                   </div>
-                )}
 
-                <div className="space-y-2">
-                  <label htmlFor="cityMunicipality" className="text-sm text-gray-500">
-                    {addressType === "city" ? "City" : "Municipality"}
-                  </label>
-                  <select
-                    id="cityMunicipality"
-                    value={addressType === "city" ? updatedProfile.city || "" : updatedProfile.municipality || ""}
-                    onChange={(e) => handleCityMunicipalityChange(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    disabled={!updatedProfile.province}
-                  >
-                    <option value="">Select {addressType === "city" ? "City" : "Municipality"}</option>
-                    {updatedProfile.province &&
-                      addressType === "city" &&
-                      cities[updatedProfile.province]?.map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    {updatedProfile.province &&
-                      addressType === "municipality" &&
-                      municipalities[updatedProfile.province]?.map((municipality) => (
-                        <option key={municipality} value={municipality}>
-                          {municipality}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label htmlFor="cityMunicipality" className="text-sm text-gray-500">
+                        {addressType === "city" ? "City" : "Municipality"}
+                      </label>
+                      <select
+                        id="cityMunicipality"
+                        value={addressType === "city" ? updatedProfile.city || "" : updatedProfile.municipality || ""}
+                        onChange={(e) => handleCityMunicipalityChange(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        disabled={!updatedProfile.province}
+                      >
+                        <option value="">Select {addressType === "city" ? "City" : "Municipality"}</option>
+                        {updatedProfile.province &&
+                          addressType === "city" &&
+                          cities[updatedProfile.province]?.map((city) => (
+                            <option key={city} value={city}>
+                              {city}
+                            </option>
+                          ))}
+                        {updatedProfile.province &&
+                          addressType === "municipality" &&
+                          municipalities[updatedProfile.province]?.map((municipality) => (
+                            <option key={municipality} value={municipality}>
+                              {municipality}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="zipCode" className="text-sm text-gray-500">
+                        Zip Code
+                      </label>
+                      <input
+                        type="text"
+                        id="zipCode"
+                        value={updatedProfile.zipCode || ""}
+                        className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <label htmlFor="zipCode" className="text-sm text-gray-500">
-                    Zip Code
-                  </label>
-                  <input
-                    type="text"
-                    id="zipCode"
-                    value={updatedProfile.zipCode || ""}
-                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
-                    disabled
-                  />
-                  <p className="text-xs text-gray-500">
-                    Zip code is automatically determined based on your city/municipality selection
-                  </p>
-                </div>
-
+              {/* Street Address - Third Level */}
+              <div className="space-y-4 p-3 border border-gray-100 rounded-md bg-gray-50">
+                <h4 className="font-medium text-[#3579b8]">Street Address</h4>
                 <div className="space-y-2">
                   <label htmlFor="streetAddress" className="text-sm text-gray-500">
-                    Street Address
+                    Complete Address
                   </label>
                   <input
                     type="text"
@@ -1037,6 +1100,9 @@ const HeaderAvatar = () => {
                     onChange={(e) => handleInputChange("address", "streetAddress", e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter your complete street address, building name/number, unit/apartment number, etc.
+                  </p>
                 </div>
               </div>
 
@@ -1061,7 +1127,7 @@ const HeaderAvatar = () => {
 
         {/* Address Confirmation Dialog */}
         <Dialog open={isAddressConfirmationOpen} onOpenChange={setIsAddressConfirmationOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Confirm Changes</DialogTitle>
               <DialogDescription>
@@ -1091,4 +1157,3 @@ const HeaderAvatar = () => {
     </div>
   )
 }
-
