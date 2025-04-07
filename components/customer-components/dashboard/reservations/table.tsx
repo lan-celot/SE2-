@@ -94,20 +94,29 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           : "Pending";
         const createdDateTime = booking.createdAt ? formatDateTime(booking.createdAt) : "N/A";
 
+        // Safely handle status conversion
+        const status = booking.status ? String(booking.status).toUpperCase() : "PENDING";
+
+        // Safely handle services array
+        const services = Array.isArray(booking.services)
+          ? booking.services.map((service: any) => ({
+              mechanic: service?.mechanic || "TO BE ASSIGNED",
+              service: service?.service || "Unknown Service",
+              status: service?.status || "Pending",
+              created: service?.created || "N/A",
+              reservationDate: service?.reservationDate || formattedReservationDate,
+              serviceId: service?.serviceId || `legacy-${Math.random().toString(36).substring(2, 9)}`
+            }))
+          : [];
+
         return {
           id: id,
-          userId: booking.userId,
+          userId: booking.userId || user.uid,
           reservationDate: formattedReservationDate,
-          carModel: `${booking.carModel}`.replace(/\s+/g, ' '),
+          carModel: booking.carModel ? `${booking.carModel}`.replace(/\s+/g, ' ') : "N/A",
           completionDate: completionDate,
-          status: (booking.status || "PENDING").toUpperCase(),
-          services: Array.isArray(booking.services)
-            ? booking.services.map((service: any) => ({
-                ...service,
-                created: service.created || "N/A",
-                reservationDate: service.reservationDate || formattedReservationDate
-              }))
-            : [],
+          status: status,
+          services: services,
           statusUpdatedAt: booking.statusUpdatedAt || null,
           createdAt: createdDateTime
         };
@@ -178,7 +187,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
 
         const newServices = selectedServices.map((service) => ({
           mechanic: "TO BE ASSIGNED",
-          service: service.toUpperCase(),
+          service: service ? service.toUpperCase() : "CUSTOM SERVICE",
           status: "Confirmed",
           created: createdDate,
           createdTime: createdTime,
@@ -226,6 +235,8 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   };
 
   const canAddServices = (status: string) => {
+    // Safely handle undefined status
+    if (!status) return true;
     const lowerStatus = status.toLowerCase();
     return lowerStatus !== "repairing" && lowerStatus !== "completed" && lowerStatus !== "cancelled";
   };
@@ -233,9 +244,10 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const filteredAndSortedReservations = reservations
   .filter((reservation) => {
     const matchesSearch = searchQuery
-      ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) =>
-          reservation[key as keyof Reservation]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
-        )
+      ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) => {
+          const value = reservation[key as keyof Reservation];
+          return value ? value.toString().toLowerCase().includes(searchQuery.toLowerCase()) : false;
+        })
       : true;
 
     const matchesStatus = statusFilter
@@ -257,6 +269,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
 
   const formatDate = (dateStr: string) => {
     try {
+      if (!dateStr) return "N/A";
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
         return dateStr;
       }
@@ -271,12 +284,13 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         day: '2-digit'
       });
     } catch {
-      return dateStr;
+      return dateStr || "N/A";
     }
   };
 
   const formatDateTime = (dateStr: string) => {
     try {
+      if (!dateStr) return "N/A";
       if (dateStr === "Pending") return dateStr;
 
       const date = new Date(dateStr);
@@ -293,7 +307,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         hour12: true
       });
     } catch {
-      return dateStr;
+      return dateStr || "N/A";
     }
   };
 
@@ -367,17 +381,17 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                     <tr>
                       <td colSpan={6} className="px-6 py-4 bg-gray-50">
                         <div className="space-y-4">
-                          {reservation.status.toLowerCase() === "completed" && (
+                          {reservation.status && reservation.status.toLowerCase() === "completed" && (
                             <div className="bg-[#28C76F]/10 text-[#28C76F] p-3 rounded-md text-center font-medium">
                               Your Booking is Complete
                             </div>
                           )}
-                          {reservation.status.toLowerCase() === "cancelled" && (
+                          {reservation.status && reservation.status.toLowerCase() === "cancelled" && (
                             <div className="bg-[#EA5455]/10 text-[#EA5455] p-3 rounded-md text-center font-medium">
                               Booking is Cancelled
                             </div>
                           )}
-                          {reservation.status.toLowerCase() === "repairing" && (
+                          {reservation.status && reservation.status.toLowerCase() === "repairing" && (
                             <div className="bg-[#EFBF14]/10 text-[#EFBF14] p-3 rounded-md text-center font-medium">
                               Your vehicle is now being repaired
                             </div>
@@ -411,9 +425,9 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                                     </Button>
                                   ) : (
                                     <span className="text-sm text-gray-500">
-                                      {reservation.status.toLowerCase() === "repairing"
+                                      {reservation.status && reservation.status.toLowerCase() === "repairing"
                                         ? "Cannot modify during repairs"
-                                        : reservation.status.toLowerCase() === "completed"
+                                        : reservation.status && reservation.status.toLowerCase() === "completed"
                                           ? "Your booking is complete"
                                           : "Booking is cancelled"}
                                     </span>
@@ -433,10 +447,10 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                                       {formatDate(service.reservationDate || reservation.reservationDate)}
                                     </TableCell>
                                     <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                      {service.service}
+                                      {service.service || "N/A"}
                                     </TableCell>
                                     <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                      {service.mechanic}
+                                      {service.mechanic || "TO BE ASSIGNED"}
                                     </TableCell>
                                     <TableCell className="px-6 py-4 flex justify-center">
                                       <div className="inline-flex items-center justify-center gap-2">
@@ -518,7 +532,9 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         onConfirm={handleAddServices} 
         existingServices={
           expandedRow 
-            ? reservations.find(res => res.id === expandedRow)?.services.map(s => s.service.toUpperCase()) || []
+            ? (reservations.find(res => res.id === expandedRow)?.services || [])
+                .map(s => s?.service ? s.service.toUpperCase() : '')
+                .filter(Boolean)
             : []
         }
       />

@@ -105,7 +105,7 @@ export function RepairStatus() {
   if (!latestRepair) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm h-full flex flex-col">
-        <h3 className="text-2xl font-semibold text-[#2a69ac] mb-6">Status of Recent Repair</h3>
+        <h3 className="text-2xl font-semibold text-[#2a69ac] mb-6">Status of Recent Reservation</h3>
         <div className="flex-1 flex flex-col justify-center">
           <p className="text-gray-500">No repair history found.</p>
         </div>
@@ -115,7 +115,7 @@ export function RepairStatus() {
 
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm h-full flex flex-col">
-      <h3 className="text-2xl font-semibold text-[#2a69ac] mb-6">Status of Recent Repair</h3>
+      <h3 className="text-2xl font-semibold text-[#2a69ac] mb-6">Status of Recent Reservation</h3>
       <div className="flex-1 flex flex-col justify-center space-y-4">
         <p className="text-2xl text-[#1a365d]">{latestRepair.reservationDate}</p>
         <p className="text-2xl text-[#1a365d]">{latestRepair.carModel}</p>

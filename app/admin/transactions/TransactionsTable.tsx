@@ -125,31 +125,74 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
       // Try to get services from different possible fields
       let servicesList: ServiceItem[] = [];
       
-      // Check transactionServices first (already formatted)
+      // First check if there are any transactionServices with proper formatting
       if (data.transactionServices && Array.isArray(data.transactionServices) && data.transactionServices.length > 0) {
         servicesList = data.transactionServices;
       } 
+      // Next, try to get services from addedServices (for post-booking added services)
+      else if (data.addedServices && Array.isArray(data.addedServices) && data.addedServices.length > 0) {
+        servicesList = data.addedServices.map((service: any) => ({
+          service: typeof service === 'string' ? service : service.name || service.service || "Unknown Service",
+          mechanic: typeof service === 'object' ? service.mechanic || "" : data.mechanic || "",
+          price: typeof service === 'object' ? service.price || 0 : data.price || 0,
+          quantity: typeof service === 'object' ? service.quantity || 1 : 1,
+          discount: typeof service === 'object' ? service.discount || 0 : 0,
+          total: typeof service === 'object' ? service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)) : data.price || 0
+        }));
+      }
       // Try generalServices next
       else if (data.generalServices && Array.isArray(data.generalServices) && data.generalServices.length > 0) {
-        servicesList = data.generalServices.map((service: string) => ({
-          service: service,
-          mechanic: data.mechanic || "",
-          price: data.price || 0,
-          quantity: 1,
-          discount: 0,
-          total: data.price || 0
-        }));
+        servicesList = data.generalServices.map((service: any) => {
+          // Check if the service is an object or string
+          if (typeof service === 'object') {
+            return {
+              service: service.name || service.service || "Unknown Service",
+              mechanic: service.mechanic || data.mechanic || "",
+              price: service.price || 0,
+              quantity: service.quantity || 1,
+              discount: service.discount || 0,
+              total: service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100))
+            };
+          } else {
+            return {
+              service: service,
+              mechanic: data.mechanic || "",
+              price: data.price || 0,
+              quantity: 1,
+              discount: 0,
+              total: data.price || 0
+            };
+          }
+        });
       }
       // Fall back to services array
       else if (data.services && Array.isArray(data.services) && data.services.length > 0) {
-        servicesList = data.services.map((service: string) => ({
-          service: service,
-          mechanic: data.mechanic || "",
-          price: data.price || 0,
-          quantity: 1,
-          discount: 0,
-          total: data.price || 0
-        }));
+        // Check if services contains assigned mechanics
+        const hasAssignedMechanics = data.mechanics && Array.isArray(data.mechanics) && data.mechanics.length > 0;
+        
+        servicesList = data.services.map((service: any, index: number) => {
+          let mechanicName = "";
+          
+          // Try to get mechanic from different possible sources
+          if (typeof service === 'object' && service.mechanic) {
+            mechanicName = service.mechanic;
+          } else if (hasAssignedMechanics && data.mechanics[index]) {
+            mechanicName = data.mechanics[index];
+          } else if (data.mechanic) {
+            mechanicName = data.mechanic;
+          }
+          
+          return {
+            service: typeof service === 'object' ? service.name || service.service || "Unknown Service" : service,
+            mechanic: mechanicName,
+            price: typeof service === 'object' ? service.price || 0 : data.price || 0,
+            quantity: typeof service === 'object' ? service.quantity || 1 : 1,
+            discount: typeof service === 'object' ? service.discount || 0 : 0,
+            total: typeof service === 'object' ? 
+              service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)) : 
+              data.price || 0
+          };
+        });
       } 
       // Create a default service if no service info is found
       else {
@@ -161,6 +204,20 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
           discount: 0,
           total: data.totalPrice || data.price || 0
         }];
+      }
+      
+      // If we have mechanics assigned separately, ensure they're attached to services
+      if (data.mechanics && Array.isArray(data.mechanics) && servicesList.length > 0) {
+        servicesList = servicesList.map((service, index) => {
+          // Only override if current mechanic is empty and there's a mechanic at this index
+          if (!service.mechanic && index < data.mechanics.length && data.mechanics[index]) {
+            return {
+              ...service,
+              mechanic: data.mechanics[index]
+            };
+          }
+          return service;
+        });
       }
       
       // If we have a price but no service total, calculate it
@@ -267,6 +324,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
       return null;
     }
   };
+  
 
   // Format price for display with ₱ symbol and commas
   const formatPriceForDisplay = (price: number): string => {
@@ -331,42 +389,92 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
       try {
         setIsLoading(true)
         console.log("Fetching bookings...")
-
+  
         // Create a query to get all bookings
         const bookingsRef = collection(db, "bookings")
         
         // Simple query without status filter to get all bookings
         const bookingsQuery = query(bookingsRef)
-
+  
         const querySnapshot = await getDocs(bookingsQuery)
         console.log(`Query returned ${querySnapshot.size} documents`)
-
+  
         if (querySnapshot.empty) {
           console.log("No bookings found")
           setTransactions([])
           setIsLoading(false)
           return
         }
-
+  
         // Transform booking data to transaction format
         const transformedTransactions: Transaction[] = []
         
-        querySnapshot.forEach((doc) => {
-          const data = doc.data()
-          console.log(`Processing booking: ${doc.id}`, data)
+        // Process each booking document
+        for (const docSnapshot of querySnapshot.docs) {
+          const data = docSnapshot.data()
+          console.log(`Processing booking: ${docSnapshot.id}`, data)
           
           // Create transaction regardless of status
-          const transaction = createTransaction(doc, data)
+          const transaction = createTransaction(docSnapshot, data)
           if (transaction) {
             transformedTransactions.push(transaction)
-            console.log(`Added transaction for booking ${doc.id}:`, {
+            console.log(`Added transaction for booking ${docSnapshot.id}:`, {
               customerName: transaction.customerName,
               completionDate: transaction.completionDate,
-              reservationDate: transaction.reservationDate
+              reservationDate: transaction.reservationDate,
+              services: transaction.services.map(s => `${s.service} (${s.mechanic || 'No mechanic'})`)
             })
           }
-        })
-
+          
+          // Check if there's a corresponding "addedServices" subcollection
+          try {
+            const addedServicesRef = collection(db, `bookings/${docSnapshot.id}/addedServices`)
+            const addedServicesSnapshot = await getDocs(addedServicesRef)
+            
+            if (!addedServicesSnapshot.empty) {
+              console.log(`Found ${addedServicesSnapshot.size} added services for booking ${docSnapshot.id}`)
+              
+              // Get all added services
+              const addedServices: ServiceItem[] = []
+              
+              addedServicesSnapshot.forEach(serviceDoc => {
+                const serviceData = serviceDoc.data()
+                addedServices.push({
+                  service: serviceData.name || serviceData.service || "Additional Service",
+                  mechanic: serviceData.mechanic || "",
+                  price: serviceData.price || 0,
+                  quantity: serviceData.quantity || 1,
+                  discount: serviceData.discount || 0,
+                  total: serviceData.total || (serviceData.price * (serviceData.quantity || 1) * (1 - (serviceData.discount || 0) / 100))
+                })
+              })
+              
+              // Find the transaction we just added and update its services
+              const transactionIndex = transformedTransactions.findIndex(t => t.id === docSnapshot.id)
+              if (transactionIndex >= 0) {
+                const existingTransaction = transformedTransactions[transactionIndex]
+                
+                // Add the new services to the existing ones
+                const updatedServices = [...existingTransaction.services, ...addedServices]
+                
+                // Recalculate total price
+                const updatedTotalPrice = updatedServices.reduce((sum, service) => sum + (service.total || 0), 0)
+                
+                // Update the transaction
+                transformedTransactions[transactionIndex] = {
+                  ...existingTransaction,
+                  services: updatedServices,
+                  totalPrice: updatedTotalPrice
+                }
+                
+                console.log(`Updated transaction ${docSnapshot.id} with added services`)
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching added services for booking ${docSnapshot.id}:`, error)
+          }
+        }
+  
         console.log(`Processed ${transformedTransactions.length} bookings`)
         
         // Sort by reservation date descending by default
@@ -392,18 +500,18 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         })
         
         setTransactions(sortedTransactions)
-
+  
         // Initialize edited transactions
         const transactionsMap: Record<string, Transaction> = {}
         const initialPriceInputs: Record<string, Record<number, string>> = {}
         const initialAmountTenderedInputs: Record<string, string> = {}
-
+  
         sortedTransactions.forEach((transaction) => {
           transactionsMap[transaction.id] = {
             ...transaction,
             amountTendered: transaction.amountTendered || 0,
           }
-
+  
           // Initialize price inputs
           initialPriceInputs[transaction.id] = {}
           transaction.services.forEach((service, index) => {
@@ -412,14 +520,14 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
                 ? `₱${service.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : ""
           })
-
+  
           // Initialize amount tendered inputs
           initialAmountTenderedInputs[transaction.id] =
             transaction.amountTendered && transaction.amountTendered > 0
               ? `₱${transaction.amountTendered.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : ""
         })
-
+  
         setEditedTransactions(transactionsMap)
         setPriceInputs(initialPriceInputs)
         setAmountTenderedInputs(initialAmountTenderedInputs)
@@ -435,7 +543,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         setIsLoading(false)
       }
     }
-
+  
     if (isClient) {
       fetchBookings()
     }
@@ -457,11 +565,10 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   const handleAddServiceItem = (transactionId: string) => {
     // Debug log
     console.log(`Navigating to add service with transaction ID: ${transactionId}`)
-
+  
     // Navigate to add service/item page with the specific transaction ID
     router.push(`/admin/transactions/add-service?id=${transactionId}`)
   }
-
   // Calculate subtotal, discount amount, and total price
   const calculatePrices = (services: ServiceItem[]) => {
     const subtotal = services.reduce((sum, service) => sum + service.price * service.quantity, 0)
@@ -714,10 +821,10 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     try {
       setSavingTransactionId(transactionId)
       const transaction = editedTransactions[transactionId]
-
+  
       // Calculate values from services to ensure consistency
       const { subtotal, discountAmount, totalPrice } = calculatePrices(transaction.services)
-
+  
       // Update the transactions array
       const updatedTransactions = transactions.map((t) => {
         if (t.id === transactionId) {
@@ -730,16 +837,16 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         }
         return t
       })
-
+  
       // Update state
       setTransactions(updatedTransactions)
-
+  
       // Update the input state values to reflect the saved values
       const updatedPriceInputs = { ...priceInputs }
       if (!updatedPriceInputs[transactionId]) {
         updatedPriceInputs[transactionId] = {}
       }
-
+  
       transaction.services.forEach((service, index) => {
         updatedPriceInputs[transactionId][index] =
           service.price > 0
@@ -747,7 +854,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
             : ""
       })
       setPriceInputs(updatedPriceInputs)
-
+  
       // Update amount tendered input
       const updatedAmountTenderedInputs = { ...amountTenderedInputs }
       updatedAmountTenderedInputs[transactionId] =
@@ -755,24 +862,25 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
           ? `₱${transaction.amountTendered.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : ""
       setAmountTenderedInputs(updatedAmountTenderedInputs)
-
+  
       // Update in Firebase
       try {
         // First, try to update the existing booking document
         const bookingRef = doc(db, "bookings", transactionId)
-
+  
         // Update the booking with transaction data
         await updateDoc(bookingRef, {
-          services: transaction.services.map((s) => s.service),
+          transactionServices: transaction.services,  // Store the full service objects
+          services: transaction.services.map((s) => s.service), // Also keep the original services array for backward compatibility
           totalPrice: totalPrice,
           amountTendered: transaction.amountTendered || 0,
           subtotal: subtotal,
           discountAmount: discountAmount,
           updatedAt: new Date(),
         })
-
+  
         console.log("Successfully updated booking in Firebase")
-
+  
         // Also save to transactions collection if needed
         const transactionsRef = collection(db, "transactions")
         await addDoc(transactionsRef, {
@@ -794,7 +902,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         console.error("Error saving to Firebase:", error)
         // Continue since we already updated the state
       }
-
+  
       toast({
         title: "Transaction Saved",
         description: "The transaction has been successfully saved",
@@ -811,7 +919,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
       setSavingTransactionId(null)
     }
   }
-
+  
   const handlePrint = () => {
     const transaction = selectedTransactionId ? editedTransactions[selectedTransactionId] : null
     if (transaction) {
