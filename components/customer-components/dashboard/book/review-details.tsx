@@ -3,6 +3,7 @@ import { Button } from "@/components/customer-components/ui/button";
 import { db, auth } from "@/lib/firebase";
 import { collection, doc, runTransaction, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import notificationapi from 'notificationapi-node-server-sdk'
 
 interface FormData {
   carBrand: string;
@@ -42,6 +43,28 @@ export function ReviewDetails({
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
   const router = useRouter();
+
+  //Function to send notification(when confirm booking)
+  const sendNotification = async () => {
+    try {
+      const res = await fetch('/api/send-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          comment: 'hi from client',
+          commentId: '123'
+        })
+      });
+
+      const data = await res.json();
+      console.log('Notification status:', data);
+
+    } catch (err) {
+      console.error('Client error:', err);
+    }
+  };
 
   const formatTime = (date: Date) => {
     return date.toLocaleString('en-US', {
@@ -135,9 +158,11 @@ export function ReviewDetails({
         // Add the booking to the user's subcollection
         const userBookingsRef = doc(collection(db, `users/${user.uid}/bookings`), bookingId);
         transaction.set(userBookingsRef, bookingData);
+        
       });
-
       setSubmissionSuccess(true);
+      //calls the notification function
+      sendNotification();
     } catch (error: any) {
       console.error("Error submitting reservation:", error);
       alert(error.message || "There was an error submitting your reservation. Please try again.");

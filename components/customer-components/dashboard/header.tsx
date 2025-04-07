@@ -8,7 +8,7 @@ import { db, auth } from "@/lib/firebase" // Import Firebase
 import { doc, getDoc } from "firebase/firestore" // Firestore functions
 import { onAuthStateChanged } from "firebase/auth" // Firebase Auth
 import Cookies from "js-cookie"
-import { NotificationAPIProvider, NotificationPopup} from '@notificationapi/react';
+import { NotificationAPIProvider, NotificationPopup } from '@notificationapi/react';
 
 interface HeaderProps {
   title?: string
