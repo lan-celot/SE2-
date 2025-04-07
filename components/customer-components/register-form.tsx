@@ -175,6 +175,8 @@ export function RegisterForm() {
   // Accept terms and close popup
   const acceptTerms = () => {
     form.setValue("terms", true)
+    // Clear any terms validation errors from the form state
+    form.clearErrors("terms")
     setShowTermsPopup(false)
   }
 
@@ -274,7 +276,7 @@ export function RegisterForm() {
       const phoneSnapshot = await getDocs(phoneQuery)
 
       if (!phoneSnapshot.empty) {
-        setPhoneError("Phone number already registered. Please use another one.")
+        setPhoneError("Phone number already registered.")
       } else {
         setPhoneError(null)
       }
@@ -337,7 +339,7 @@ export function RegisterForm() {
       const phoneSnapshot = await getDocs(phoneQuery)
 
       if (!phoneSnapshot.empty) {
-        setPhoneError("Phone number already registered. Please use another one.")
+        setPhoneError("Phone number already registered.")
         setIsLoading(false)
         return
       }
@@ -346,7 +348,7 @@ export function RegisterForm() {
       const emailSnapshot = await getDocs(emailQuery)
 
       if (!emailSnapshot.empty) {
-        setEmailError("Email already registered. Please use another one.")
+        setEmailError("Email already registered.")
         setIsLoading(false)
         return
       }
@@ -399,7 +401,7 @@ export function RegisterForm() {
 
       // Format Firebase error messages to be more user-friendly
       if (err.code === "auth/email-already-in-use") {
-        setEmailError("Email already registered. Please use another one.")
+        setEmailError("Email already registered. ")
       } else if (err.code === "auth/invalid-email") {
         setEmailError("Invalid email address format.")
       } else if (err.code === "auth/weak-password") {
@@ -764,7 +766,13 @@ export function RegisterForm() {
               <FormControl>
                 <Checkbox 
                   checked={field.value} 
-                  onCheckedChange={field.onChange} 
+                  onCheckedChange={(checked) => {
+                    field.onChange(checked)
+                    if (checked) {
+                      // Clear any terms validation errors when checked
+                      form.clearErrors("terms")
+                    }
+                  }}
                   id="terms-checkbox"
                   onClick={handleCheckboxClick}  
                 />
