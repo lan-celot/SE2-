@@ -10,13 +10,30 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, getDocs, query, where, orderBy, type Timestamp, updateDoc, doc } from "firebase/firestore"
+import { collection, addDoc, getDocs, query, where, orderBy, type Timestamp, updateDoc, doc, DocumentData, QueryDocumentSnapshot } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { formatDateTime } from "@/lib/date-utils"
 import Loading from "@/components/admin-components/loading"
 
 interface TransactionsTableProps {
   searchQuery: string
+}
+
+interface ServiceItem {
+  service: string
+  mechanic: string
+  price: number
+  quantity: number
+  discount: number
+  total: number
+}
+
+interface CarDetails {
+  yearModel: string
+  transmission: string
+  fuelType: string
+  odometer: string
+  plateNo: string
 }
 
 interface Transaction {
@@ -28,51 +45,235 @@ interface Transaction {
   reservationDate: string
   completionDate: string
   totalPrice: number
-  services: {
-    service: string
-    mechanic: string
-    price: number
-    quantity: number
-    discount: number
-    total: number
-  }[]
-  carDetails?: {
-    yearModel: string
-    transmission: string
-    fuelType: string
-    odometer: string
-    plateNo: string
-  }
+  services: ServiceItem[]
+  carDetails?: CarDetails
   createdAt: Date
   amountTendered?: number
 }
 
-interface Booking {
-  id: string
-  customerName: string
-  customerId: string
-  carModel: string
-  date: Timestamp
-  status: string
-  services: string[]
-  carDetails?: {
-    yearModel: string
-    transmission: string
-    fuelType: string
-    odometer: string
-    plateNo: string
-  }
-  completionDate?: Timestamp
-  // Add any other fields that might be in the booking document
-}
+// Type for Firestore date-like values
+type DateValue = Date | Timestamp | string | number | null | undefined;
 
 const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) => {
-  // Format price for display with commas and two decimal places
+  // Better function to handle Firestore timestamp conversion to readable date
+  const formatFirestoreDate = (dateValue: DateValue): string => {
+    if (!dateValue) return "---";
+    
+    try {
+      // If it's a Firestore timestamp
+      if (dateValue && typeof (dateValue as Timestamp).toDate === 'function') {
+        const date = (dateValue as Timestamp).toDate();
+        return date.toISOString().split('T')[0].replace(/-/g, '-');
+      }
+      
+      // If it's a JavaScript Date object
+      if (dateValue instanceof Date) {
+        return dateValue.toISOString().split('T')[0].replace(/-/g, '-');
+      }
+      
+      // If it's a string that might be in ISO format or another date format
+      if (typeof dateValue === 'string') {
+        // Check if it's already formatted with dashes yyyy-mm-dd
+        if (/\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+          return dateValue;
+        }
+        
+        // Try to parse it as a date
+        const date = new Date(dateValue);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString().split('T')[0].replace(/-/g, '-');
+        }
+      }
+      
+      // If it's a number (timestamp)
+      if (typeof dateValue === 'number') {
+        const date = new Date(dateValue);
+        return date.toISOString().split('T')[0].replace(/-/g, '-');
+      }
+      
+      return String(dateValue) || "---";
+    } catch (error) {
+      console.error("Error formatting date:", error, dateValue);
+      return "---";
+    }
+  };
+
+  // Update the display in the table to use a consistent date formatter
+  const renderDate = (dateString: string): string => {
+    if (!dateString || dateString === "---" || dateString === "INVALID DATE" || dateString === "Pending") {
+      return dateString;
+    }
+    
+    try {
+      // Try to standardize date display
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0].replace(/-/g, '-');
+      }
+      return dateString;
+    } catch (error) {
+      console.error("Error rendering date:", error, dateString);
+      return dateString;
+    }
+  };
+
+  // Function to create transaction object from Firestore document
+  const createTransaction = (doc: QueryDocumentSnapshot<DocumentData>, data: DocumentData): Transaction | null => {
+    try {
+      console.log(`Processing booking data for ${doc.id}:`, data);
+      
+      // Try to get services from different possible fields
+      let servicesList: ServiceItem[] = [];
+      
+      // Check transactionServices first (already formatted)
+      if (data.transactionServices && Array.isArray(data.transactionServices) && data.transactionServices.length > 0) {
+        servicesList = data.transactionServices;
+      } 
+      // Try generalServices next
+      else if (data.generalServices && Array.isArray(data.generalServices) && data.generalServices.length > 0) {
+        servicesList = data.generalServices.map((service: string) => ({
+          service: service,
+          mechanic: data.mechanic || "",
+          price: data.price || 0,
+          quantity: 1,
+          discount: 0,
+          total: data.price || 0
+        }));
+      }
+      // Fall back to services array
+      else if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+        servicesList = data.services.map((service: string) => ({
+          service: service,
+          mechanic: data.mechanic || "",
+          price: data.price || 0,
+          quantity: 1,
+          discount: 0,
+          total: data.price || 0
+        }));
+      } 
+      // Create a default service if no service info is found
+      else {
+        servicesList = [{
+          service: "General Service",
+          mechanic: data.mechanic || "",
+          price: data.totalPrice || data.price || 0,
+          quantity: 1,
+          discount: 0,
+          total: data.totalPrice || data.price || 0
+        }];
+      }
+      
+      // If we have a price but no service total, calculate it
+      servicesList = servicesList.map(service => {
+        if (service.price && !service.total) {
+          return {
+            ...service,
+            total: service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)
+          };
+        }
+        return service;
+      });
+      
+      // Get customer information
+      let customerName = data.customerName || "Unknown Customer";
+      
+      // Try other possible locations for customer name
+      if (customerName === "Unknown Customer") {
+        if (data.customer) {
+          if (typeof data.customer === 'string') {
+            customerName = data.customer;
+          } else if (data.customer.name) {
+            customerName = data.customer.name;
+          } else if (data.customer.fullName) {
+            customerName = data.customer.fullName;
+          }
+        }
+        
+        if (data.name) customerName = data.name;
+        else if (data.fullName) customerName = data.fullName;
+        else if (data.client && data.client.name) customerName = data.client.name;
+      }
+      
+      // Get customer ID
+      let customerId = data.customerId || data.customerUid || "---";
+      
+      // Try other possible locations for customer ID
+      if (customerId === "---" && data.customer) {
+        if (typeof data.customer !== 'string' && data.customer.id) {
+          customerId = data.customer.id;
+        } else if (typeof data.customer !== 'string' && data.customer.uid) {
+          customerId = data.customer.uid;
+        }
+      }
+      
+      // Format reservation date to match "2025-04-22" format
+      const reservationDate = formatFirestoreDate(data.date);
+      
+      // Just use "Pending" for completion date as in the screenshot
+      let completionDate = "Pending";
+      
+      // Get car model
+      let carModel = data.carModel || "---";
+      
+      // Try other possible locations for car model
+      if (carModel === "---") {
+        if (data.vehicle && typeof data.vehicle === 'object') {
+          if (data.vehicle.model) carModel = data.vehicle.model;
+          else if (data.vehicle.name) carModel = data.vehicle.name;
+        }
+        else if (data.carDetails && typeof data.carDetails === 'object') {
+          if (data.carDetails.model) carModel = data.carDetails.model;
+          else if (data.carDetails.name) carModel = data.carDetails.name;
+        }
+        else if (data.car && typeof data.car === 'object') {
+          if (data.car.model) carModel = data.car.model;
+          else if (data.car.name) carModel = data.car.name;
+        }
+      }
+      
+      // Format car model to match "Nissan GT-R" format
+      if (carModel && carModel !== "---") {
+        // If the model is something like "nissan gt-r", format it to "Nissan GT-R"
+        carModel = carModel.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+      }
+      
+      // Create a transaction from the booking
+      const transaction: Transaction = {
+        id: doc.id,
+        reservationId: doc.id,
+        customerName: customerName,
+        customerId: customerId,
+        carModel: carModel,
+        reservationDate: reservationDate,
+        completionDate: completionDate,
+        totalPrice: data.totalPrice || servicesList.reduce((sum: number, service: ServiceItem) => sum + (service.total || 0), 0),
+        services: servicesList,
+        carDetails: data.carDetails || {
+          yearModel: data.yearModel || "",
+          transmission: data.transmission || "",
+          fuelType: data.fuelType || "",
+          odometer: data.odometer || "",
+          plateNo: data.plateNo || "",
+        },
+        createdAt: data.date 
+          ? (typeof (data.date as Timestamp).toDate === 'function' ? (data.date as Timestamp).toDate() : new Date(data.date)) 
+          : new Date(),
+        amountTendered: data.amountTendered || 0,
+      };
+      
+      return transaction;
+    } catch (error) {
+      console.error(`Error creating transaction from doc ${doc.id}:`, error);
+      return null;
+    }
+  };
+
+  // Format price for display with ₱ symbol and commas
   const formatPriceForDisplay = (price: number): string => {
     return `₱${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  // Format a raw input price string to a number
+  // Parse input price string to number
   const parseInputPrice = (value: string): number => {
     // Remove currency symbol, commas, and non-numeric characters except decimal point
     const numericValue = value.replace(/₱|,/g, "").replace(/[^\d.]/g, "")
@@ -100,7 +301,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
 
   const router = useRouter()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const [sortField, setSortField] = useState<keyof Transaction>("completionDate")
+  const [sortField, setSortField] = useState<keyof Transaction>("reservationDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
@@ -124,77 +325,80 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     setIsClient(true)
   }, [])
 
-  // Fetch completed bookings from Firebase
+  // Fetch bookings from Firebase
   useEffect(() => {
-    const fetchCompletedBookings = async () => {
+    const fetchBookings = async () => {
       try {
         setIsLoading(true)
+        console.log("Fetching bookings...")
 
-        // Create a query to get all bookings with status "COMPLETED" or "Completed"
+        // Create a query to get all bookings
         const bookingsRef = collection(db, "bookings")
-        const completedQuery = query(
-          bookingsRef,
-          where("status", "in", ["COMPLETED", "Completed", "completed"]),
-          orderBy("completionDate", "desc"),
-        )
+        
+        // Simple query without status filter to get all bookings
+        const bookingsQuery = query(bookingsRef)
 
-        const querySnapshot = await getDocs(completedQuery)
+        const querySnapshot = await getDocs(bookingsQuery)
+        console.log(`Query returned ${querySnapshot.size} documents`)
 
         if (querySnapshot.empty) {
-          console.log("No completed bookings found")
+          console.log("No bookings found")
           setTransactions([])
           setIsLoading(false)
           return
         }
 
         // Transform booking data to transaction format
-        const transformedTransactions: Transaction[] = querySnapshot.docs.map((doc) => {
-          const booking = doc.data() as Booking
-
-          // Default service if none provided
-          const defaultService = {
-            service: booking.services?.[0] || "General Service",
-            mechanic: "",
-            price: 0,
-            quantity: 1,
-            discount: 0,
-            total: 0,
-          }
-
-          // Create a transaction from the booking
-          return {
-            id: doc.id,
-            reservationId: doc.id,
-            customerName: booking.customerName || "Unknown Customer",
-            customerId: booking.customerId || "---",
-            carModel: booking.carModel || "---",
-            reservationDate: booking.date ? new Date(booking.date.toDate()).toLocaleDateString() : "---",
-            completionDate: booking.completionDate
-              ? new Date(booking.completionDate.toDate()).toLocaleDateString()
-              : new Date().toLocaleDateString(),
-            totalPrice: 0, // Will be calculated when services are added
-            services: [defaultService],
-            carDetails: booking.carDetails || {
-              yearModel: "",
-              transmission: "",
-              fuelType: "",
-              odometer: "",
-              plateNo: "",
-            },
-            createdAt: booking.date ? booking.date.toDate() : new Date(),
-            amountTendered: 0,
+        const transformedTransactions: Transaction[] = []
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data()
+          console.log(`Processing booking: ${doc.id}`, data)
+          
+          // Create transaction regardless of status
+          const transaction = createTransaction(doc, data)
+          if (transaction) {
+            transformedTransactions.push(transaction)
+            console.log(`Added transaction for booking ${doc.id}:`, {
+              customerName: transaction.customerName,
+              completionDate: transaction.completionDate,
+              reservationDate: transaction.reservationDate
+            })
           }
         })
 
-        console.log(`Fetched ${transformedTransactions.length} completed bookings`)
-        setTransactions(transformedTransactions)
+        console.log(`Processed ${transformedTransactions.length} bookings`)
+        
+        // Sort by reservation date descending by default
+        const sortedTransactions = [...transformedTransactions].sort((a, b) => {
+          try {
+            const dateA = new Date(a.reservationDate)
+            const dateB = new Date(b.reservationDate)
+            
+            // If both dates are valid, compare them
+            if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+              return dateB.getTime() - dateA.getTime()
+            }
+            
+            // If one date is invalid, move it to the end
+            if (isNaN(dateA.getTime())) return 1
+            if (isNaN(dateB.getTime())) return -1
+            
+            return 0
+          } catch (error) {
+            console.error("Error sorting dates:", error)
+            return 0
+          }
+        })
+        
+        setTransactions(sortedTransactions)
 
         // Initialize edited transactions
         const transactionsMap: Record<string, Transaction> = {}
         const initialPriceInputs: Record<string, Record<number, string>> = {}
         const initialAmountTenderedInputs: Record<string, string> = {}
 
-        transformedTransactions.forEach((transaction) => {
+        sortedTransactions.forEach((transaction) => {
           transactionsMap[transaction.id] = {
             ...transaction,
             amountTendered: transaction.amountTendered || 0,
@@ -221,7 +425,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         setAmountTenderedInputs(initialAmountTenderedInputs)
         initializedRef.current = true
       } catch (error) {
-        console.error("Error fetching completed bookings:", error)
+        console.error("Error fetching bookings:", error)
         toast({
           title: "Error",
           description: "Failed to load transactions. Please try again.",
@@ -233,7 +437,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     }
 
     if (isClient) {
-      fetchCompletedBookings()
+      fetchBookings()
     }
   }, [isClient, toast])
 
@@ -259,7 +463,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   }
 
   // Calculate subtotal, discount amount, and total price
-  const calculatePrices = (services: Transaction["services"]) => {
+  const calculatePrices = (services: ServiceItem[]) => {
     const subtotal = services.reduce((sum, service) => sum + service.price * service.quantity, 0)
     const discountAmount = services.reduce(
       (sum, service) => sum + (service.price * service.quantity * service.discount) / 100,
@@ -432,7 +636,6 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     }
   }
 
-  // Handle price, quantity, and discount changes
   // Handle service changes
   const handleServiceChange = (transactionId: string, serviceIndex: number, field: string, value: string | number) => {
     setEditedTransactions((prev) => {
@@ -443,22 +646,22 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
       // Handle specific field changes
       if (field === "price") {
         // Parse price input
-        service.price = typeof value === "string" ? parseInputPrice(value) : value
+        service.price = typeof value === "string" ? parseInputPrice(value) : value as number
         // Recalculate total
         service.total = service.price * service.quantity * (1 - service.discount / 100)
       } else if (field === "quantity") {
         // Parse quantity input
-        service.quantity = typeof value === "string" ? Number.parseInt(value.replace(/\D/g, "")) || 1 : value
+        service.quantity = typeof value === "string" ? Number.parseInt(value.replace(/\D/g, "")) || 1 : value as number
         // Recalculate total
         service.total = service.price * service.quantity * (1 - service.discount / 100)
       } else if (field === "discount") {
         // Parse discount input
-        service.discount = typeof value === "string" ? Number.parseInt(value.replace(/\D/g, "")) || 0 : value
+        service.discount = typeof value === "string" ? Number.parseInt(value.replace(/\D/g, "")) || 0 : value as number
         // Recalculate total
         service.total = service.price * service.quantity * (1 - service.discount / 100)
       } else {
-        // @ts-ignore - handle other fields
-        service[field] = value
+        // Handle other fields - we need a type assertion here because TypeScript doesn't know what fields might exist
+        (service as any)[field] = value
       }
 
       services[serviceIndex] = service
@@ -610,7 +813,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   }
 
   const handlePrint = () => {
-    const transaction = editedTransactions[selectedTransactionId || ""]
+    const transaction = selectedTransactionId ? editedTransactions[selectedTransactionId] : null
     if (transaction) {
       setShowPrintDialog(false)
 
@@ -813,7 +1016,22 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     }
 
     if (sortField === "completionDate" || sortField === "reservationDate") {
-      return (new Date(a[sortField]).getTime() - new Date(b[sortField]).getTime()) * modifier
+      try {
+        const dateA = new Date(a[sortField]).getTime()
+        const dateB = new Date(b[sortField]).getTime()
+        
+        if (!isNaN(dateA) && !isNaN(dateB)) {
+          return (dateA - dateB) * modifier
+        }
+        
+        // Handle invalid dates - move them to the end
+        if (isNaN(dateA)) return 1 * modifier
+        if (isNaN(dateB)) return -1 * modifier
+        
+        return 0
+      } catch (error) {
+        return 0
+      }
     }
 
     if (typeof aValue === "string" && typeof bValue === "string") {
@@ -826,31 +1044,6 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
 
     return 0
   })
-
-  // Fix for formatDateTime possibly being undefined
-  const safeFormatDateTime = (dateString: string) => {
-    if (!dateString) return "-----"
-
-    // If formatDateTime is defined, use it
-    if (typeof formatDateTime === "function") {
-      return formatDateTime(dateString)
-    }
-
-    // Fallback implementation if formatDateTime is not available
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      })
-    } catch (error) {
-      return dateString
-    }
-  }
 
   const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage)
   const currentItems = sortedTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
@@ -923,12 +1116,12 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
                   <td className="px-3 py-4 text-sm text-[#1A365D] text-center uppercase" title={transaction.id}>
                     {transaction.id || "-----"}
                   </td>
-                  {/* In the table rows where reservation dates and completion dates are displayed: */}
+                  {/* Improved date rendering */}
                   <td
                     className="px-3 py-4 text-sm text-[#1A365D] text-center uppercase"
-                    title={formatDateTime(transaction.reservationDate)}
+                    title={transaction.reservationDate}
                   >
-                    {formatDateTime(transaction.reservationDate) || "-----"}
+                    {renderDate(transaction.reservationDate)}
                   </td>
                   <td
                     className="px-3 py-4 text-sm text-[#1A365D] text-center uppercase"
@@ -944,9 +1137,9 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
                   </td>
                   <td
                     className="px-3 py-4 text-sm text-[#1A365D] text-center uppercase"
-                    title={formatDateTime(transaction.completionDate)}
+                    title={transaction.completionDate}
                   >
-                    {formatDateTime(transaction.completionDate) || "-----"}
+                    {renderDate(transaction.completionDate)}
                   </td>
                   <td className="px-3 py-4">
                     <div className="flex justify-center">
@@ -1266,4 +1459,3 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
 }
 
 export default TransactionsTable
-
