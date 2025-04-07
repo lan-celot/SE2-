@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { db, auth } from "@/lib/firebase"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
-import { Pencil, Save, X, Upload, User } from "lucide-react"
+import { Pencil, Upload, User } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 // Create local component imports to resolve missing type declarations
@@ -70,26 +70,152 @@ export default function ProfilePage() {
     region: "",
     province: "",
     city: "",
+    municipality: "",
     zipCode: "",
     streetAddress: "",
     photoURL: "",
   })
   const [isLoading, setIsLoading] = useState(true)
   const [editingAddress, setEditingAddress] = useState(false)
+  const [isPhotoConfirmationOpen, setIsPhotoConfirmationOpen] = useState(false);
   const [updatedProfile, setUpdatedProfile] = useState<Record<string, any>>({})
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [profileFetched, setProfileFetched] = useState(false) // New state to track if profile has been fetched
 
   // New state variables for enhanced personal information editing
   const [isEditingPersonal, setIsEditingPersonal] = useState(false)
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [ageError, setAgeError] = useState<string | null>(null)
+  const [isAddressConfirmationOpen, setIsAddressConfirmationOpen] = useState(false)
+
+  const [regions, setRegions] = useState<string[]>([])
+  const [provinces, setProvinces] = useState<Record<string, string[]>>({})
+  const [cities, setCities] = useState<Record<string, string[]>>({})
+  const [municipalities, setMunicipalities] = useState<Record<string, string[]>>({})
+  const [zipCodes, setZipCodes] = useState<Record<string, string>>({})
+  const [addressType, setAddressType] = useState<"city" | "municipality">("city")
 
   useEffect(() => {
-    fetchProfile()
+    const checkAuthAndFetchProfile = async () => {
+      // Check if auth is initialized
+      if (!auth.currentUser) {
+        // Wait for auth state to change
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+          if (user) {
+            fetchProfile()
+          } else {
+            setIsLoading(false)
+          }
+          unsubscribe()
+        })
+      } else {
+        fetchProfile()
+      }
+    }
+
+    checkAuthAndFetchProfile()
   }, [])
+
+  useEffect(() => {
+    // This would typically come from an API or database
+    // Simplified example data
+    setRegions(["NCR", "CAR", "Region I", "Region II", "Region III", "Region IV-A", "Region IV-B"])
+
+    setProvinces({
+      NCR: ["Metro Manila"],
+      CAR: ["Benguet", "Ifugao", "Mountain Province"],
+      "Region I": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
+      "Region II": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
+      "Region III": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
+      "Region IV-A": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
+      "Region IV-B": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
+    })
+
+    setCities({
+      "Metro Manila": ["Manila", "Quezon City", "Makati", "Pasig", "Taguig"],
+      Benguet: ["Baguio City"],
+      Batangas: ["Batangas City", "Lipa City", "Tanauan"],
+      Cavite: ["Bacoor", "Dasmariñas", "Imus", "Tagaytay"],
+      Laguna: ["Calamba", "San Pablo", "Santa Rosa"],
+      Rizal: ["Antipolo", "Cainta", "Taytay"],
+      // Add more as needed
+    })
+
+    setMunicipalities({
+      Benguet: ["La Trinidad", "Itogon", "Tublay"],
+      Batangas: ["Bauan", "Calaca", "Nasugbu"],
+      Cavite: ["Carmona", "Silang", "Tanza"],
+      Laguna: ["Cabuyao", "Los Baños", "Pagsanjan"],
+      Rizal: ["Angono", "Binangonan", "Rodriguez"],
+      // Add more as needed
+    })
+
+    setZipCodes({
+      Manila: "1000",
+      "Quezon City": "1100",
+      Makati: "1200",
+      Pasig: "1600",
+      Taguig: "1630",
+      "Baguio City": "2600",
+      "Batangas City": "4200",
+      "Lipa City": "4217",
+      Bacoor: "4102",
+      Dasmariñas: "4114",
+      Antipolo: "1870",
+      "La Trinidad": "2601",
+      Bauan: "4201",
+      Carmona: "4116",
+      Cabuyao: "4025",
+      Angono: "1930",
+      // Add more as needed
+    })
+  }, [])
+// Add this somewhere in your layout component that contains the header
+// This would typically be in a separate component that wraps your profile page
+const HeaderAvatar = () => {
+  const [avatarUrl, setAvatarUrl] = useState("");
+  
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      if (auth.currentUser) {
+        try {
+          const profileRef = doc(db, "accounts", auth.currentUser.uid);
+          const profileSnap = await getDoc(profileRef);
+          
+          if (profileSnap.exists() && profileSnap.data().photoURL) {
+            setAvatarUrl(profileSnap.data().photoURL);
+          }
+        } catch (error) {
+          console.error("Error fetching avatar:", error);
+        }
+      }
+    };
+    
+    fetchAvatar();
+    
+    // Set up a listener for real-time updates
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) fetchAvatar();
+    });
+    
+    return () => unsubscribe();
+  }, []);
+  
+  return (
+    <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+      ) : (
+        <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+          <User className="h-4 w-4 text-gray-500" />
+        </div>
+      )}
+    </div>
+  );
+};
 
   const fetchProfile = async () => {
     const user = auth.currentUser
@@ -108,6 +234,7 @@ export default function ProfilePage() {
         const profileData = profileSnap.data() as Record<string, any>
         setProfile(profileData as any)
         setUpdatedProfile(profileData)
+        setProfileFetched(true) // Mark profile as fetched
       } else {
         console.log("No profile found")
       }
@@ -191,6 +318,67 @@ export default function ProfilePage() {
     }
   }
 
+  const handleRegionChange = (region: string) => {
+    handleInputChange("address", "region", region)
+    handleInputChange("address", "province", "")
+    handleInputChange("address", "city", "")
+    handleInputChange("address", "municipality", "")
+    handleInputChange("address", "zipCode", "")
+    setAddressType("city")
+  }
+
+  const handleProvinceChange = (province: string) => {
+    handleInputChange("address", "province", province)
+    handleInputChange("address", "city", "")
+    handleInputChange("address", "municipality", "")
+    handleInputChange("address", "zipCode", "")
+
+    // Determine if this province has cities or municipalities or both
+    const hasCities = cities[province] && cities[province].length > 0
+    const hasMunicipalities =
+      municipalities[province] && municipalities[province] && municipalities[province].length > 0
+
+    if (hasCities && !hasMunicipalities) {
+      setAddressType("city")
+    } else if (!hasCities && hasMunicipalities) {
+      setAddressType("municipality")
+    } else {
+      // If both are available, default to city
+      setAddressType("city")
+    }
+  }
+
+  const handleCityMunicipalityChange = (value: string) => {
+    if (addressType === "city") {
+      handleInputChange("address", "city", value)
+      handleInputChange("address", "municipality", "")
+      // Auto-populate zip code based on city
+      if (zipCodes[value]) {
+        handleInputChange("address", "zipCode", zipCodes[value])
+      }
+    } else {
+      handleInputChange("address", "municipality", value)
+      handleInputChange("address", "city", "")
+      // Auto-populate zip code based on municipality
+      if (zipCodes[value]) {
+        handleInputChange("address", "zipCode", zipCodes[value])
+      }
+    }
+  }
+
+  const clearAddressFields = () => {
+    setUpdatedProfile((prev) => ({
+      ...prev,
+      region: "",
+      province: "",
+      city: "",
+      municipality: "",
+      zipCode: "",
+      streetAddress: ""
+    }))
+    setAddressType("city")
+  }
+
   const saveAddressChanges = async () => {
     const user = auth.currentUser
     if (!user) return
@@ -200,6 +388,7 @@ export default function ProfilePage() {
       await updateDoc(profileRef, updatedProfile)
       setProfile((prev) => ({ ...prev, ...updatedProfile }))
       setEditingAddress(false)
+      setIsAddressConfirmationOpen(false)
 
       alert("Address updated successfully!")
     } catch (error) {
@@ -256,54 +445,68 @@ export default function ProfilePage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
+      const file = e.target.files[0];
+      
+      // Add validation for file size and type
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      
+      if (!validTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, or GIF)');
+        return;
+      }
+      
+      if (file.size > maxSize) {
+        alert('File size should be less than 5MB');
+        return;
+      }
+      
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   }
 
   const uploadProfileImage = async () => {
-    if (!imageFile || !auth.currentUser) return
-
-    setIsUploading(true)
+    if (!imageFile || !auth.currentUser) return;
+  
+    setIsUploading(true);
     try {
-      const fileExt = imageFile.name.split(".").pop()
-      const fileName = `${Date.now()}.${fileExt}`
-      const filePath = fileName
-
-      console.log("Attempting upload:", {
-        bucket: "profile-pics",
-        filePath,
-        fileType: imageFile.type,
-        fileSize: `${(imageFile.size / 1024).toFixed(2)} KB`,
-      })
-
-      const { data, error } = await supabase.storage.from("profile-pics").upload(filePath, imageFile, {
-        upsert: true,
-      })
-
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${auth.currentUser.uid}_${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+  
+      // Upload to storage
+      const { data, error } = await supabase.storage
+        .from("profile-pics")
+        .upload(filePath, imageFile, {
+          upsert: true,
+          cacheControl: '3600'
+        });
+  
       if (error) {
-        console.error("Upload error details:", error)
-        throw new Error(`Upload failed: ${error.message}`)
+        throw new Error(`Upload failed: ${error.message}`);
       }
-
-      console.log("Upload successful:", data)
-
-      const publicUrlResult = supabase.storage.from("profile-pics").getPublicUrl(filePath)
-
-      const publicUrl = publicUrlResult.data.publicUrl
-
-      const profileRef = doc(db, "accounts", auth.currentUser.uid)
-      await updateDoc(profileRef, { photoURL: publicUrl })
-
-      setProfile((prev) => ({ ...prev, photoURL: publicUrl }))
-      setImageFile(null)
-      alert("Profile picture uploaded successfully!")
+  
+      // Get the public URL
+      const publicUrlResult = supabase.storage.from("profile-pics").getPublicUrl(filePath);
+      const publicUrl = publicUrlResult.data.publicUrl;
+  
+      // Update Firestore document
+      const profileRef = doc(db, "accounts", auth.currentUser.uid);
+      await updateDoc(profileRef, { photoURL: publicUrl });
+  
+      // Update local state
+      setProfile((prev) => ({ ...prev, photoURL: publicUrl }));
+      setImageFile(null);
+      setImagePreview(null);
+      
+      // Confirmation message
+      alert("Profile picture uploaded successfully!");
     } catch (error) {
-      console.error("Error uploading profile image:", error)
-      alert(`Failed to upload profile picture: ${(error as Error).message || "Unknown error"}`)
+      console.error("Error uploading profile image:", error);
+      alert(`Failed to upload profile picture: ${(error as Error).message || "Unknown error"}`);
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
   }
 
@@ -331,6 +534,11 @@ export default function ProfilePage() {
     )
   }
 
+  // If profile isn't fetched yet, show loading or "Not set" placeholders
+  const displayValue = (value: string | undefined) => {
+    return profileFetched ? (value || "Not set") : "Not set"
+  }
+
   return (
     <div className="space-y-6 px-0">
       {/* Profile Header with Photo */}
@@ -355,30 +563,29 @@ export default function ProfilePage() {
 
           <div>
             <h2 className="text-2xl font-bold text-[#1A365D]">
-              {profile.firstName} {profile.lastName}
+              {displayValue(profile.firstName)} {displayValue(profile.lastName)}
             </h2>
-            <p className="text-[#3579b8]">@{profile.username}</p>
+            <p className="text-[#3579b8]">@{displayValue(profile.username)}</p>
 
             {imagePreview && (
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={uploadProfileImage}
-                  disabled={isUploading}
-                  className="px-3 py-1 bg-[#3579b8] text-white text-sm rounded-md flex items-center gap-1"
-                >
-                  {isUploading ? "Uploading..." : "Save Photo"}
-                </button>
-                <button
-                  onClick={() => {
-                    setImagePreview(null)
-                    setImageFile(null)
-                  }}
-                  className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-md"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+  <div className="mt-3 flex gap-2">
+    <button
+      onClick={() => setIsPhotoConfirmationOpen(true)}
+      className="px-3 py-1 bg-[#3579b8] text-white text-sm rounded-md flex items-center gap-1"
+    >
+      Save Photo
+    </button>
+    <button
+      onClick={() => {
+        setImagePreview(null);
+        setImageFile(null);
+      }}
+      className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-md"
+    >
+      Cancel
+    </button>
+  </div>
+)}
           </div>
         </div>
       </div>
@@ -399,19 +606,19 @@ export default function ProfilePage() {
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-500">Username</p>
-              <p className="text-[#3579b8] font-medium">{profile.username || "Not set"}</p>
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.username)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">First Name</p>
-              <p className="text-[#3579b8] font-medium">{profile.firstName || "Not set"}</p>
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.firstName)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Last Name</p>
-              <p className="text-[#3579b8] font-medium">{profile.lastName || "Not set"}</p>
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.lastName)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Gender</p>
-              <p className="text-[#3579b8] font-medium">{profile.gender || "Not set"}</p>
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.gender)}</p>
             </div>
           </div>
 
@@ -419,20 +626,68 @@ export default function ProfilePage() {
             <div>
               <p className="text-sm text-gray-500">Date of Birth</p>
               <p className="text-[#3579b8] font-medium">
-                {profile.dateOfBirth ? formatDate(profile.dateOfBirth) : "Not set"}
+                {profile.dateOfBirth && profileFetched ? formatDate(profile.dateOfBirth) : "Not set"}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Email</p>
-              <p className="text-[#3579b8] font-medium">{profile.email || "Not set"}</p>
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.email)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Phone Number</p>
-              <p className="text-[#3579b8] font-medium">{profile.phoneNumber || "Not set"}</p>
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.phoneNumber)}</p>
             </div>
           </div>
         </div>
+        <Dialog open={isPhotoConfirmationOpen} onOpenChange={setIsPhotoConfirmationOpen}>
+  <DialogContent className="sm:max-w-[425px]">
+    <DialogHeader>
+      <DialogTitle>Save Profile Photo</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to save this as your profile photo?
+      </DialogDescription>
+    </DialogHeader>
+    <div className="mt-4 flex justify-center">
+      <img 
+        src={imagePreview} 
+        alt="Profile Preview" 
+        className="h-32 w-32 rounded-full object-cover"
+      />
+    </div>
+    <div className="flex justify-end space-x-2 mt-4">
+      <button
+        onClick={() => {
+          setIsPhotoConfirmationOpen(false);
+          setImagePreview(null);
+          setImageFile(null);
+        }}
+        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={() => {
+          uploadProfileImage();
+          setIsPhotoConfirmationOpen(false);
+        }}
+        className="px-4 py-2 bg-[#3579b8] text-white rounded-md hover:bg-[#2A69AC]"
+      >
+        Save Photo
+      </button>
+    </div>
+  </DialogContent>
+</Dialog>
 
+{isUploading && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg">
+      <div className="flex items-center space-x-2">
+        <div className="w-6 h-6 border-4 border-t-[#3579b8] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+        <p>Uploading photo...</p>
+      </div>
+    </div>
+  </div>
+)}
         {/* Personal Information Edit Dialog */}
         <Dialog open={isEditingPersonal} onOpenChange={cancelPersonalEdit}>
           <DialogContent className="sm:max-w-[500px]">
@@ -600,107 +855,240 @@ export default function ProfilePage() {
       <div className="bg-white rounded-lg p-6 shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-semibold text-[#3579b8]">ADDRESS</h3>
-          {!editingAddress ? (
-            <button
-              className="text-[#3579b8] hover:bg-blue-50 p-2 rounded-full"
-              onClick={() => setEditingAddress(true)}
-            >
-              <Pencil className="h-5 w-5" />
-            </button>
-          ) : (
-            <div className="flex gap-2">
-              <button className="text-green-600 hover:bg-green-50 p-2 rounded-full" onClick={saveAddressChanges}>
-                <Save className="h-5 w-5" />
-              </button>
-              <button
-                className="text-red-600 hover:bg-red-50 p-2 rounded-full"
-                onClick={() => {
-                  setEditingAddress(false)
-                  setUpdatedProfile(profile)
-                }}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          )}
+          <button className="text-[#3579b8] hover:bg-blue-50 p-2 rounded-full" onClick={() => setEditingAddress(true)}>
+            <Pencil className="h-5 w-5" />
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-500">Region</p>
-              {editingAddress ? (
-                <input
-                  type="text"
-                  value={updatedProfile.region || ""}
-                  onChange={(e) => handleInputChange("address", "region", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                />
-              ) : (
-                <p className="text-[#3579b8] font-medium">{profile.region || "Not set"}</p>
-              )}
+              <p className="text-[#3579b8] font-medium">{displayValue(profile.region)}</p>
             </div>
 
             <div>
               <p className="text-sm text-gray-500">Province</p>
-              {editingAddress ? (
-                <input
-                  type="text"
-                  value={updatedProfile.province || ""}
-                  onChange={(e) => handleInputChange("address", "province", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                />
-              ) : (
-                <p className="text-[#3579b8] font-medium">{profile.province || "Not set"}</p>
-              )}
+              <p className="text-[#3579b8] font-medium">{profile.province || "Not set"}</p>
             </div>
 
             <div>
               <p className="text-sm text-gray-500">City/Municipality</p>
-              {editingAddress ? (
-                <input
-                  type="text"
-                  value={updatedProfile.city || ""}
-                  onChange={(e) => handleInputChange("address", "city", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                />
-              ) : (
-                <p className="text-[#3579b8] font-medium">{profile.city || "Not set"}</p>
-              )}
+              <p className="text-[#3579b8] font-medium">{profile.city || profile.municipality || "Not set"}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
               <p className="text-sm text-gray-500">Zip Code</p>
-              {editingAddress ? (
-                <input
-                  type="text"
-                  value={updatedProfile.zipCode || ""}
-                  onChange={(e) => handleInputChange("address", "zipCode", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                />
-              ) : (
-                <p className="text-[#3579b8] font-medium">{profile.zipCode || "Not set"}</p>
-              )}
+              <p className="text-[#3579b8] font-medium">{profile.zipCode || "Not set"}</p>
             </div>
 
             <div>
               <p className="text-sm text-gray-500">Street Address</p>
-              {editingAddress ? (
-                <input
-                  type="text"
-                  value={updatedProfile.streetAddress || ""}
-                  onChange={(e) => handleInputChange("address", "streetAddress", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
-                />
-              ) : (
-                <p className="text-[#3579b8] font-medium">{profile.streetAddress || "Not set"}</p>
-              )}
+              <p className="text-[#3579b8] font-medium">{profile.streetAddress || "Not set"}</p>
             </div>
           </div>
         </div>
+
+        {/* Address Edit Dialog */}
+        <Dialog
+          open={editingAddress}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingAddress(false)
+              setUpdatedProfile(profile)
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Address</DialogTitle>
+              <DialogDescription>Update your address information.</DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                setIsAddressConfirmationOpen(true)
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="region" className="text-sm text-gray-500">
+                    Region
+                  </label>
+                  <select
+                    id="region"
+                    value={updatedProfile.region || ""}
+                    onChange={(e) => handleRegionChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="">Select Region</option>
+                    {regions.map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="province" className="text-sm text-gray-500">
+                    Province
+                  </label>
+                  <select
+                    id="province"
+                    value={updatedProfile.province || ""}
+                    onChange={(e) => handleProvinceChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    disabled={!updatedProfile.region}
+                  >
+                    <option value="">Select Province</option>
+                    {updatedProfile.region &&
+                      provinces[updatedProfile.region]?.map((province) => (
+                        <option key={province} value={province}>
+                          {province}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {updatedProfile.province && (
+                  <div className="flex items-center space-x-4 mb-2">
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        className="form-radio"
+                        name="addressType"
+                        value="city"
+                        checked={addressType === "city"}
+                        onChange={() => setAddressType("city")}
+                      />
+                      <span className="ml-2">City</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        className="form-radio"
+                        name="addressType"
+                        value="municipality"
+                        checked={addressType === "municipality"}
+                        onChange={() => setAddressType("municipality")}
+                      />
+                      <span className="ml-2">Municipality</span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label htmlFor="cityMunicipality" className="text-sm text-gray-500">
+                    {addressType === "city" ? "City" : "Municipality"}
+                  </label>
+                  <select
+                    id="cityMunicipality"
+                    value={addressType === "city" ? updatedProfile.city || "" : updatedProfile.municipality || ""}
+                    onChange={(e) => handleCityMunicipalityChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    disabled={!updatedProfile.province}
+                  >
+                    <option value="">Select {addressType === "city" ? "City" : "Municipality"}</option>
+                    {updatedProfile.province &&
+                      addressType === "city" &&
+                      cities[updatedProfile.province]?.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    {updatedProfile.province &&
+                      addressType === "municipality" &&
+                      municipalities[updatedProfile.province]?.map((municipality) => (
+                        <option key={municipality} value={municipality}>
+                          {municipality}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="zipCode" className="text-sm text-gray-500">
+                    Zip Code
+                  </label>
+                  <input
+                    type="text"
+                    id="zipCode"
+                    value={updatedProfile.zipCode || ""}
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                    disabled
+                  />
+                  <p className="text-xs text-gray-500">
+                    Zip code is automatically determined based on your city/municipality selection
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="streetAddress" className="text-sm text-gray-500">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    id="streetAddress"
+                    value={updatedProfile.streetAddress || ""}
+                    onChange={(e) => handleInputChange("address", "streetAddress", e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAddress(false)
+                    setUpdatedProfile(profile)
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 bg-[#3579b8] text-white rounded-md hover:bg-[#2A69AC]">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Address Confirmation Dialog */}
+        <Dialog open={isAddressConfirmationOpen} onOpenChange={setIsAddressConfirmationOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Confirm Changes</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to save these changes to your address information?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setIsAddressConfirmationOpen(false)}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-50"
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={() => {
+                  saveAddressChanges()
+                  setIsAddressConfirmationOpen(false)
+                }}
+                className="px-4 py-2 bg-[#1E4E8C] text-white rounded-md hover:bg-[#1A365D]"
+              >
+                Yes, Save Changes
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
 }
+
