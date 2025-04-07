@@ -118,213 +118,192 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   };
 
   // Function to create transaction object from Firestore document
-  const createTransaction = (doc: QueryDocumentSnapshot<DocumentData>, data: DocumentData): Transaction | null => {
-    try {
-      console.log(`Processing booking data for ${doc.id}:`, data);
-      
-      // Try to get services from different possible fields
-      let servicesList: ServiceItem[] = [];
-      
-      // First check if there are any transactionServices with proper formatting
-      if (data.transactionServices && Array.isArray(data.transactionServices) && data.transactionServices.length > 0) {
-        servicesList = data.transactionServices;
-      } 
-      // Next, try to get services from addedServices (for post-booking added services)
-      else if (data.addedServices && Array.isArray(data.addedServices) && data.addedServices.length > 0) {
-        servicesList = data.addedServices.map((service: any) => ({
-          service: typeof service === 'string' ? service : service.name || service.service || "Unknown Service",
-          mechanic: typeof service === 'object' ? service.mechanic || "" : data.mechanic || "",
+  // Improved function to get mechanic from different possible data structures
+const getMechanicName = (service: any, data: DocumentData, index: number): string => {
+  // First check the service object itself if mechanic is directly assigned
+  if (typeof service === 'object' && service.mechanic) {
+    return service.mechanic;
+  }
+  
+  // Check if there's a mechanics array matching the services array
+  if (data.mechanics && Array.isArray(data.mechanics) && data.mechanics.length > index) {
+    if (data.mechanics[index]) {
+      return data.mechanics[index];
+    }
+  }
+  
+  // Check if there's a transactionServices array with detailed service info
+  if (data.transactionServices && Array.isArray(data.transactionServices)) {
+    const transactionService = data.transactionServices.find((ts: any) => {
+      if (typeof service === 'string') {
+        return ts.service === service;
+      } else if (service.service) {
+        return ts.service === service.service;
+      } else if (service.name) {
+        return ts.service === service.name;
+      }
+      return false;
+    });
+    
+    if (transactionService && transactionService.mechanic) {
+      return transactionService.mechanic;
+    }
+  }
+  
+  // Fall back to a global mechanic if specified
+  if (data.mechanic) {
+    return data.mechanic;
+  }
+  
+  return "UNASSIGNED";
+};
+
+// Function to create transaction object from Firestore document - FIXED VERSION
+const createTransaction = (doc: QueryDocumentSnapshot<DocumentData>, data: DocumentData): Transaction | null => {
+  try {
+    console.log(`Processing booking data for ${doc.id}:`, data);
+    
+    // Get customer information - normalized
+    let customerName = data.customerName || "Unknown Customer";
+    
+    // Try other possible locations for customer name
+    if (customerName === "Unknown Customer") {
+      if (data.firstName && data.lastName) {
+        customerName = `${data.firstName} ${data.lastName}`;
+      } else if (data.customer) {
+        if (typeof data.customer === 'string') {
+          customerName = data.customer;
+        } else if (data.customer.name) {
+          customerName = data.customer.name;
+        } else if (data.customer.fullName) {
+          customerName = data.customer.fullName;
+        } else if (data.customer.firstName && data.customer.lastName) {
+          customerName = `${data.customer.firstName} ${data.customer.lastName}`;
+        }
+      }
+    }
+    
+    // Get customer ID
+    let customerId = data.customerId || data.customerUid || data.userId || "---";
+    
+    // Get completion date
+    let completionDate = "Pending"
+    if (data.status === "COMPLETED") {
+      // First check for dedicated completion timestamp
+      if (data.completedAt) {
+        completionDate = formatFirestoreDate(data.completedAt);
+      } else if (data.completionDate) {
+        completionDate = formatFirestoreDate(data.completionDate);
+      } else {
+        // Use updated at time or current time as fallback
+        completionDate = formatFirestoreDate(data.updatedAt || new Date());
+      }
+    }
+    
+    // Get reservation date
+    const reservationDate = formatFirestoreDate(data.date || data.reservationDate);
+    
+    // Try to get services from different possible fields
+    let servicesList: ServiceItem[] = [];
+    
+    // First check if there are any transactionServices with proper formatting
+    if (data.transactionServices && Array.isArray(data.transactionServices) && data.transactionServices.length > 0) {
+      servicesList = data.transactionServices.map((service: any) => ({
+        service: typeof service === 'string' ? service : service.service || "Unknown Service",
+        mechanic: typeof service === 'object' ? service.mechanic || "UNASSIGNED" : "UNASSIGNED",
+        price: typeof service === 'object' ? service.price || 0 : 0,
+        quantity: typeof service === 'object' ? service.quantity || 1 : 1,
+        discount: typeof service === 'object' ? service.discount || 0 : 0,
+        total: typeof service === 'object' ? 
+          service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)) : 0
+      }));
+    } 
+    // Next, try to get services from generalServices
+    else if (data.generalServices && Array.isArray(data.generalServices) && data.generalServices.length > 0) {
+      servicesList = data.generalServices.map((service: any, index: number) => {
+        const mechanic = getMechanicName(service, data, index);
+        
+        // Check if the service is an object or string
+        if (typeof service === 'object') {
+          return {
+            service: service.name || service.service || "Unknown Service",
+            mechanic: mechanic,
+            price: service.price || 0,
+            quantity: service.quantity || 1,
+            discount: service.discount || 0,
+            total: service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100))
+          };
+        } else {
+          return {
+            service: service,
+            mechanic: mechanic,
+            price: data.price || 0,
+            quantity: 1,
+            discount: 0,
+            total: data.price || 0
+          };
+        }
+      });
+    }
+    // Fall back to services array
+    else if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+      servicesList = data.services.map((service: any, index: number) => {
+        const mechanic = getMechanicName(service, data, index);
+        
+        return {
+          service: typeof service === 'object' ? service.name || service.service || "Unknown Service" : service,
+          mechanic: mechanic,
           price: typeof service === 'object' ? service.price || 0 : data.price || 0,
           quantity: typeof service === 'object' ? service.quantity || 1 : 1,
           discount: typeof service === 'object' ? service.discount || 0 : 0,
-          total: typeof service === 'object' ? service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)) : data.price || 0
-        }));
-      }
-      // Try generalServices next
-      else if (data.generalServices && Array.isArray(data.generalServices) && data.generalServices.length > 0) {
-        servicesList = data.generalServices.map((service: any) => {
-          // Check if the service is an object or string
-          if (typeof service === 'object') {
-            return {
-              service: service.name || service.service || "Unknown Service",
-              mechanic: service.mechanic || data.mechanic || "",
-              price: service.price || 0,
-              quantity: service.quantity || 1,
-              discount: service.discount || 0,
-              total: service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100))
-            };
-          } else {
-            return {
-              service: service,
-              mechanic: data.mechanic || "",
-              price: data.price || 0,
-              quantity: 1,
-              discount: 0,
-              total: data.price || 0
-            };
-          }
-        });
-      }
-      // Fall back to services array
-      else if (data.services && Array.isArray(data.services) && data.services.length > 0) {
-        // Check if services contains assigned mechanics
-        const hasAssignedMechanics = data.mechanics && Array.isArray(data.mechanics) && data.mechanics.length > 0;
-        
-        servicesList = data.services.map((service: any, index: number) => {
-          let mechanicName = "";
-          
-          // Try to get mechanic from different possible sources
-          if (typeof service === 'object' && service.mechanic) {
-            mechanicName = service.mechanic;
-          } else if (hasAssignedMechanics && data.mechanics[index]) {
-            mechanicName = data.mechanics[index];
-          } else if (data.mechanic) {
-            mechanicName = data.mechanic;
-          }
-          
-          return {
-            service: typeof service === 'object' ? service.name || service.service || "Unknown Service" : service,
-            mechanic: mechanicName,
-            price: typeof service === 'object' ? service.price || 0 : data.price || 0,
-            quantity: typeof service === 'object' ? service.quantity || 1 : 1,
-            discount: typeof service === 'object' ? service.discount || 0 : 0,
-            total: typeof service === 'object' ? 
-              service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)) : 
-              data.price || 0
-          };
-        });
-      } 
-      // Create a default service if no service info is found
-      else {
-        servicesList = [{
-          service: "General Service",
-          mechanic: data.mechanic || "",
-          price: data.totalPrice || data.price || 0,
-          quantity: 1,
-          discount: 0,
-          total: data.totalPrice || data.price || 0
-        }];
-      }
-      
-      // If we have mechanics assigned separately, ensure they're attached to services
-      if (data.mechanics && Array.isArray(data.mechanics) && servicesList.length > 0) {
-        servicesList = servicesList.map((service, index) => {
-          // Only override if current mechanic is empty and there's a mechanic at this index
-          if (!service.mechanic && index < data.mechanics.length && data.mechanics[index]) {
-            return {
-              ...service,
-              mechanic: data.mechanics[index]
-            };
-          }
-          return service;
-        });
-      }
-      
-      // If we have a price but no service total, calculate it
-      servicesList = servicesList.map(service => {
-        if (service.price && !service.total) {
-          return {
-            ...service,
-            total: service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)
-          };
-        }
-        return service;
+          total: typeof service === 'object' ? 
+            service.total || (service.price * (service.quantity || 1) * (1 - (service.discount || 0) / 100)) : 
+            data.price || 0
+        };
       });
-      
-      // Get customer information
-      let customerName = data.customerName || "Unknown Customer";
-      
-      // Try other possible locations for customer name
-      if (customerName === "Unknown Customer") {
-        if (data.customer) {
-          if (typeof data.customer === 'string') {
-            customerName = data.customer;
-          } else if (data.customer.name) {
-            customerName = data.customer.name;
-          } else if (data.customer.fullName) {
-            customerName = data.customer.fullName;
-          }
-        }
-        
-        if (data.name) customerName = data.name;
-        else if (data.fullName) customerName = data.fullName;
-        else if (data.client && data.client.name) customerName = data.client.name;
-      }
-      
-      // Get customer ID
-      let customerId = data.customerId || data.customerUid || "---";
-      
-      // Try other possible locations for customer ID
-      if (customerId === "---" && data.customer) {
-        if (typeof data.customer !== 'string' && data.customer.id) {
-          customerId = data.customer.id;
-        } else if (typeof data.customer !== 'string' && data.customer.uid) {
-          customerId = data.customer.uid;
-        }
-      }
-      
-      // Format reservation date to match "2025-04-22" format
-      const reservationDate = formatFirestoreDate(data.date);
-      
-      // Just use "Pending" for completion date as in the screenshot
-      let completionDate = "Pending";
-      
-      // Get car model
-      let carModel = data.carModel || "---";
-      
-      // Try other possible locations for car model
-      if (carModel === "---") {
-        if (data.vehicle && typeof data.vehicle === 'object') {
-          if (data.vehicle.model) carModel = data.vehicle.model;
-          else if (data.vehicle.name) carModel = data.vehicle.name;
-        }
-        else if (data.carDetails && typeof data.carDetails === 'object') {
-          if (data.carDetails.model) carModel = data.carDetails.model;
-          else if (data.carDetails.name) carModel = data.carDetails.name;
-        }
-        else if (data.car && typeof data.car === 'object') {
-          if (data.car.model) carModel = data.car.model;
-          else if (data.car.name) carModel = data.car.name;
-        }
-      }
-      
-      // Format car model to match "Nissan GT-R" format
-      if (carModel && carModel !== "---") {
-        // If the model is something like "nissan gt-r", format it to "Nissan GT-R"
-        carModel = carModel.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-      }
-      
-      // Create a transaction from the booking
-      const transaction: Transaction = {
-        id: doc.id,
-        reservationId: doc.id,
-        customerName: customerName,
-        customerId: customerId,
-        carModel: carModel,
-        reservationDate: reservationDate,
-        completionDate: completionDate,
-        totalPrice: data.totalPrice || servicesList.reduce((sum: number, service: ServiceItem) => sum + (service.total || 0), 0),
-        services: servicesList,
-        carDetails: data.carDetails || {
-          yearModel: data.yearModel || "",
-          transmission: data.transmission || "",
-          fuelType: data.fuelType || "",
-          odometer: data.odometer || "",
-          plateNo: data.plateNo || "",
-        },
-        createdAt: data.date 
-          ? (typeof (data.date as Timestamp).toDate === 'function' ? (data.date as Timestamp).toDate() : new Date(data.date)) 
-          : new Date(),
-        amountTendered: data.amountTendered || 0,
-      };
-      
-      return transaction;
-    } catch (error) {
-      console.error(`Error creating transaction from doc ${doc.id}:`, error);
-      return null;
+    } 
+    // Create a default service if no service info is found
+    else {
+      servicesList = [{
+        service: "General Service",
+        mechanic: data.mechanic || "UNASSIGNED",
+        price: data.totalPrice || data.price || 0,
+        quantity: 1,
+        discount: 0,
+        total: data.totalPrice || data.price || 0
+      }];
     }
-  };
+    
+    // Create transaction object
+    const transaction: Transaction = {
+      id: doc.id,
+      reservationId: doc.id,
+      customerName: customerName,
+      customerId: customerId,
+      carModel: data.carModel || "---",
+      reservationDate: reservationDate,
+      completionDate: completionDate,
+      totalPrice: data.totalPrice || servicesList.reduce((sum: number, service: ServiceItem) => sum + (service.total || 0), 0),
+      services: servicesList,
+      carDetails: data.carDetails || {
+        yearModel: data.yearModel || "",
+        transmission: data.transmission || "",
+        fuelType: data.fuelType || "",
+        odometer: data.odometer || "",
+        plateNo: data.plateNo || "",
+      },
+      createdAt: data.date 
+        ? (typeof (data.date as Timestamp).toDate === 'function' ? (data.date as Timestamp).toDate() : new Date(data.date)) 
+        : new Date(),
+      amountTendered: data.amountTendered || 0,
+    };
   
+    return transaction;
+  } catch (error) {
+    console.error(`Error creating transaction from doc ${doc.id}:`, error);
+    return null;
+  }
+};
 
   // Format price for display with ₱ symbol and commas
   const formatPriceForDisplay = (price: number): string => {
@@ -394,7 +373,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         const bookingsRef = collection(db, "bookings")
         
         // Simple query without status filter to get all bookings
-        const bookingsQuery = query(bookingsRef)
+        const bookingsQuery = query(bookingsRef, where("status", "==", "COMPLETED"))
   
         const querySnapshot = await getDocs(bookingsQuery)
         console.log(`Query returned ${querySnapshot.size} documents`)
@@ -427,52 +406,62 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
           }
           
           // Check if there's a corresponding "addedServices" subcollection
-          try {
-            const addedServicesRef = collection(db, `bookings/${docSnapshot.id}/addedServices`)
-            const addedServicesSnapshot = await getDocs(addedServicesRef)
-            
-            if (!addedServicesSnapshot.empty) {
-              console.log(`Found ${addedServicesSnapshot.size} added services for booking ${docSnapshot.id}`)
-              
-              // Get all added services
-              const addedServices: ServiceItem[] = []
-              
-              addedServicesSnapshot.forEach(serviceDoc => {
-                const serviceData = serviceDoc.data()
-                addedServices.push({
-                  service: serviceData.name || serviceData.service || "Additional Service",
-                  mechanic: serviceData.mechanic || "",
-                  price: serviceData.price || 0,
-                  quantity: serviceData.quantity || 1,
-                  discount: serviceData.discount || 0,
-                  total: serviceData.total || (serviceData.price * (serviceData.quantity || 1) * (1 - (serviceData.discount || 0) / 100))
-                })
-              })
-              
-              // Find the transaction we just added and update its services
-              const transactionIndex = transformedTransactions.findIndex(t => t.id === docSnapshot.id)
-              if (transactionIndex >= 0) {
-                const existingTransaction = transformedTransactions[transactionIndex]
-                
-                // Add the new services to the existing ones
-                const updatedServices = [...existingTransaction.services, ...addedServices]
-                
-                // Recalculate total price
-                const updatedTotalPrice = updatedServices.reduce((sum, service) => sum + (service.total || 0), 0)
-                
-                // Update the transaction
-                transformedTransactions[transactionIndex] = {
-                  ...existingTransaction,
-                  services: updatedServices,
-                  totalPrice: updatedTotalPrice
-                }
-                
-                console.log(`Updated transaction ${docSnapshot.id} with added services`)
-              }
-            }
-          } catch (error) {
-            console.error(`Error fetching added services for booking ${docSnapshot.id}:`, error)
-          }
+          // Look for added services in subcollections
+try {
+  const addedServicesRef = collection(db, `bookings/${docSnapshot.id}/addedServices`);
+  const addedServicesSnapshot = await getDocs(addedServicesRef);
+  
+  if (!addedServicesSnapshot.empty) {
+    console.log(`Found ${addedServicesSnapshot.size} added services for booking ${docSnapshot.id}`);
+    
+    // Get all added services
+    const addedServices: ServiceItem[] = [];
+    
+    addedServicesSnapshot.forEach(serviceDoc => {
+      const serviceData = serviceDoc.data();
+      addedServices.push({
+        service: serviceData.name || serviceData.service || "Additional Service",
+        mechanic: serviceData.mechanic || "UNASSIGNED",
+        price: serviceData.price || 0,
+        quantity: serviceData.quantity || 1,
+        discount: serviceData.discount || 0,
+        total: serviceData.total || (serviceData.price * (serviceData.quantity || 1) * (1 - (serviceData.discount || 0) / 100))
+      });
+    });
+    
+    // Find the transaction we just added and update its services
+    const transactionIndex = transformedTransactions.findIndex(t => t.id === docSnapshot.id);
+    if (transactionIndex >= 0) {
+      const existingTransaction = transformedTransactions[transactionIndex];
+      
+      // Add the new services to the existing ones (avoiding duplicates)
+      const updatedServices = [...existingTransaction.services];
+      
+      // Only add services that aren't already in the list
+      addedServices.forEach(newService => {
+        const exists = updatedServices.some(
+          existingService => existingService.service === newService.service
+        );
+        
+        if (!exists) {
+          updatedServices.push(newService);
+        }
+      });
+      
+      // Recalculate total price
+      const updatedTotalPrice = updatedServices.reduce((sum, service) => sum + (service.total || 0), 0);
+      
+      // Update the transaction
+      transformedTransactions[transactionIndex] = {
+        ...existingTransaction,
+        services: updatedServices,
+        totalPrice: updatedTotalPrice
+      };
+    }
+  }
+} catch (error) {
+  console.error(`Error fetching added services for booking ${docSnapshot.id}:`, error);
+}
         }
   
         console.log(`Processed ${transformedTransactions.length} bookings`)
@@ -816,7 +805,6 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
     return value.toString()
   }
 
-  // Save transaction changes to the database
   const saveTransactionChanges = async (transactionId: string) => {
     try {
       setSavingTransactionId(transactionId)
@@ -832,6 +820,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
             ...t,
             services: transaction.services,
             totalPrice: totalPrice,
+            completionDate: formatFirestoreDate(new Date()), // Set current date as completion date
             amountTendered: transaction.amountTendered || 0,
           }
         }
@@ -841,41 +830,21 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
       // Update state
       setTransactions(updatedTransactions)
   
-      // Update the input state values to reflect the saved values
-      const updatedPriceInputs = { ...priceInputs }
-      if (!updatedPriceInputs[transactionId]) {
-        updatedPriceInputs[transactionId] = {}
-      }
-  
-      transaction.services.forEach((service, index) => {
-        updatedPriceInputs[transactionId][index] =
-          service.price > 0
-            ? `₱${service.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : ""
-      })
-      setPriceInputs(updatedPriceInputs)
-  
-      // Update amount tendered input
-      const updatedAmountTenderedInputs = { ...amountTenderedInputs }
-      updatedAmountTenderedInputs[transactionId] =
-        transaction.amountTendered && transaction.amountTendered > 0
-          ? `₱${transaction.amountTendered.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : ""
-      setAmountTenderedInputs(updatedAmountTenderedInputs)
-  
       // Update in Firebase
       try {
         // First, try to update the existing booking document
         const bookingRef = doc(db, "bookings", transactionId)
   
-        // Update the booking with transaction data
+        // Update the booking with transaction data and completion info
         await updateDoc(bookingRef, {
-          transactionServices: transaction.services,  // Store the full service objects
-          services: transaction.services.map((s) => s.service), // Also keep the original services array for backward compatibility
+          transactionServices: transaction.services,
+          services: transaction.services.map((s) => s.service),
           totalPrice: totalPrice,
           amountTendered: transaction.amountTendered || 0,
           subtotal: subtotal,
           discountAmount: discountAmount,
+          status: "COMPLETED", // Ensure status is set to COMPLETED
+          completedAt: new Date(), // Add timestamp of completion
           updatedAt: new Date(),
         })
   
@@ -884,18 +853,18 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
         // Also save to transactions collection if needed
         const transactionsRef = collection(db, "transactions")
         await addDoc(transactionsRef, {
-          bookingId: transactionId,
           reservationId: transaction.reservationId,
           customerName: transaction.customerName,
           customerId: transaction.customerId,
           carModel: transaction.carModel,
           reservationDate: transaction.reservationDate,
-          completionDate: transaction.completionDate,
+          completionDate: formatFirestoreDate(new Date()),
           subtotal: subtotal,
           discountAmount: discountAmount,
           totalPrice: totalPrice,
           amountTendered: transaction.amountTendered || 0,
           services: transaction.services,
+          status: "COMPLETED",
           createdAt: new Date(),
         })
       } catch (error) {
@@ -905,7 +874,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({ searchQuery }) =>
   
       toast({
         title: "Transaction Saved",
-        description: "The transaction has been successfully saved",
+        description: "The transaction has been successfully saved and marked as completed",
         variant: "default",
       })
     } catch (error) {
