@@ -1,15 +1,12 @@
 "use client"
 
-
 import type React from "react"
 
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { db, auth } from "@/lib/firebase"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { Pencil, Upload, User, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-
 
 // Create local component imports to resolve missing type declarations
 // Instead of importing from "@/components/ui/dialog"
@@ -22,26 +19,21 @@ const Dialog = ({
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">{children}</div>
 }
 
-
 const DialogContent = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => {
   return <div className={`bg-white rounded-lg p-6 max-w-md mx-auto ${className}`}>{children}</div>
 }
-
 
 const DialogHeader = ({ children }: { children: React.ReactNode }) => {
   return <div className="mb-4">{children}</div>
 }
 
-
 const DialogTitle = ({ children }: { children: React.ReactNode }) => {
   return <h2 className="text-xl font-bold">{children}</h2>
 }
 
-
 const DialogDescription = ({ children }: { children: React.ReactNode }) => {
   return <p className="text-gray-500 mt-1">{children}</p>
 }
-
 
 // Create RadioGroup components
 const RadioGroup = ({
@@ -58,19 +50,16 @@ const RadioGroup = ({
   return <div className={className}>{children}</div>
 }
 
-
 const RadioGroupItem = ({ value, id }: { value: string; id: string }) => {
   return <input type="radio" id={id} value={value} name="radioGroup" />
 }
-
 
 const Label = ({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) => {
   return <label htmlFor={htmlFor}>{children}</label>
 }
 
-
-// Toast Component
-const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) => {
+// Toast Component - Memoized for better performance
+const Toast = memo(({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) => {
   return (
     <div className={`fixed bottom-4 right-4 z-50 rounded-md shadow-md py-3 px-4 flex items-center justify-between ${type === 'success' ? 'bg-green-100 border-l-4 border-green-500 text-green-700' : 'bg-red-100 border-l-4 border-red-500 text-red-700'}`}>
       <span>{message}</span>
@@ -79,8 +68,79 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
       </button>
     </div>
   )
-}
+})
+Toast.displayName = 'Toast'
 
+// Memoized Header Avatar component
+const HeaderAvatar = memo(() => {
+  const [avatarUrl, setAvatarUrl] = useState("")
+
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      if (auth.currentUser) {
+        try {
+          const profileRef = doc(db, "accounts", auth.currentUser.uid)
+          const profileSnap = await getDoc(profileRef)
+
+          if (profileSnap.exists() && profileSnap.data().photoURL) {
+            setAvatarUrl(profileSnap.data().photoURL)
+          }
+        } catch (error) {
+          console.error("Error fetching avatar:", error)
+        }
+      }
+    }
+
+    fetchAvatar()
+
+    // Set up a listener for real-time updates
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) fetchAvatar()
+    })
+
+    // Listen for profile photo updates
+    const handleProfilePhotoUpdate = (event: CustomEvent) => {
+      setAvatarUrl(event.detail.photoURL)
+    }
+
+    window.addEventListener("profilePhotoUpdated", handleProfilePhotoUpdate as EventListener)
+
+    return () => {
+      unsubscribe()
+      window.removeEventListener("profilePhotoUpdated", handleProfilePhotoUpdate as EventListener)
+    }
+  }, [])
+
+  return (
+    <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
+      {avatarUrl ? (
+        <img src={avatarUrl || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
+      ) : (
+        <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+          <User className="h-4 w-4 text-gray-500" />
+        </div>
+      )}
+    </div>
+  )
+})
+HeaderAvatar.displayName = 'HeaderAvatar'
+
+// Memoized profile field display component
+const ProfileField = memo(({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-sm text-gray-500">{label}</p>
+    <p className="text-[#3579b8] font-medium">{value}</p>
+  </div>
+))
+ProfileField.displayName = 'ProfileField'
+
+// Define a type for the user data cache
+interface UserDataCache {
+  photoURL: string;
+  firstName?: string;
+  lastName?: string;
+  [key: string]: any; // Allow any additional properties
+}
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
@@ -108,7 +168,6 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [profileFetched, setProfileFetched] = useState(false) // New state to track if profile has been fetched
 
-
   // New state variables for enhanced personal information editing
   const [isEditingPersonal, setIsEditingPersonal] = useState(false)
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
@@ -116,10 +175,8 @@ export default function ProfilePage() {
   const [ageError, setAgeError] = useState<string | null>(null)
   const [isAddressConfirmationOpen, setIsAddressConfirmationOpen] = useState(false)
 
-
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; visible: boolean } | null>(null)
-
 
   const [regions, setRegions] = useState<string[]>([])
   const [provinces, setProvinces] = useState<Record<string, string[]>>({})
@@ -128,17 +185,45 @@ export default function ProfilePage() {
   const [zipCodes, setZipCodes] = useState<Record<string, string>>({})
   const [addressType, setAddressType] = useState<"city" | "municipality">("city")
 
-
-  // Function to show toast notification
-  const showToast = (message: string, type: 'success' | 'error') => {
+  // Function to show toast notification - memoized to prevent recreating on each render
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type, visible: true })
    
     // Auto-hide after 3 seconds
     setTimeout(() => {
       setToast(null)
     }, 3000)
-  }
+  }, [])
 
+  // Memoized fetch profile function
+  const fetchProfile = useCallback(async () => {
+    const user = auth.currentUser
+    if (!user) {
+      console.log("User is not authenticated")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const profileRef = doc(db, "accounts", user.uid)
+      const profileSnap = await getDoc(profileRef)
+
+      if (profileSnap.exists()) {
+        const profileData = profileSnap.data() as Record<string, any>
+        setProfile(profileData as any)
+        setUpdatedProfile(profileData)
+        setProfileFetched(true) // Mark profile as fetched
+      } else {
+        console.log("No profile found")
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error)
+      showToast("Failed to load profile data", "error")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [showToast])
 
   useEffect(() => {
     const checkAuthAndFetchProfile = async () => {
@@ -158,16 +243,13 @@ export default function ProfilePage() {
       }
     }
 
-
     checkAuthAndFetchProfile()
-  }, [])
-
+  }, [fetchProfile])
 
   useEffect(() => {
     // This would typically come from an API or database
-    // Simplified example data
+    // Load location data only once when component mounts
     setRegions(["NCR", "CAR", "Region I", "Region II", "Region III", "Region IV-A", "Region IV-B"])
-
 
     setProvinces({
       NCR: ["Metro Manila"],
@@ -179,7 +261,6 @@ export default function ProfilePage() {
       "Region IV-B": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
     })
 
-
     setCities({
       "Metro Manila": ["Manila", "Quezon City", "Makati", "Pasig", "Taguig"],
       Benguet: ["Baguio City"],
@@ -190,7 +271,6 @@ export default function ProfilePage() {
       // Add more as needed
     })
 
-
     setMunicipalities({
       Benguet: ["La Trinidad", "Itogon", "Tublay"],
       Batangas: ["Bauan", "Calaca", "Nasugbu"],
@@ -199,7 +279,6 @@ export default function ProfilePage() {
       Rizal: ["Angono", "Binangonan", "Rodriguez"],
       // Add more as needed
     })
-
 
     setZipCodes({
       Manila: "1000",
@@ -218,168 +297,71 @@ export default function ProfilePage() {
       Carmona: "4116",
       Cabuyao: "4025",
       Angono: "1930",
+      Itogon: "2615",
+      Tublay: "2609",
+      Calaca: "4212",
+      Nasugbu: "4231",
+      Silang: "4118",
+      Tanza: "4108",
+      "Los Baños": "4030",
+      Pagsanjan: "4008",
+      Binangonan: "1940",
+      Rodriguez: "1860",
       // Add more as needed
     })
   }, [])
-  // Add this somewhere in your layout component that contains the header
-  // This would typically be in a separate component that wraps your profile page
-  const HeaderAvatar = () => {
-    const [avatarUrl, setAvatarUrl] = useState("")
 
-
-    useEffect(() => {
-      const fetchAvatar = async () => {
-        if (auth.currentUser) {
-          try {
-            const profileRef = doc(db, "accounts", auth.currentUser.uid)
-            const profileSnap = await getDoc(profileRef)
-
-
-            if (profileSnap.exists() && profileSnap.data().photoURL) {
-              setAvatarUrl(profileSnap.data().photoURL)
-            }
-          } catch (error) {
-            console.error("Error fetching avatar:", error)
-          }
-        }
-      }
-
-
-      fetchAvatar()
-
-
-      // Set up a listener for real-time updates
-      const unsubscribe = auth.onAuthStateChanged((user) => {
-        if (user) fetchAvatar()
-      })
-
-
-      // Listen for profile photo updates
-      const handleProfilePhotoUpdate = (event: CustomEvent) => {
-        setAvatarUrl(event.detail.photoURL)
-      }
-
-
-      window.addEventListener("profilePhotoUpdated", handleProfilePhotoUpdate as EventListener)
-
-
-      return () => {
-        unsubscribe()
-        window.removeEventListener("profilePhotoUpdated", handleProfilePhotoUpdate as EventListener)
-      }
-    }, [])
-
-
-    return (
-      <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200">
-        {avatarUrl ? (
-          <img src={avatarUrl || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
-        ) : (
-          <div className="h-full w-full bg-gray-200 flex items-center justify-center">
-            <User className="h-4 w-4 text-gray-500" />
-          </div>
-        )}
-      </div>
-    )
-  }
-
-
-  const fetchProfile = async () => {
-    const user = auth.currentUser
-    if (!user) {
-      console.log("User is not authenticated")
-      setIsLoading(false)
-      return
-    }
-
-
-    try {
-      setIsLoading(true)
-      const profileRef = doc(db, "accounts", user.uid)
-      const profileSnap = await getDoc(profileRef)
-
-
-      if (profileSnap.exists()) {
-        const profileData = profileSnap.data() as Record<string, any>
-        setProfile(profileData as any)
-        setUpdatedProfile(profileData)
-        setProfileFetched(true) // Mark profile as fetched
-      } else {
-        console.log("No profile found")
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error)
-      showToast("Failed to load profile data", "error")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-
-  const handleInputChange = (section: string, field: string, value: string) => {
+  const handleInputChange = useCallback((section: string, field: string, value: string) => {
     setUpdatedProfile((prev) => ({
       ...prev,
       [field]: value,
     }))
-  }
-
+  }, [])
 
   // Enhanced validation function for phone number
-  const validatePhoneNumber = (phone: string): boolean => {
+  const validatePhoneNumber = useCallback((phone: string): boolean => {
     // No validation needed for empty values (optional field)
     if (!phone || phone.trim() === "") return true
-
 
     // Validate 09 format (exactly 11 digits)
     if (phone.startsWith("09")) {
       return phone.length === 11 && /^09\d{9}$/.test(phone)
     }
 
-
     return false
-  }
+  }, [])
 
-
-  const validateAge = (dateOfBirth: string): boolean => {
+  const validateAge = useCallback((dateOfBirth: string): boolean => {
     if (!dateOfBirth) return false
-
 
     const birthDate = new Date(dateOfBirth)
     const today = new Date()
 
-
     // Calculate age
     let age = today.getFullYear() - birthDate.getFullYear()
     const monthDifference = today.getMonth() - birthDate.getMonth()
-
 
     // Adjust age if birthday hasn't occurred this year
     if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
       age--
     }
 
-
     return age >= 18
-  }
+  }, [])
 
-
-  const handlePhoneChange = (value: string) => {
+  const handlePhoneChange = useCallback((value: string) => {
     // Clear previous errors
     setPhoneError(null)
-
 
     // Only allow digits
     const formattedValue = value.replace(/[^\d]/g, "")
 
-
     // Apply the formatted value to updatedProfile
     handleInputChange("personal", "phoneNumber", formattedValue)
-
 
     // Limit to 11 characters
     const trimmedValue = formattedValue.slice(0, 11)
     handleInputChange("personal", "phoneNumber", trimmedValue)
-
 
     // Validate based on 09 format
     if (trimmedValue.length > 0 && !trimmedValue.startsWith("09")) {
@@ -387,47 +369,40 @@ export default function ProfilePage() {
     } else if (trimmedValue.length === 11 && !validatePhoneNumber(trimmedValue)) {
       setPhoneError("Please enter a valid 09 number (09XXXXXXXXX)")
     }
-  }
+  }, [handleInputChange, validatePhoneNumber])
 
-
-  const handleDateOfBirthChange = (value: string) => {
+  const handleDateOfBirthChange = useCallback((value: string) => {
     // Clear previous age errors
     setAgeError(null)
 
-
     // Update the date of birth
     handleInputChange("personal", "dateOfBirth", value)
-
 
     // Validate and set error if needed
     if (value && !validateAge(value)) {
       setAgeError("You must be at least 18 years old to register")
     }
-  }
+  }, [handleInputChange, validateAge])
 
-
-  const handleRegionChange = (region: string) => {
+  const handleRegionChange = useCallback((region: string) => {
     handleInputChange("address", "region", region)
     handleInputChange("address", "province", "")
     handleInputChange("address", "city", "")
     handleInputChange("address", "municipality", "")
     handleInputChange("address", "zipCode", "")
     setAddressType("city")
-  }
+  }, [handleInputChange])
 
-
-  const handleProvinceChange = (province: string) => {
+  const handleProvinceChange = useCallback((province: string) => {
     handleInputChange("address", "province", province)
     handleInputChange("address", "city", "")
     handleInputChange("address", "municipality", "")
     handleInputChange("address", "zipCode", "")
 
-
     // Determine if this province has cities or municipalities or both
     const hasCities = cities[province] && cities[province].length > 0
     const hasMunicipalities =
       municipalities[province] && municipalities[province] && municipalities[province].length > 0
-
 
     if (hasCities && !hasMunicipalities) {
       setAddressType("city")
@@ -437,29 +412,35 @@ export default function ProfilePage() {
       // If both are available, default to city
       setAddressType("city")
     }
-  }
+  }, [handleInputChange, cities, municipalities])
 
-
-  const handleCityMunicipalityChange = (value: string) => {
+  const handleCityMunicipalityChange = useCallback((value: string) => {
     if (addressType === "city") {
       handleInputChange("address", "city", value)
       handleInputChange("address", "municipality", "")
+      
       // Auto-populate zip code based on city
       if (zipCodes[value]) {
         handleInputChange("address", "zipCode", zipCodes[value])
+      } else {
+        // Default zip code if not found in the mapping
+        handleInputChange("address", "zipCode", "")
       }
     } else {
       handleInputChange("address", "municipality", value)
       handleInputChange("address", "city", "")
+      
       // Auto-populate zip code based on municipality
       if (zipCodes[value]) {
         handleInputChange("address", "zipCode", zipCodes[value])
+      } else {
+        // Default zip code if not found in the mapping
+        handleInputChange("address", "zipCode", "")
       }
     }
-  }
+  }, [addressType, handleInputChange, zipCodes])
 
-
-  const clearAddressFields = () => {
+  const clearAddressFields = useCallback(() => {
     setUpdatedProfile((prev) => ({
       ...prev,
       region: "",
@@ -470,13 +451,11 @@ export default function ProfilePage() {
       streetAddress: "",
     }))
     setAddressType("city")
-  }
+  }, [])
 
-
-  const saveAddressChanges = async () => {
+  const saveAddressChanges = useCallback(async () => {
     const user = auth.currentUser
     if (!user) return
-
 
     try {
       const profileRef = doc(db, "accounts", user.uid)
@@ -485,19 +464,16 @@ export default function ProfilePage() {
       setEditingAddress(false)
       setIsAddressConfirmationOpen(false)
 
-
       showToast("Address updated successfully!", "success")
     } catch (error) {
       console.error("Error updating address:", error)
       showToast("Failed to update address. Please try again.", "error")
     }
-  }
+  }, [updatedProfile, showToast])
 
-
-  const savePersonalChanges = async () => {
+  const savePersonalChanges = useCallback(async () => {
     const user = auth.currentUser
     if (!user) return
-
 
     // Final validation checks
     if (updatedProfile.phoneNumber && updatedProfile.phoneNumber.trim() !== "") {
@@ -507,19 +483,16 @@ export default function ProfilePage() {
       }
     }
 
-
     if (updatedProfile.dateOfBirth && !validateAge(updatedProfile.dateOfBirth)) {
       setAgeError("You must be at least 18 years old")
       return
     }
-
 
     // If validation passed and confirmation dialog is not open, show it
     if (!isConfirmationOpen) {
       setIsConfirmationOpen(true)
       return
     }
-
 
     try {
       const profileRef = doc(db, "accounts", user.uid)
@@ -528,102 +501,108 @@ export default function ProfilePage() {
       setIsEditingPersonal(false)
       setIsConfirmationOpen(false)
 
-
       showToast("Personal information updated successfully!", "success")
     } catch (error) {
       console.error("Error updating profile:", error)
       showToast("Failed to update profile. Please try again.", "error")
     }
-  }
+  }, [updatedProfile, isConfirmationOpen, validatePhoneNumber, validateAge, showToast])
 
-
-  const cancelPersonalEdit = () => {
+  const cancelPersonalEdit = useCallback(() => {
     // Reset to original profile data
     setUpdatedProfile(profile)
     setIsEditingPersonal(false)
     setIsConfirmationOpen(false)
     setPhoneError(null)
     setAgeError(null)
-  }
+  }, [profile])
 
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
-
 
       // Add validation for file size and type
       const validTypes = ["image/jpeg", "image/png", "image/gif"]
       const maxSize = 5 * 1024 * 1024 // 5MB
-
 
       if (!validTypes.includes(file.type)) {
         showToast("Please select a valid image file (JPEG, PNG, or GIF)", "error")
         return
       }
 
-
       if (file.size > maxSize) {
         showToast("File size should be less than 5MB", "error")
         return
       }
 
-
       setImageFile(file)
       setImagePreview(URL.createObjectURL(file))
     }
-  }
+  }, [showToast])
 
-
-  const uploadProfileImage = async () => {
+  const uploadProfileImage = useCallback(async () => {
     if (!imageFile || !auth.currentUser) return
-
-
+  
     setIsUploading(true)
     try {
       const fileExt = imageFile.name.split(".").pop()
       const fileName = `${auth.currentUser.uid}_${Date.now()}.${fileExt}`
       const filePath = fileName
-
-
+  
       // Upload to storage
       const { data, error } = await supabase.storage.from("profile-pics").upload(filePath, imageFile, {
         upsert: true,
         cacheControl: "3600",
       })
-
-
+  
       if (error) {
         throw new Error(`Upload failed: ${error.message}`)
       }
-
-
+  
       // Get the public URL
       const publicUrlResult = supabase.storage.from("profile-pics").getPublicUrl(filePath)
       const publicUrl = publicUrlResult.data.publicUrl
-
-
+  
       // Update Firestore document
       const profileRef = doc(db, "accounts", auth.currentUser.uid)
       await updateDoc(profileRef, { photoURL: publicUrl })
-
-
+  
       // Update local state
       setProfile((prev) => ({ ...prev, photoURL: publicUrl }))
-
-
-      // Dispatch a custom event to notify other components about the profile update
+  
+      // Update SessionStorage to speed up future loads across components
+      try {
+        const cachedData = sessionStorage.getItem('userData')
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData)
+          parsedData.photoURL = publicUrl
+          sessionStorage.setItem('userData', JSON.stringify(parsedData))
+        } else {
+          // Create new cache entry if one doesn't exist - with proper typing
+          const newCacheData: UserDataCache = { photoURL: publicUrl }
+          if (profile.firstName) newCacheData.firstName = profile.firstName
+          if (profile.lastName) newCacheData.lastName = profile.lastName
+          sessionStorage.setItem('userData', JSON.stringify(newCacheData))
+        }
+      } catch (e) {
+        console.error("Failed to update cache", e)
+      }
+  
+      // Create custom event with a unique timestamp to prevent any caching issues
       const profileUpdateEvent = new CustomEvent("profilePhotoUpdated", {
-        detail: { photoURL: publicUrl },
+        detail: { 
+          photoURL: publicUrl,
+          timestamp: Date.now() // Add timestamp to ensure event is seen as "new"
+        },
       })
+      
+      // Dispatch the event to notify all listening components
       window.dispatchEvent(profileUpdateEvent)
-
-
+  
       setImageFile(null)
       setImagePreview(null)
-
-
-      // Show toast notification instead of alert
+  
+      // Show toast notification
       showToast("Profile picture uploaded successfully!", "success")
     } catch (error) {
       console.error("Error uploading profile image:", error)
@@ -631,12 +610,10 @@ export default function ProfilePage() {
     } finally {
       setIsUploading(false)
     }
-  }
+  }, [imageFile, profile.firstName, profile.lastName, showToast])
 
-
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     if (!dateString) return ""
-
 
     try {
       const date = new Date(dateString)
@@ -648,8 +625,12 @@ export default function ProfilePage() {
     } catch (error) {
       return dateString
     }
-  }
+  }, [])
 
+  // Memoized display value function
+  const displayValue = useCallback((value: string | undefined) => {
+    return profileFetched ? value || "Not set" : "Not set"
+  }, [profileFetched])
 
   if (isLoading) {
     return (
@@ -659,13 +640,6 @@ export default function ProfilePage() {
       </div>
     )
   }
-
-
-  // If profile isn't fetched yet, show loading or "Not set" placeholders
-  const displayValue = (value: string | undefined) => {
-    return profileFetched ? value || "Not set" : "Not set"
-  }
-
 
   return (
     <div className="space-y-6 px-0">
@@ -677,7 +651,6 @@ export default function ProfilePage() {
           onClose={() => setToast(null)}
         />
       )}
-
 
       {/* Profile Header with Photo */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
@@ -699,13 +672,11 @@ export default function ProfilePage() {
             <input type="file" id="profile-upload" className="hidden" accept="image/*" onChange={handleFileChange} />
           </div>
 
-
           <div>
             <h2 className="text-2xl font-bold text-[#1A365D]">
               {displayValue(profile.firstName)} {displayValue(profile.lastName)}
             </h2>
             <p className="text-[#3579b8]">@{displayValue(profile.username)}</p>
-
 
             {imagePreview && (
               <div className="mt-3 flex gap-2">
@@ -730,7 +701,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-
       {/* Personal Information */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
         <div className="flex justify-between items-center mb-4">
@@ -743,27 +713,13 @@ export default function ProfilePage() {
           </button>
         </div>
 
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500">Username</p>
-              <p className="text-[#3579b8] font-medium">{displayValue(profile.username)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">First Name</p>
-              <p className="text-[#3579b8] font-medium">{displayValue(profile.firstName)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Last Name</p>
-              <p className="text-[#3579b8] font-medium">{displayValue(profile.lastName)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Gender</p>
-              <p className="text-[#3579b8] font-medium">{displayValue(profile.gender)}</p>
-            </div>
+            <ProfileField label="Username" value={displayValue(profile.username)} />
+            <ProfileField label="First Name" value={displayValue(profile.firstName)} />
+            <ProfileField label="Last Name" value={displayValue(profile.lastName)} />
+            <ProfileField label="Gender" value={displayValue(profile.gender)} />
           </div>
-
 
           <div className="space-y-4">
             <div>
@@ -772,14 +728,8 @@ export default function ProfilePage() {
                 {profile.dateOfBirth && profileFetched ? formatDate(profile.dateOfBirth) : "Not set"}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Email</p>
-              <p className="text-[#3579b8] font-medium">{displayValue(profile.email)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Phone Number</p>
-              <p className="text-[#3579b8] font-medium">{displayValue(profile.phoneNumber)}</p>
-            </div>
+            <ProfileField label="Email" value={displayValue(profile.email)} />
+            <ProfileField label="Phone Number" value={displayValue(profile.phoneNumber)} />
           </div>
         </div>
         <Dialog open={isPhotoConfirmationOpen} onOpenChange={setIsPhotoConfirmationOpen}>
@@ -818,7 +768,6 @@ export default function ProfilePage() {
             </div>
           </DialogContent>
         </Dialog>
-
 
         {isUploading && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
