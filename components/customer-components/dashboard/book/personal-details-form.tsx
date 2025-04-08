@@ -134,7 +134,7 @@ const formSchema = z
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     gender: z.string().min(1, "Gender is required"),
-    email: z.string().email("Invalid email address").min(1, "Email is required"),
+    email: z.string().email("Email is required").min(1, "Invalid email address"),
     phoneNumber: z.string().regex(/^09\d{9}$/, "Phone number must be in format: 09XXXXXXXXX"),
     dateOfBirth: z.string().min(1, "Date of birth is required"),
     region: z.string().min(1, "Region is required"),
@@ -142,7 +142,7 @@ const formSchema = z
     city: z.string().optional(),
     municipality: z.string().optional(),
     streetAddress: z.string().min(1, "Street address is required"),
-    zipCode: z.string().min(1, "ZIP code is required"),
+    zipCode: z.string().min(1, "Assign a City or Municipality"),
   })
   .refine((data) => {
     const selectedProvince = data.province;
