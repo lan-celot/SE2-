@@ -1,4 +1,6 @@
+//personal-detail-form
 "use client"
+
 
 import { useEffect, useState, useCallback } from "react"
 import { useForm } from "react-hook-form"
@@ -19,11 +21,13 @@ import { doc, getDoc } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
 import useLocalStorage from "@/hooks/useLocalStorage"
 
+
 // Type definitions
 type City = string
 type Municipality = string
 type Province = string
 type Region = string
+
 
 interface LocationData {
   provinces: Province[]
@@ -35,12 +39,15 @@ interface LocationData {
   }
 }
 
+
 interface LocationHierarchy {
   [region: string]: LocationData
 }
 
+
 // Philippine region data
 const philippineRegions = ["Region I (Ilocos Region)"].sort()
+
 
 // Hierarchical location data
 const locationHierarchy: LocationHierarchy = {
@@ -67,20 +74,24 @@ const locationHierarchy: LocationHierarchy = {
   }
 }
 
+
 // Define type for zip code mapping structure
 interface ZipCodeCity {
   [city: string]: string;
 }
 
+
 interface ZipCodeMunicipality {
   [municipality: string]: string;
 }
+
 
 interface ZipCodeProvince {
   default: string;
   cities: ZipCodeCity;
   municipalities: ZipCodeMunicipality;
 }
+
 
 interface ZipCodeRegion {
   default: string;
@@ -89,9 +100,11 @@ interface ZipCodeRegion {
   };
 }
 
+
 interface ZipCodeMapping {
   [region: string]: ZipCodeRegion;
 }
+
 
 // ZIP code mapping
 const zipCodeMapping: ZipCodeMapping = {
@@ -122,11 +135,13 @@ const zipCodeMapping: ZipCodeMapping = {
   }
 }
 
+
 // Default form data
 const defaultFormData = {
   firstName: "", lastName: "", gender: "", email: "", phoneNumber: "", dateOfBirth: "",
   region: "", province: "", city: "", municipality: "", streetAddress: "", zipCode: ""
 }
+
 
 // Form schema with validation
 const formSchema = z
@@ -134,7 +149,7 @@ const formSchema = z
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     gender: z.string().min(1, "Gender is required"),
-    email: z.string().email("Email is required").min(1, "Invalid email address"),
+    email: z.string().email("Invalid email address").min(1, "Email is required"),
     phoneNumber: z.string().regex(/^09\d{9}$/, "Phone number must be in format: 09XXXXXXXXX"),
     dateOfBirth: z.string().min(1, "Date of birth is required"),
     region: z.string().min(1, "Region is required"),
@@ -142,7 +157,7 @@ const formSchema = z
     city: z.string().optional(),
     municipality: z.string().optional(),
     streetAddress: z.string().min(1, "Street address is required"),
-    zipCode: z.string().min(1, "Assign a City or Municipality"),
+    zipCode: z.string().min(1, "ZIP code is required"),
   })
   .refine((data) => {
     const selectedProvince = data.province;
@@ -156,10 +171,12 @@ const formSchema = z
     return true;
   }, { message: "Either a city or municipality must be selected", path: ["city"] });
 
+
 interface PersonalDetailsFormProps {
   initialData: any;
   onSubmit: (data: any) => void;
 }
+
 
 export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFormProps) {
   const auth = getAuth();
@@ -168,10 +185,20 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [availableMunicipalities, setAvailableMunicipalities] = useState<string[]>([]);
   const [formDataLoaded, setFormDataLoaded] = useState(false);
+  // New state to track permanent fields
+  const [permanentFields, setPermanentFields] = useState({
+    firstName: "",
+    lastName: "",
+    gender: "",
+    email: "",
+    dateOfBirth: ""
+  });
+
 
   // Merge initial data with defaults
   const mergedInitialData = initialData ? { ...defaultFormData, ...initialData } : defaultFormData;
   const [formData, setFormData] = useLocalStorage("personalDetailsForm", mergedInitialData);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -179,30 +206,37 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     mode: "onChange"
   });
 
+
   // Watch form values
   const currentRegion = form.watch("region");
   const currentProvince = form.watch("province");
   const currentCity = form.watch("city");
   const currentMunicipality = form.watch("municipality");
 
+
   // Helper function to safely get zip code
   const getZipCode = (region: string, province: string, city?: string, municipality?: string): string => {
     const regionData = zipCodeMapping[region];
     if (!regionData) return "";
 
+
     const provinceData = regionData.provinces[province];
     if (!provinceData) return regionData.default || "";
+
 
     if (city && provinceData.cities[city]) {
       return provinceData.cities[city];
     }
 
+
     if (municipality && provinceData.municipalities[municipality]) {
       return provinceData.municipalities[municipality];
     }
 
+
     return provinceData.default || regionData.default || "";
   };
+
 
   // Update provinces when region changes
   const updateProvinces = useCallback((region: string) => {
@@ -212,6 +246,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       setAvailableProvinces([]);
     }
   }, []);
+
 
   // Update cities and municipalities when province changes
   const updateLocations = useCallback((region: string, province: string) => {
@@ -225,10 +260,12 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, []);
 
+
   // Initialize provinces when region is set
   useEffect(() => {
     if (currentRegion) updateProvinces(currentRegion);
   }, [currentRegion, updateProvinces]);
+
 
   // Reset dependent fields when region changes
   useEffect(() => {
@@ -242,11 +279,12 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [currentRegion, form, formData.region, formDataLoaded]);
 
+
   // Update locations when province changes
   useEffect(() => {
     if (currentRegion && currentProvince) {
       updateLocations(currentRegion, currentProvince);
-      
+     
       if (formDataLoaded && formData.province !== currentProvince) {
         form.setValue("city", "");
         form.setValue("municipality", "");
@@ -255,29 +293,32 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [currentRegion, currentProvince, updateLocations, form, formData.province, formDataLoaded]);
 
+
   // Handle city selection
   useEffect(() => {
     if (!formDataLoaded) return;
-    
+   
     if (currentRegion && currentProvince && currentCity) {
       if (form.getValues("municipality")) form.setValue("municipality", "");
-      
+     
       const zipCode = getZipCode(currentRegion, currentProvince, currentCity);
       if (zipCode) form.setValue("zipCode", zipCode);
     }
   }, [currentCity, currentProvince, currentRegion, form, formDataLoaded]);
 
+
   // Handle municipality selection
   useEffect(() => {
     if (!formDataLoaded) return;
-    
+   
     if (currentRegion && currentProvince && currentMunicipality) {
       if (form.getValues("city")) form.setValue("city", "");
-      
+     
       const zipCode = getZipCode(currentRegion, currentProvince, undefined, currentMunicipality);
       if (zipCode) form.setValue("zipCode", zipCode);
     }
   }, [currentMunicipality, currentProvince, currentRegion, form, formDataLoaded]);
+
 
   // Clear ZIP code if neither city nor municipality is selected
   useEffect(() => {
@@ -286,10 +327,11 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [currentCity, currentMunicipality, currentProvince, currentRegion, form, formDataLoaded]);
 
+
   // Save form data to localStorage
   useEffect(() => {
     if (!formDataLoaded) return;
-    
+   
     const subscription = form.watch((formValues) => {
       if (formValues) {
         const timeoutId = setTimeout(() => setFormData(formValues), 300);
@@ -297,18 +339,30 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       }
     });
 
+
     return () => subscription.unsubscribe();
   }, [form, formDataLoaded, setFormData]);
+
 
   // Fetch user data on component mount
   useEffect(() => {
     if (user && !formDataLoaded) {
       const fetchUserData = async () => {
         try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
+          const userDoc = await getDoc(doc(db, "accounts", user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             
+            // Store permanent fields
+            const permanentData = {
+              firstName: userData.firstName || "",
+              lastName: userData.lastName || "",
+              gender: userData.gender || "",
+              email: userData.email || "",
+              dateOfBirth: userData.dateOfBirth || ""
+            };
+            setPermanentFields(permanentData);
+           
             // Use stored form data or initialize from user data
             if (!localStorage.getItem("personalDetailsForm")) {
               const formData = {
@@ -319,15 +373,23 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                     .map(([key, value]) => [key, value || ""])
                 )
               };
-              
+             
               form.reset(formData);
               setFormData(formData);
+            } else {
+              // If form data exists in localStorage, make sure permanent fields are correctly set
+              const storedData = JSON.parse(localStorage.getItem("personalDetailsForm") || "{}");
+              form.setValue("firstName", permanentData.firstName);
+              form.setValue("lastName", permanentData.lastName);
+              form.setValue("gender", permanentData.gender);
+              form.setValue("email", permanentData.email);
+              form.setValue("dateOfBirth", permanentData.dateOfBirth);
             }
-            
+           
             // Initialize location dropdowns
             if (userData.region && userData.region in locationHierarchy) {
               setAvailableProvinces([...locationHierarchy[userData.region].provinces].sort());
-              
+             
               if (userData.province && userData.province in locationHierarchy[userData.region].locations) {
                 const locations = locationHierarchy[userData.region].locations[userData.province];
                 setAvailableCities([...locations.cities].sort());
@@ -335,7 +397,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
               }
             }
           }
-          
+         
           setFormDataLoaded(true);
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -343,25 +405,57 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
         }
       };
 
+
       fetchUserData();
     } else if (!formDataLoaded) {
       setFormDataLoaded(true);
     }
   }, [user, form, setFormData, formDataLoaded]);
 
+
   // Form submission handler
   const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    setFormData(data);
-    onSubmit(data);
+    // Ensure permanent fields aren't modified
+    const submissionData = {
+      ...data,
+      firstName: permanentFields.firstName,
+      lastName: permanentFields.lastName,
+      gender: permanentFields.gender,
+      email: permanentFields.email,
+      dateOfBirth: permanentFields.dateOfBirth
+    };
+    
+    setFormData(submissionData);
+    onSubmit(submissionData);
   };
+
 
   // Reset form handler
   const handleReset = () => {
-    form.reset(defaultFormData);
-    setFormData(defaultFormData);
+    // Only clear non-permanent fields
+    form.reset({
+      ...defaultFormData,
+      firstName: permanentFields.firstName,
+      lastName: permanentFields.lastName,
+      gender: permanentFields.gender,
+      email: permanentFields.email,
+      dateOfBirth: permanentFields.dateOfBirth
+    });
+    
+    // Update localStorage
+    setFormData({
+      ...defaultFormData,
+      firstName: permanentFields.firstName,
+      lastName: permanentFields.lastName,
+      gender: permanentFields.gender,
+      email: permanentFields.email,
+      dateOfBirth: permanentFields.dateOfBirth
+    });
+    
     setAvailableCities([]);
     setAvailableMunicipalities([]);
   };
+
 
   return (
     <Form {...form}>
@@ -374,7 +468,13 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="First Name" className="bg-white/50" {...field} />
+                  <Input 
+                    placeholder="First Name" 
+                    className="bg-white/50" 
+                    {...field} 
+                    disabled={true}
+                    value={permanentFields.firstName}  
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -386,13 +486,20 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="Last Name" className="bg-white/50" {...field} />
+                  <Input 
+                    placeholder="Last Name" 
+                    className="bg-white/50" 
+                    {...field} 
+                    disabled={true} 
+                    value={permanentFields.lastName}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
+
 
         {/* Row 2: Gender and Birthdate */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -401,7 +508,11 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             name="gender"
             render={({ field }) => (
               <FormItem>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={permanentFields.gender}
+                  disabled={true}
+                >
                   <FormControl>
                     <SelectTrigger className="bg-white/50">
                       <SelectValue placeholder="Gender" />
@@ -422,13 +533,21 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input type="date" placeholder="Date of Birth" className="bg-white/50" {...field} />
+                  <Input 
+                    type="date" 
+                    placeholder="Date of Birth" 
+                    className="bg-white/50" 
+                    {...field} 
+                    disabled={true}
+                    value={permanentFields.dateOfBirth} 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
+
 
         {/* Row 3: Email and Phone Number */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -438,7 +557,14 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input type="email" placeholder="Email Address" className="bg-white/50" {...field} />
+                  <Input 
+                    type="email" 
+                    placeholder="Email Address" 
+                    className="bg-white/50" 
+                    {...field} 
+                    disabled={true}
+                    value={permanentFields.email} 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -457,6 +583,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             )}
           />
         </div>
+
 
         {/* Row 4: Region, Province, and ZIP Code */}
         <div className="grid md:grid-cols-3 gap-4">
@@ -516,6 +643,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
           />
         </div>
 
+
         {/* Row 5: City and Municipality */}
         <div className="grid md:grid-cols-2 gap-4">
           <FormField
@@ -523,7 +651,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             name="city"
             render={({ field }) => (
               <FormItem>
-                <Select onValueChange={field.onChange} value={field.value} 
+                <Select onValueChange={field.onChange} value={field.value}
                   disabled={!availableCities.length || !currentProvince}>
                   <FormControl>
                     <SelectTrigger className="bg-white/50">
@@ -545,7 +673,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             name="municipality"
             render={({ field }) => (
               <FormItem>
-                <Select onValueChange={field.onChange} value={field.value} 
+                <Select onValueChange={field.onChange} value={field.value}
                   disabled={!availableMunicipalities.length || !currentProvince}>
                   <FormControl>
                     <SelectTrigger className="bg-white/50">
@@ -564,6 +692,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
           />
         </div>
 
+
         {/* Row 6: Street Address */}
         <FormField
           control={form.control}
@@ -577,6 +706,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             </FormItem>
           )}
         />
+
 
         <div className="flex justify-end space-x-4">
           <Button type="button" onClick={handleReset} className="bg-gray-300 text-black">
