@@ -13,7 +13,7 @@ import React from "react"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { formatDateTime, formatDateOnly } from "@/lib/date-utils"
 import { getEmployeeById, updateEmployee, type Employee } from "@/lib/employee-utils"
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore"
+import { collection, query, where, getDocs, orderBy, getFirestore } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Keep the Service and Reservation interfaces
@@ -90,45 +90,58 @@ export default function EmployeeDetailsPage() {
   })
   const [updatedPhone, setUpdatedPhone] = useState("")
 
+  const statusStyles: Record<string, string> = {
+    Completed: "bg-[#E6FFF3] text-[#28C76F] h-7 w-[100px] text-sm font-medium rounded-lg",
+    COMPLETED: "bg-[#E6FFF3] text-[#28C76F] h-7 w-[100px] text-sm font-medium rounded-lg",
+    Repairing: "bg-[#FFF5E0] text-[#FFC600] h-7 w-[100px] text-sm font-medium rounded-lg",
+    REPAIRING: "bg-[#FFF5E0] text-[#FFC600] h-7 w-[100px] text-sm font-medium rounded-lg",
+    Cancelled: "bg-[#FFE5E5] text-[#EA5455] h-7 w-[100px] text-sm font-medium rounded-lg",
+    CANCELLED: "bg-[#FFE5E5] text-[#EA5455] h-7 w-[100px] text-sm font-medium rounded-lg",
+    Confirmed: "bg-[#EBF8FF] text-[#63B3ED] h-7 w-[100px] text-sm font-medium rounded-lg",
+    CONFIRMED: "bg-[#EBF8FF] text-[#63B3ED] h-7 w-[100px] text-sm font-medium rounded-lg",
+    Pending: "bg-[#FFF5E0] text-[#FF9F43] h-7 w-[100px] text-sm font-medium rounded-lg",
+    PENDING: "bg-[#FFF5E0] text-[#FF9F43] h-7 w-[100px] text-sm font-medium rounded-lg",
+  }
+
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
         setLoading(true)
         const employeeId = params.id as string
-
+  
         // Fetch employee data from Firebase
         const employeeData = await getEmployeeById(employeeId)
-
+  
         if (!employeeData) {
           console.log("No employee found with ID:", employeeId)
           setLoading(false)
           return
         }
-
+  
         setEmployee(employeeData)
-
+  
+        // Construct full name variations
+        const fullNameUpper = `${employeeData.firstName} ${employeeData.lastName}`.toUpperCase();
+        const lastNameFirstUpper = `${employeeData.lastName} ${employeeData.firstName}`.toUpperCase();
+  
         // Fetch employee's reservations/assignments
-        // This is a placeholder - you'll need to implement the actual reservation fetching
-        // based on your data model
         const bookingsRef = collection(db, "bookings")
-        const bookingsQuery = query(
-          bookingsRef,
-          where("services.mechanic", "==", `${employeeData.firstName} ${employeeData.lastName}`),
-          orderBy("reservationDate", "desc"),
-        )
-
+        
         try {
-          const bookingsSnapshot = await getDocs(bookingsQuery)
-
+          // Fetch all bookings (remove specific filtering to avoid index issues)
+          const bookingsSnapshot = await getDocs(bookingsRef)
+  
           const employeeReservations: any[] = []
           bookingsSnapshot.forEach((doc) => {
             const bookingData = doc.data()
-
-            // Only include services assigned to this employee
+  
+            // Check services for mechanic assignment using multiple name variations
             const employeeServices = (bookingData.services || []).filter(
-              (service: any) => service.mechanic === `${employeeData.firstName} ${employeeData.lastName}`,
+              (service: any) => 
+                service.mechanic === fullNameUpper || 
+                service.mechanic === lastNameFirstUpper
             )
-
+  
             if (employeeServices.length > 0) {
               employeeReservations.push({
                 id: bookingData.id || doc.id,
@@ -141,21 +154,23 @@ export default function EmployeeDetailsPage() {
               })
             }
           })
-
+  
+          console.log("Employee Reservations:", employeeReservations);
+  
           setReservations(employeeReservations)
         } catch (error) {
           console.error("Error fetching employee reservations:", error)
           // Continue with empty reservations
           setReservations([])
         }
-
+  
         setLoading(false)
       } catch (error) {
         console.error("Error fetching employee data:", error)
         setLoading(false)
       }
     }
-
+  
     fetchEmployeeData()
   }, [params.id])
 
@@ -201,6 +216,63 @@ export default function EmployeeDetailsPage() {
       }),
     )
   }
+
+  interface BookingData {
+    id: string;
+    services?: Array<{
+      mechanic: string;
+      [key: string]: any;
+    }>;
+    lastUpdated?: string;
+    [key: string]: any;
+  }
+
+  const getCurrentReservation = async (employeeName: string): Promise<string | null> => {
+    try {
+      const db = getFirestore();
+      const reservationsRef = collection(db, 'bookings');
+  
+      // Query bookings where the employee is assigned in any service
+      const q = query(
+        reservationsRef,
+        where('services', 'array-contains-any', [
+          { mechanic: employeeName.toUpperCase() }
+        ])
+      );
+  
+      const querySnapshot = await getDocs(q);
+  
+      if (!querySnapshot.empty) {
+        // Find reservations where the employee is assigned in any service
+        const employeeReservations = querySnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          } as BookingData))
+          .filter(reservation => 
+            Array.isArray(reservation.services) && 
+            reservation.services.some(service => 
+              service.mechanic && 
+              service.mechanic.toUpperCase() === employeeName.toUpperCase()
+            )
+          )
+          .sort((a, b) => {
+            // Sort by last updated timestamp
+            const lastUpdatedA = new Date(a.lastUpdated || 0).getTime();
+            const lastUpdatedB = new Date(b.lastUpdated || 0).getTime();
+            return lastUpdatedB - lastUpdatedA;
+          });
+  
+        // Return the ID of the most recent reservation
+        return employeeReservations.length > 0 ? employeeReservations[0].id : null;
+      }
+  
+      return null;
+    } catch (error) {
+      console.error("Error fetching current reservation for " + employeeName, error);
+      return null;
+    }
+  };
 
   const handleUpdateAddress = async () => {
     if (!employee) return
@@ -317,13 +389,13 @@ export default function EmployeeDetailsPage() {
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Date of Birth</p>
                       <p className="text-[#1A365D]">
-                        {employee?.dateOfBirth ? formatDateOnly(employee.dateOfBirth) : "Not provided"}
+                        {employee?.dateOfBirth ? formatDateOnly(employee.dateOfBirth as unknown as string) : "Not provided"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[#8B909A]">Working Since</p>
                       <p className="text-[#1A365D]">
-                        {employee?.workingSince ? formatDateOnly(employee.workingSince) : "Date not available"}
+                        {employee?.workingSince ? formatDateOnly(employee.workingSince as unknown as string) : "Date not available"}
                       </p>
                     </div>
                   </div>
@@ -475,15 +547,15 @@ export default function EmployeeDetailsPage() {
                             {reservation.carModel}
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <span
-                              className={cn(
-                                "inline-flex items-center justify-center",
-                                statusStyles[reservation.status as keyof typeof statusStyles],
-                              )}
-                            >
-                              {reservation.status}
-                            </span>
-                          </td>
+  <span
+    className={cn(
+      "inline-flex items-center justify-center px-3 py-1 rounded-lg text-sm font-medium",
+      statusStyles[reservation.status as keyof typeof statusStyles] || "bg-gray-100 text-gray-600"
+    )}
+  >
+    {reservation.status}
+  </span>
+</td>
                           <td className="px-6 py-4 text-center">
                             <Button
                               variant="ghost"
