@@ -36,6 +36,7 @@ interface Customer {
     ongoing: number
     confirmed: number
   }
+  photoURL?: string;
 }
 
 interface Service {
@@ -331,7 +332,7 @@ export default function CustomerDetailsPage() {
 
         // Create customer object
         const customerObj: Customer = {
-          id: `#C${String(parseInt(userData.index || "0") + 91).padStart(5, "0")}`,
+          id: userData.authUid ||`#C${String(parseInt(userData.index || "0") + 91).padStart(5, "0")}`,
           uid: userData.uid || customerId,
           name: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
           firstName: userData.firstName || "",
@@ -349,6 +350,7 @@ export default function CustomerDetailsPage() {
             zipCode: userData.address?.zipCode || userData.zipCode || "",
           },
           stats,
+          photoURL: userData.photoURL || "", // Add this line
         };
 
         setCustomer(customerObj);
@@ -441,12 +443,20 @@ export default function CustomerDetailsPage() {
         <div className="grid gap-8">
           {/* Customer Profile */}
           <div className="grid grid-cols-3 gap-8">
-            <div className="col-span-2 rounded-xl bg-white p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                  <UserCircle2 className="h-12 w-12" />
-                </div>
-                <div className="flex-1">
+  <div className="col-span-2 rounded-xl bg-white p-6 shadow-sm">
+    <div className="flex items-start gap-4">
+      <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 overflow-hidden">
+        {customer?.photoURL ? (
+          <img 
+            src={customer.photoURL} 
+            alt={`${customer?.name}`} 
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <UserCircle2 className="h-12 w-12" />
+        )}
+      </div>
+      <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-2xl font-semibold text-[#2A69AC] uppercase">{customer?.name}</h2>

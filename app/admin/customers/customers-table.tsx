@@ -8,6 +8,7 @@ import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { db } from "@/lib/firebase"
 import { collection, getDocs } from "firebase/firestore"
 import { Input } from "@/components/admin-components/input"
+import { supabase } from "@/lib/supabase"
 
 interface Customer {
   id: string;
@@ -17,6 +18,7 @@ interface Customer {
   email: string;
   phone: string;
   uid: string;
+  photoURL?: string; // Add this
 }
 
 interface CustomersTableProps {
@@ -38,26 +40,28 @@ export function CustomersTable({ searchQuery, onSearchChange }: CustomersTablePr
       try {
         setLoading(true)
         
-        // Fetch customers from Firestore 'accounts' collection instead of 'users'
         const customersRef = collection(db, "accounts")
         const customersSnapshot = await getDocs(customersRef)
         
         const fetchedCustomers: Customer[] = []
         
-        customersSnapshot.forEach((doc) => {
+        for (const doc of customersSnapshot.docs) {
           const userData = doc.data()
           
-          // Create customer object from user data
-          fetchedCustomers.push({
-            id: userData.authUid || `#C${String(fetchedCustomers.length + 91).padStart(5, "0")}`, // Generate ID based on index
+          // Create customer object with potential photoURL
+          const customer: Customer = {
+            id: userData.authUid || `#C${String(fetchedCustomers.length + 91).padStart(5, "0")}`,
             uid: userData.uid || doc.id,
             firstName: userData.firstName || "",
             lastName: userData.lastName || "",
             username: userData.username || "",
             email: userData.email || "",
-            phone: userData.phone || userData.phoneNumber || "N/A" // Try both phone and phoneNumber fields
-          })
-        })
+            phone: userData.phone || userData.phoneNumber || "N/A",
+            photoURL: userData.photoURL || "" // Add photoURL
+          }
+          
+          fetchedCustomers.push(customer)
+        }
         
         setCustomers(fetchedCustomers)
       } catch (error) {
@@ -225,20 +229,29 @@ export function CustomersTable({ searchQuery, onSearchChange }: CustomersTablePr
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
             {currentItems.map((customer) => (
-              <tr key={customer.id} className="hover:bg-gray-50">
-                <td className="px-4 py-4">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                      <UserCircle2 className="h-6 w-6" />
-                    </div>
-                    <div className="ml-3">
-                      <div className="text-sm font-medium text-gray-900">
-                        {customer.firstName} {customer.lastName}
-                      </div>
-                      <div className="text-sm text-gray-500">{customer.username}</div>
-                    </div>
-                  </div>
-                </td>
+              // In the table rendering section, update the customer row
+  <tr key={customer.id} className="hover:bg-gray-50">
+  <td className="px-4 py-4">
+    <div className="flex items-center">
+      <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 overflow-hidden">
+        {customer.photoURL ? (
+          <img 
+            src={customer.photoURL} 
+            alt={`${customer.firstName} ${customer.lastName}`} 
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <UserCircle2 className="h-6 w-6" />
+        )}
+      </div>
+      <div className="ml-3">
+        <div className="text-sm font-medium text-gray-900">
+          {customer.firstName} {customer.lastName}
+        </div>
+        <div className="text-sm text-gray-500">{customer.username}</div>
+      </div>
+    </div>
+  </td>
                 <td className="px-4 py-4 text-sm text-gray-900">{customer.phone}</td>
                 <td className="px-4 py-4 text-sm text-gray-900">{customer.id}</td>
                 <td className="px-4 py-4 text-center">
