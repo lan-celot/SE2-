@@ -368,7 +368,7 @@ export default function ReservationsPage() {
     }
   }
 
-  const sendNotification = async () => {
+  const sendNotification = async (status: string, userCar: string) => {
 
   const res = await fetch('/api/admin-approve-notification', {
     method: 'POST',
@@ -376,7 +376,7 @@ export default function ReservationsPage() {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      comment: "Your reservation has been approved!",
+      comment: `${userCar} is ${status}`
     })
   });
 }
@@ -395,6 +395,11 @@ export default function ReservationsPage() {
       // References to both locations in Firestore
       const globalDocRef = doc(db, "bookings", reservationId)
       const userDocRef = doc(db, "accounts", userId, "bookings", reservationId)
+      const carDoc = (await getDoc(userDocRef)).data()
+
+      // Data to be read for notifications
+      const statusMessage = statusStyles[normalizedStatus].display
+      const userCar = String(carDoc?.carModel)
 
       // Use setDoc with merge option
       await Promise.all([
@@ -409,15 +414,15 @@ export default function ReservationsPage() {
         ),
       )
       
-      sendNotification();
+      sendNotification(statusMessage, userCar);
 
       // Show success message
-      setShowSuccessMessage(`Status changed to ${statusStyles[normalizedStatus].display}`)
+      setShowSuccessMessage(`Status changed to ${statusMessage}`)
       setTimeout(() => setShowSuccessMessage(null), 3000)
 
       toast({
         title: "Status Updated",
-        description: `Reservation status has been changed to ${statusStyles[normalizedStatus].display}.`,
+        description: `Reservation status has been changed to ${statusMessage}.`,
         variant: "default",
       })
     } catch (error) {
@@ -588,7 +593,7 @@ export default function ReservationsPage() {
       // BACKEND DEV: Add any additional validation or business logic here
 
       const bookingRef = doc(db, "bookings", reservationId)
-      const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId)
+      const userBookingRef = doc(db, `accounts/${userId}/bookings`, reservationId)
 
       // Get the main booking data
       const bookingSnap = await getDoc(bookingRef)
