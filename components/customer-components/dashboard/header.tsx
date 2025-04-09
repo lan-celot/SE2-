@@ -97,7 +97,7 @@ export function DashboardHeader({ title }: HeaderProps) {
 
           <div className="relative">
               <NotificationAPIProvider
-              userId="leorafael.macaya.cics@ust.edu.ph"
+              userId="admin1"
               clientId="owvp6sijxsgcijmqlu69gzfgcs"
               >
               <NotificationPopup/>

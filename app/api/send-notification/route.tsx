@@ -13,9 +13,7 @@ export async function POST(req: Request){
         const response = await notificationapi.send({
             notificationId: 'new_booking',
             user: {
-                id: "leorafael.macaya.cics@ust.edu.ph",
-                email: "leorafael.macaya.cics@ust.edu.ph",
-                number: "+15005550006" // Replace with your phone number, use format [+][country code][area code][local number]
+                id: "admin1", 
             },
             mergeTags: {
                 "comment": body.comment,
