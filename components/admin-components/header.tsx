@@ -13,13 +13,6 @@ interface HeaderProps {
 }
 
 export function DashboardHeader({ title }: HeaderProps) {
-  // const [notifications, setNotifications] = useState([
-  //   "Car is now ready for pick up",
-  //   "Reservation status updated",
-  //   "Reservation status updated",
-  //   "Reservation status updated",
-  // ])
-  const [showNotifications, setShowNotifications] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [userFirstName, setUserFirstName] = useState<string | null>(null)
 
@@ -50,11 +43,6 @@ export function DashboardHeader({ title }: HeaderProps) {
     return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date).toUpperCase()
   }
 
-  // const handleMarkAsRead = () => {
-  //   setNotifications([])
-  //   setShowNotifications(false)
-  // }
-
   return (
     <header className="bg-[#EBF8FF] pt-1">
       <div className="flex justify-between items-center px-6 py-2">
@@ -70,19 +58,6 @@ export function DashboardHeader({ title }: HeaderProps) {
           <div className="text-gray-600 font-medium">
             {formatDate(currentDate)} {getDayName(currentDate)}
           </div>
-
-          {/* <div className="relative z-50">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 text-gray-600 hover:text-gray-900"
-            > */}
-              {/* <Bell className="h-6 w-6" />
-              {notifications.length > 0 && (
-                <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-                  {notifications.length}
-                </span>
-              )}
-            </button> */}
 
           <div className="relative">
               <NotificationAPIProvider

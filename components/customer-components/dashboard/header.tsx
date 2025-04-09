@@ -15,13 +15,6 @@ interface HeaderProps {
 }
 
 export function DashboardHeader({ title }: HeaderProps) {
-  // const [notifications, setNotifications] = useState([
-  //   "Car is now ready for pick up",
-  //   "Reservation status updated",
-  //   "Reservation status updated",
-  //   "Reservation status updated",
-  // ])
-  // const [showNotifications, setShowNotifications] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [userFirstName, setUserFirstName] = useState<string | null>(null)
 
@@ -73,12 +66,6 @@ export function DashboardHeader({ title }: HeaderProps) {
   const getDayName = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date).toUpperCase()
   }
-
-  // const handleMarkAsRead = () => {
-  //   setNotifications([])
-  //   setShowNotifications(false)
-  // }
-
   return (
     <header className="bg-[#EBF8FF]">
       <div className="flex justify-between items-center px-6 py-4">
