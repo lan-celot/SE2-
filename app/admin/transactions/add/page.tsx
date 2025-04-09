@@ -13,6 +13,8 @@ import { collection, addDoc, Timestamp, getDocs, query, orderBy, limit } from "f
 import { getActiveEmployees, type Employee } from "@/lib/employee-utils"
 
 // Define types for services and customers
+
+
 interface Service {
   id: string
   label: string
