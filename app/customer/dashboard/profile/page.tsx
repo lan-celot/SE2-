@@ -7,6 +7,7 @@ import { db, auth } from "@/lib/firebase"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { Pencil, Upload, User, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { philippineRegions, locationHierarchy, zipCodeMapping } from "@/components/customer-components/dashboard/book/addresshierachybank.js"
 
 // Create local component imports to resolve missing type declarations
 // Instead of importing from "@/components/ui/dialog"
@@ -142,6 +143,36 @@ interface UserDataCache {
   [key: string]: any; // Allow any additional properties
 }
 
+// Define types for location data
+interface LocationHierarchy {
+  [region: string]: {
+    provinces: string[];
+    locations: {
+      [province: string]: {
+        cities?: string[];
+        municipalities?: string[];
+      };
+    };
+  };
+}
+
+interface ZipCodeMapping {
+  [region: string]: {
+    provinces: {
+      [province: string]: {
+        cities?: {
+          [city: string]: string;
+        };
+        municipalities?: {
+          [municipality: string]: string;
+        };
+        default?: string;
+      };
+    };
+    default?: string;
+  };
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
     username: "",
@@ -178,11 +209,7 @@ export default function ProfilePage() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; visible: boolean } | null>(null)
 
-  const [regions, setRegions] = useState<string[]>([])
-  const [provinces, setProvinces] = useState<Record<string, string[]>>({})
-  const [cities, setCities] = useState<Record<string, string[]>>({})
-  const [municipalities, setMunicipalities] = useState<Record<string, string[]>>({})
-  const [zipCodes, setZipCodes] = useState<Record<string, string>>({})
+  // Using philippineRegions from imported hierarchy
   const [addressType, setAddressType] = useState<"city" | "municipality">("city")
 
   // Function to show toast notification - memoized to prevent recreating on each render
@@ -245,71 +272,6 @@ export default function ProfilePage() {
 
     checkAuthAndFetchProfile()
   }, [fetchProfile])
-
-  useEffect(() => {
-    // This would typically come from an API or database
-    // Load location data only once when component mounts
-    setRegions(["NCR", "CAR", "Region I", "Region II", "Region III", "Region IV-A", "Region IV-B"])
-
-    setProvinces({
-      NCR: ["Metro Manila"],
-      CAR: ["Benguet", "Ifugao", "Mountain Province"],
-      "Region I": ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
-      "Region II": ["Batanes", "Cagayan", "Isabela", "Nueva Vizcaya", "Quirino"],
-      "Region III": ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
-      "Region IV-A": ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
-      "Region IV-B": ["Marinduque", "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Romblon"],
-    })
-
-    setCities({
-      "Metro Manila": ["Manila", "Quezon City", "Makati", "Pasig", "Taguig"],
-      Benguet: ["Baguio City"],
-      Batangas: ["Batangas City", "Lipa City", "Tanauan"],
-      Cavite: ["Bacoor", "Dasmariñas", "Imus", "Tagaytay"],
-      Laguna: ["Calamba", "San Pablo", "Santa Rosa"],
-      Rizal: ["Antipolo", "Cainta", "Taytay"],
-      // Add more as needed
-    })
-
-    setMunicipalities({
-      Benguet: ["La Trinidad", "Itogon", "Tublay"],
-      Batangas: ["Bauan", "Calaca", "Nasugbu"],
-      Cavite: ["Carmona", "Silang", "Tanza"],
-      Laguna: ["Cabuyao", "Los Baños", "Pagsanjan"],
-      Rizal: ["Angono", "Binangonan", "Rodriguez"],
-      // Add more as needed
-    })
-
-    setZipCodes({
-      Manila: "1000",
-      "Quezon City": "1100",
-      Makati: "1200",
-      Pasig: "1600",
-      Taguig: "1630",
-      "Baguio City": "2600",
-      "Batangas City": "4200",
-      "Lipa City": "4217",
-      Bacoor: "4102",
-      Dasmariñas: "4114",
-      Antipolo: "1870",
-      "La Trinidad": "2601",
-      Bauan: "4201",
-      Carmona: "4116",
-      Cabuyao: "4025",
-      Angono: "1930",
-      Itogon: "2615",
-      Tublay: "2609",
-      Calaca: "4212",
-      Nasugbu: "4231",
-      Silang: "4118",
-      Tanza: "4108",
-      "Los Baños": "4030",
-      Pagsanjan: "4008",
-      Binangonan: "1940",
-      Rodriguez: "1860",
-      // Add more as needed
-    })
-  }, [])
 
   const handleInputChange = useCallback((section: string, field: string, value: string) => {
     setUpdatedProfile((prev) => ({
@@ -399,46 +361,85 @@ export default function ProfilePage() {
     handleInputChange("address", "municipality", "")
     handleInputChange("address", "zipCode", "")
 
+    // Get the selected region
+    const selectedRegion = updatedProfile.region;
+    
     // Determine if this province has cities or municipalities or both
-    const hasCities = cities[province] && cities[province].length > 0
-    const hasMunicipalities =
-      municipalities[province] && municipalities[province] && municipalities[province].length > 0
+    if (selectedRegion && (locationHierarchy as LocationHierarchy)[selectedRegion]?.locations[province]) {
+      const hasCities = !!(locationHierarchy as LocationHierarchy)[selectedRegion].locations[province].cities?.length;
+      const hasMunicipalities = !!(locationHierarchy as LocationHierarchy)[selectedRegion].locations[province].municipalities?.length;
 
-    if (hasCities && !hasMunicipalities) {
-      setAddressType("city")
-    } else if (!hasCities && hasMunicipalities) {
-      setAddressType("municipality")
-    } else {
-      // If both are available, default to city
-      setAddressType("city")
+      if (hasCities && !hasMunicipalities) {
+        setAddressType("city")
+      } else if (!hasCities && hasMunicipalities) {
+        setAddressType("municipality")
+      } else {
+        // If both are available, default to city
+        setAddressType("city")
+      }
     }
-  }, [handleInputChange, cities, municipalities])
+  }, [handleInputChange, updatedProfile.region])
 
   const handleCityMunicipalityChange = useCallback((value: string) => {
+    const selectedRegion = updatedProfile.region;
+    const selectedProvince = updatedProfile.province;
+    
     if (addressType === "city") {
       handleInputChange("address", "city", value)
       handleInputChange("address", "municipality", "")
       
-      // Auto-populate zip code based on city
-      if (zipCodes[value]) {
-        handleInputChange("address", "zipCode", zipCodes[value])
+      // Auto-populate zip code based on zipCodeMapping
+      if (selectedRegion && selectedProvince && value && 
+          (zipCodeMapping as ZipCodeMapping)[selectedRegion]?.provinces[selectedProvince]?.cities?.[value]) {
+        const zipCode = (zipCodeMapping as ZipCodeMapping)[selectedRegion].provinces[selectedProvince].cities?.[value];
+        if (zipCode) {
+          handleInputChange("address", "zipCode", zipCode);
+        }
       } else {
         // Default zip code if not found in the mapping
-        handleInputChange("address", "zipCode", "")
+        if (selectedRegion && selectedProvince && (zipCodeMapping as ZipCodeMapping)[selectedRegion]?.provinces[selectedProvince]?.default) {
+          const defaultZip = (zipCodeMapping as ZipCodeMapping)[selectedRegion].provinces[selectedProvince].default;
+          if (defaultZip) {
+            handleInputChange("address", "zipCode", defaultZip);
+          }
+        } else if (selectedRegion && (zipCodeMapping as ZipCodeMapping)[selectedRegion]?.default) {
+          const regionDefault = (zipCodeMapping as ZipCodeMapping)[selectedRegion].default;
+          if (regionDefault) {
+            handleInputChange("address", "zipCode", regionDefault);
+          }
+        } else {
+          handleInputChange("address", "zipCode", "");
+        }
       }
     } else {
       handleInputChange("address", "municipality", value)
       handleInputChange("address", "city", "")
       
-      // Auto-populate zip code based on municipality
-      if (zipCodes[value]) {
-        handleInputChange("address", "zipCode", zipCodes[value])
+      // Auto-populate zip code based on zipCodeMapping
+      if (selectedRegion && selectedProvince && value && 
+          (zipCodeMapping as ZipCodeMapping)[selectedRegion]?.provinces[selectedProvince]?.municipalities?.[value]) {
+        const zipCode = (zipCodeMapping as ZipCodeMapping)[selectedRegion].provinces[selectedProvince].municipalities?.[value];
+        if (zipCode) {
+          handleInputChange("address", "zipCode", zipCode);
+        }
       } else {
         // Default zip code if not found in the mapping
-        handleInputChange("address", "zipCode", "")
+        if (selectedRegion && selectedProvince && (zipCodeMapping as ZipCodeMapping)[selectedRegion]?.provinces[selectedProvince]?.default) {
+          const defaultZip = (zipCodeMapping as ZipCodeMapping)[selectedRegion].provinces[selectedProvince].default;
+          if (defaultZip) {
+            handleInputChange("address", "zipCode", defaultZip);
+          }
+        } else if (selectedRegion && (zipCodeMapping as ZipCodeMapping)[selectedRegion]?.default) {
+          const regionDefault = (zipCodeMapping as ZipCodeMapping)[selectedRegion].default;
+          if (regionDefault) {
+            handleInputChange("address", "zipCode", regionDefault);
+          }
+        } else {
+          handleInputChange("address", "zipCode", "");
+        }
       }
     }
-  }, [addressType, handleInputChange, zipCodes])
+  }, [addressType, handleInputChange, updatedProfile.region, updatedProfile.province])
 
   const clearAddressFields = useCallback(() => {
     setUpdatedProfile((prev) => ({
@@ -631,6 +632,58 @@ export default function ProfilePage() {
   const displayValue = useCallback((value: string | undefined) => {
     return profileFetched ? value || "Not set" : "Not set"
   }, [profileFetched])
+
+  // Get provinces for selected region
+  const getProvinces = useCallback(() => {
+    const selectedRegion = updatedProfile.region;
+    if (selectedRegion && (locationHierarchy as LocationHierarchy)[selectedRegion]) {
+      return (locationHierarchy as LocationHierarchy)[selectedRegion].provinces || [];
+    }
+    return [];
+  }, [updatedProfile.region]);
+
+  // Get cities for selected province
+  const getCities = useCallback(() => {
+    const selectedRegion = updatedProfile.region;
+    const selectedProvince = updatedProfile.province;
+    
+    if (selectedRegion && selectedProvince && 
+        (locationHierarchy as LocationHierarchy)[selectedRegion]?.locations[selectedProvince]?.cities) {
+      return (locationHierarchy as LocationHierarchy)[selectedRegion].locations[selectedProvince].cities || [];
+    }
+    return [];
+  }, [updatedProfile.region, updatedProfile.province]);
+
+  // Get municipalities for selected province
+  const getMunicipalities = useCallback(() => {
+    const selectedRegion = updatedProfile.region;
+    const selectedProvince = updatedProfile.province;
+    
+    if (selectedRegion && selectedProvince && 
+        (locationHierarchy as LocationHierarchy)[selectedRegion]?.locations[selectedProvince]?.municipalities) {
+      return (locationHierarchy as LocationHierarchy)[selectedRegion].locations[selectedProvince].municipalities || [];
+    }
+    return [];
+  }, [updatedProfile.region, updatedProfile.province]);
+
+  // Extract regions from the imported philippineRegions for the select dropdown
+  const regions = Array.isArray(philippineRegions) ? philippineRegions : [];
+
+  // Create containers for provinces, cities, and municipalities based on the selected region/province
+  const provinces: { [region: string]: string[] } = {};
+  const cities: { [province: string]: string[] } = {};
+  const municipalities: { [province: string]: string[] } = {};
+
+  // Populate the provinces for each region
+  if (updatedProfile.region && (locationHierarchy as LocationHierarchy)[updatedProfile.region]) {
+    provinces[updatedProfile.region] = getProvinces();
+  }
+
+  // Populate cities and municipalities for the selected province
+  if (updatedProfile.region && updatedProfile.province) {
+    cities[updatedProfile.province] = getCities();
+    municipalities[updatedProfile.province] = getMunicipalities();
+  }
 
   if (isLoading) {
     return (
@@ -868,9 +921,9 @@ export default function ProfilePage() {
                     className="w-full p-2 border border-gray-300 rounded-md mt-1"
                   >
                     <option value="">Select gender</option>
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="OTHERS">Other</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Others">Others</option>
                   </select>
                 </div>
 
