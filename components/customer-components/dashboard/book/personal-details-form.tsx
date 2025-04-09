@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -18,128 +18,66 @@ import { db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
 import useLocalStorage from "@/hooks/useLocalStorage"
-
+// Import from addresshierachybank.js
+import { philippineRegions, locationHierarchy, zipCodeMapping } from "@/components/customer-components/dashboard/book/addresshierachybank"
 
 // Type definitions
-type City = string
-type Municipality = string
+type City = string | null
+type Municipality = string | null
 type Province = string
 type Region = string
 
-
-interface LocationData {
-  provinces: Province[]
-  locations: {
-    [province: string]: {
-      cities: City[]
-      municipalities: Municipality[]
-    }
-  }
+// Define types for location hierarchy
+type LocationData = {
+  cities: string[];
+  municipalities: string[];
 }
 
-
-interface LocationHierarchy {
-  [region: string]: LocationData
+type ProvinceLocations = {
+  [province: string]: LocationData;
 }
 
-
-// Philippine region data
-const philippineRegions = ["Region I (Ilocos Region)"].sort()
-
-
-// Hierarchical location data
-const locationHierarchy: LocationHierarchy = {
-  "Region I (Ilocos Region)": {
-    provinces: ["Ilocos Norte", "Ilocos Sur", "La Union", "Pangasinan"],
-    locations: {
-      "Ilocos Norte": {
-        cities: ["Laoag", "Batac"],
-        municipalities: ["Paoay", "Pagudpud"]
-      },
-      "Ilocos Sur": {
-        cities: ["Vigan", "Candon"],
-        municipalities: ["Bantay", "Narvacan"]
-      },
-      "La Union": {
-        cities: ["San Fernando"],
-        municipalities: ["Agoo", "Bauang"]
-      },
-      "Pangasinan": {
-        cities: ["Dagupan", "Alaminos", "San Carlos", "Urdaneta"],
-        municipalities: ["Lingayen", "Bayambang", "Binmaley", "Mangaldan", "Rosales"]
-      }
-    }
-  }
+type RegionData = {
+  provinces: string[];
+  locations: ProvinceLocations;
 }
 
-
-// Define type for zip code mapping structure
-interface ZipCodeCity {
-  [city: string]: string;
+// Define types for zip code mapping
+type CityMunicipalityZipCodes = {
+  [location: string]: string;
 }
 
-
-interface ZipCodeMunicipality {
-  [municipality: string]: string;
-}
-
-
-interface ZipCodeProvince {
+type ProvinceZipCodes = {
   default: string;
-  cities: ZipCodeCity;
-  municipalities: ZipCodeMunicipality;
+  cities: CityMunicipalityZipCodes;
+  municipalities: CityMunicipalityZipCodes;
 }
 
-
-interface ZipCodeRegion {
+type RegionZipCodes = {
   default: string;
   provinces: {
-    [province: string]: ZipCodeProvince;
+    [province: string]: ProvinceZipCodes;
   };
 }
 
-
-interface ZipCodeMapping {
-  [region: string]: ZipCodeRegion;
+// Create type-safe interfaces for our locationHierarchy and zipCodeMapping data
+interface LocationHierarchyType {
+  [region: string]: RegionData;
 }
 
-
-// ZIP code mapping
-const zipCodeMapping: ZipCodeMapping = {
-  "Region I (Ilocos Region)": {
-    default: "2900",
-    provinces: {
-      "Ilocos Norte": {
-        default: "2900",
-        cities: { "Laoag": "2900", "Batac": "2906" },
-        municipalities: { "Paoay": "2910", "Pagudpud": "2919" }
-      },
-      "Ilocos Sur": {
-        default: "2700",
-        cities: { "Vigan": "2700", "Candon": "2710" },
-        municipalities: { "Bantay": "2727", "Narvacan": "2704" }
-      },
-      "La Union": {
-        default: "2500",
-        cities: { "San Fernando": "2500" },
-        municipalities: { "Agoo": "2504", "Bauang": "2501" }
-      },
-      "Pangasinan": {
-        default: "2400",
-        cities: { "Dagupan": "2400", "Alaminos": "2404", "San Carlos": "2420", "Urdaneta": "2428" },
-        municipalities: { "Lingayen": "2401", "Bayambang": "2423", "Binmaley": "2417", "Mangaldan": "2432", "Rosales": "2441" }
-      }
-    }
-  }
+interface ZipCodeMappingType {
+  [region: string]: RegionZipCodes;
 }
 
+// Type assertions to make TypeScript happy
+const typedLocationHierarchy = locationHierarchy as LocationHierarchyType;
+const typedZipCodeMapping = zipCodeMapping as ZipCodeMappingType;
 
 // Default form data
 const defaultFormData = {
   firstName: "", lastName: "", gender: "", email: "", phoneNumber: "", dateOfBirth: "",
-  region: "", province: "", city: "", municipality: "", streetAddress: "", zipCode: ""
+  region: "", province: "", city: null as City, municipality: null as Municipality, streetAddress: "", zipCode: ""
 }
-
 
 // Form schema with validation
 const formSchema = z
@@ -148,21 +86,22 @@ const formSchema = z
     lastName: z.string().min(1, "Last name is required"),
     gender: z.string().min(1, "Gender is required"),
     email: z.string().email("Invalid email address").min(1, "Email is required"),
-    phoneNumber: z.string()
-      .regex(/^09\d{9}$/, "Phone number required"),
+    phoneNumber: z.string().regex(/^09\d{9}$/, "Phone number must be in format: 09XXXXXXXXX"),
     dateOfBirth: z.string().min(1, "Date of birth is required"),
     region: z.string().min(1, "Region is required"),
     province: z.string().min(1, "Province is required"),
-    city: z.string().optional(),
-    municipality: z.string().optional(),
+    city: z.string().nullable(),
+    municipality: z.string().nullable(),
     streetAddress: z.string().min(1, "Street address is required"),
-    zipCode: z.string().min(1, "Choose a city or municipality"),
+    zipCode: z.string().min(1, "Assign a City or Municipality"),
   })
   .refine((data) => {
     const selectedProvince = data.province;
-    if (selectedProvince && data.region && locationHierarchy[data.region]?.locations[selectedProvince]) {
-      const hasCities = locationHierarchy[data.region].locations[selectedProvince].cities.length > 0;
-      const hasMunicipalities = locationHierarchy[data.region].locations[selectedProvince].municipalities.length > 0;
+    if (selectedProvince && data.region && 
+        typedLocationHierarchy[data.region]?.locations[selectedProvince]) {
+      const provinceData = typedLocationHierarchy[data.region].locations[selectedProvince];
+      const hasCities = provinceData.cities.length > 0;
+      const hasMunicipalities = provinceData.municipalities.length > 0;
       if (hasCities && hasMunicipalities) {
         return !!data.city || !!data.municipality;
       }
@@ -170,15 +109,10 @@ const formSchema = z
     return true;
   }, { message: "Either a city or municipality must be selected", path: ["city"] });
 
-
 interface PersonalDetailsFormProps {
   initialData: any;
   onSubmit: (data: any) => void;
 }
-
-// Type for form field names
-type FormFieldName = keyof z.infer<typeof formSchema>;
-
 
 export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFormProps) {
   const auth = getAuth();
@@ -187,21 +121,19 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [availableMunicipalities, setAvailableMunicipalities] = useState<string[]>([]);
   const [formDataLoaded, setFormDataLoaded] = useState(false);
+  const [userProfileData, setUserProfileData] = useState<any>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  // Flag to control form data saving
   const [shouldSaveFormData, setShouldSaveFormData] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  
-  // Store permanent fields
-  const [permanentFields, setPermanentFields] = useState({
-    firstName: "",
-    lastName: "",
-    gender: "",
-    email: "",
-    dateOfBirth: ""
-  });
 
-  // Merge initial data with defaults and store in localStorage
+  // Define read-only fields that are populated from Firebase
+  const readOnlyFields = useMemo(() => ['firstName', 'lastName', 'email', 'dateOfBirth', 'gender'], []);
+
+  // Merge initial data with defaults
   const mergedInitialData = initialData ? { ...defaultFormData, ...initialData } : defaultFormData;
-  const [formData, setFormData] = useLocalStorage("personalDetailsForm", mergedInitialData);
+  
+  // Ensure we initialize with local storage if available
+  const [formData, setFormData] = useLocalStorage<typeof defaultFormData>("personalDetailsForm", mergedInitialData);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -209,9 +141,36 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     mode: "onChange"
   });
 
-  // Set hydrated state once component mounts on client
+  // Set component as mounted after first render
   useEffect(() => {
-    setHydrated(true);
+    setIsMounted(true);
+    
+    // This ensures the form values are properly restored from localStorage
+    // after the component is mounted
+    const storedData = localStorage.getItem("personalDetailsForm");
+    if (storedData) {
+      try {
+        const parsedData = JSON.parse(storedData);
+        // Make sure city and municipality are null rather than undefined or empty strings
+        if (!parsedData.city) parsedData.city = null;
+        if (!parsedData.municipality) parsedData.municipality = null;
+        
+        // Only update form with stored data if it's meaningfully different
+        if (JSON.stringify(parsedData) !== JSON.stringify(form.getValues())) {
+          form.reset(parsedData);
+        }
+        
+        // If we have location data, make sure the dropdowns are populated
+        if (parsedData.region) {
+          updateProvinces(parsedData.region);
+          if (parsedData.province) {
+            updateLocations(parsedData.region, parsedData.province);
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing stored form data:", e);
+      }
+    }
   }, []);
 
   // Watch form values
@@ -221,28 +180,36 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
   const currentMunicipality = form.watch("municipality");
 
   // Helper function to safely get zip code
-  const getZipCode = useCallback((region: string, province: string, city?: string, municipality?: string): string => {
-    const regionData = zipCodeMapping[region];
-    if (!regionData) return "";
-
+  const getZipCode = useCallback((region: string, province: string, city?: string | null, municipality?: string | null): string => {
+    // Check if region exists in zipCodeMapping
+    if (!(region in typedZipCodeMapping)) return "";
+    
+    const regionData = typedZipCodeMapping[region];
+    
+    // Check if province exists in the region
+    if (!(province in regionData.provinces)) return regionData.default;
+    
     const provinceData = regionData.provinces[province];
-    if (!provinceData) return regionData.default || "";
-
-    if (city && provinceData.cities[city]) {
+    
+    // If city is provided and exists in province data
+    if (city && city in provinceData.cities) {
       return provinceData.cities[city];
     }
-
-    if (municipality && provinceData.municipalities[municipality]) {
+    
+    // If municipality is provided and exists in province data
+    if (municipality && municipality in provinceData.municipalities) {
       return provinceData.municipalities[municipality];
     }
-
-    return provinceData.default || regionData.default || "";
+    
+    // Return province default or region default as fallback
+    return provinceData.default || regionData.default;
   }, []);
 
   // Update provinces when region changes
   const updateProvinces = useCallback((region: string) => {
-    if (region && region in locationHierarchy) {
-      setAvailableProvinces([...locationHierarchy[region].provinces].sort());
+    if (region && region in typedLocationHierarchy) {
+      const regionData = typedLocationHierarchy[region];
+      setAvailableProvinces([...regionData.provinces].sort());
     } else {
       setAvailableProvinces([]);
     }
@@ -250,223 +217,221 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
 
   // Update cities and municipalities when province changes
   const updateLocations = useCallback((region: string, province: string) => {
-    if (region && province && region in locationHierarchy && province in locationHierarchy[region].locations) {
-      const locations = locationHierarchy[region].locations[province];
-      setAvailableCities([...locations.cities].sort());
-      setAvailableMunicipalities([...locations.municipalities].sort());
+    if (region && province && region in typedLocationHierarchy) {
+      const regionData = typedLocationHierarchy[region];
+      if (province in regionData.locations) {
+        const locations = regionData.locations[province];
+        setAvailableCities([...locations.cities].sort());
+        setAvailableMunicipalities([...locations.municipalities].sort());
+      } else {
+        setAvailableCities([]);
+        setAvailableMunicipalities([]);
+      }
     } else {
       setAvailableCities([]);
       setAvailableMunicipalities([]);
     }
   }, []);
 
-  // Save form data to localStorage whenever needed
-  const saveFormData = useCallback((formValues: any) => {
-    if (formValues && formDataLoaded && shouldSaveFormData) {
-      setFormData({
-        ...formValues,
-        // Ensure permanent fields are always preserved
-        firstName: permanentFields.firstName,
-        lastName: permanentFields.lastName,
-        gender: permanentFields.gender,
-        email: permanentFields.email,
-        dateOfBirth: permanentFields.dateOfBirth
-      });
-      // Reset the flag
-      setShouldSaveFormData(false);
-    }
-  }, [formDataLoaded, permanentFields, setFormData, shouldSaveFormData]);
-
-  // Handle location hierarchy changes
+  // Initialize provinces when region is set
   useEffect(() => {
-    // Initialize provinces when region is set
-    if (currentRegion) {
-      updateProvinces(currentRegion);
-      
-      // Reset dependent fields when region changes
-      if (formDataLoaded && formData.region !== currentRegion) {
-        form.setValue("province", "");
-        form.setValue("city", "");
-        form.setValue("municipality", "");
-        form.setValue("zipCode", "");
-        setAvailableCities([]);
-        setAvailableMunicipalities([]);
-        setShouldSaveFormData(true);
-      }
-    }
-  }, [currentRegion, form, formData.region, formDataLoaded, updateProvinces]);
+    if (!isMounted) return;
+    if (currentRegion) updateProvinces(currentRegion);
+  }, [currentRegion, updateProvinces, isMounted]);
 
-  // Update locations based on province
+  // Reset dependent fields when region changes
   useEffect(() => {
+    if (!isMounted || !formDataLoaded) return;
+    
+    if (currentRegion && formData?.region !== currentRegion) {
+      form.setValue("province", "");
+      form.setValue("city", null);
+      form.setValue("municipality", null);
+      form.setValue("zipCode", "");
+      setAvailableCities([]);
+      setAvailableMunicipalities([]);
+    }
+  }, [currentRegion, form, formData?.region, formDataLoaded, isMounted]);
+
+  // Update locations when province changes
+  useEffect(() => {
+    if (!isMounted || !formDataLoaded) return;
+    
     if (currentRegion && currentProvince) {
       updateLocations(currentRegion, currentProvince);
       
-      if (formDataLoaded && formData.province !== currentProvince) {
-        form.setValue("city", "");
-        form.setValue("municipality", "");
-        form.setValue("zipCode", "");
-        setShouldSaveFormData(true);
+      if (formData?.province !== currentProvince) {
+        form.setValue("city", null);
+        form.setValue("municipality", null);
+        
+        // Set default zip code for the province if available
+        const defaultZipCode = getZipCode(currentRegion, currentProvince);
+        form.setValue("zipCode", defaultZipCode);
       }
     }
-  }, [currentRegion, currentProvince, updateLocations, form, formData.province, formDataLoaded]);
+  }, [currentRegion, currentProvince, updateLocations, form, formData?.province, formDataLoaded, getZipCode, isMounted]);
 
-  // Handle city/municipality selection and update ZIP code
+  // Handle city selection
   useEffect(() => {
-    if (!formDataLoaded) return;
+    if (!isMounted || !formDataLoaded) return;
     
-    if (currentRegion && currentProvince) {
-      let shouldUpdate = false;
+    if (currentRegion && currentProvince && currentCity) {
+      // Clear municipality when city is selected
+      if (form.getValues("municipality")) form.setValue("municipality", null);
       
-      if (currentCity) {
-        // Clear municipality if city is selected
-        if (form.getValues("municipality")) {
-          form.setValue("municipality", "");
-          shouldUpdate = true;
-        }
-        
-        // Update ZIP code based on city
-        const zipCode = getZipCode(currentRegion, currentProvince, currentCity);
-        if (zipCode && form.getValues("zipCode") !== zipCode) {
-          form.setValue("zipCode", zipCode);
-          shouldUpdate = true;
-        }
-      } else if (currentMunicipality) {
-        // Clear city if municipality is selected
-        if (form.getValues("city")) {
-          form.setValue("city", "");
-          shouldUpdate = true;
-        }
-        
-        // Update ZIP code based on municipality
-        const zipCode = getZipCode(currentRegion, currentProvince, undefined, currentMunicipality);
-        if (zipCode && form.getValues("zipCode") !== zipCode) {
-          form.setValue("zipCode", zipCode);
-          shouldUpdate = true;
-        }
-      } else {
-        // Clear ZIP code if neither city nor municipality is selected
-        if (form.getValues("zipCode")) {
-          form.setValue("zipCode", "");
-          shouldUpdate = true;
-        }
-      }
+      // Update zip code based on selected city
+      const zipCode = getZipCode(currentRegion, currentProvince, currentCity);
+      if (zipCode) form.setValue("zipCode", zipCode);
+    }
+  }, [currentCity, currentProvince, currentRegion, form, formDataLoaded, getZipCode, isMounted]);
+
+  // Handle municipality selection
+  useEffect(() => {
+    if (!isMounted || !formDataLoaded) return;
+    
+    if (currentRegion && currentProvince && currentMunicipality) {
+      // Clear city when municipality is selected
+      if (form.getValues("city")) form.setValue("city", null);
       
-      // Only trigger save if needed
-      if (shouldUpdate) {
-        setShouldSaveFormData(true);
-      }
+      // Update zip code based on selected municipality
+      const zipCode = getZipCode(currentRegion, currentProvince, undefined, currentMunicipality);
+      if (zipCode) form.setValue("zipCode", zipCode);
     }
-  }, [currentCity, currentMunicipality, currentProvince, currentRegion, form, formDataLoaded, getZipCode]);
+  }, [currentMunicipality, currentProvince, currentRegion, form, formDataLoaded, getZipCode, isMounted]);
 
-  // Actually save form data when the flag is set
+  // Set default province zip code if neither city nor municipality is selected
   useEffect(() => {
-    if (shouldSaveFormData) {
-      saveFormData(form.getValues());
+    if (!isMounted || !formDataLoaded) return;
+    
+    if (currentRegion && currentProvince && !currentCity && !currentMunicipality) {
+      const defaultZipCode = getZipCode(currentRegion, currentProvince);
+      form.setValue("zipCode", defaultZipCode);
     }
-  }, [shouldSaveFormData, saveFormData, form]);
+  }, [currentCity, currentMunicipality, currentProvince, currentRegion, form, formDataLoaded, getZipCode, isMounted]);
 
-  // Improved tab focus handler - load data from localStorage
+  // Handle saving form data to localStorage - optimized approach with a single useEffect
   useEffect(() => {
-    const handleTabVisibilityChange = () => {
-      if (!document.hidden && formDataLoaded) {
-        const storedData = localStorage.getItem("personalDetailsForm");
-        if (storedData) {
-          try {
-            const parsedData = JSON.parse(storedData);
-            // Only update fields that should be preserved across tab switches
-            const currentValues = form.getValues();
-            
-            // Update form fields with data but don't trigger effects
-            form.setValue("phoneNumber", parsedData.phoneNumber || currentValues.phoneNumber, { shouldValidate: false });
-            form.setValue("region", parsedData.region || currentValues.region, { shouldValidate: false });
-            form.setValue("province", parsedData.province || currentValues.province, { shouldValidate: false });
-            form.setValue("city", parsedData.city || currentValues.city, { shouldValidate: false });
-            form.setValue("municipality", parsedData.municipality || currentValues.municipality, { shouldValidate: false });
-            form.setValue("streetAddress", parsedData.streetAddress || currentValues.streetAddress, { shouldValidate: false });
-            form.setValue("zipCode", parsedData.zipCode || currentValues.zipCode, { shouldValidate: false });
-            
-            // Update location dropdowns based on the loaded data
-            if (parsedData.region) {
-              updateProvinces(parsedData.region);
-              if (parsedData.region && parsedData.province) {
-                updateLocations(parsedData.region, parsedData.province);
-              }
-            }
-          } catch (error) {
-            console.error("Error parsing stored form data:", error);
-          }
-        }
-      }
-    };
-
-    // Listen for both focus events and visibility changes
-    window.addEventListener('focus', handleTabVisibilityChange);
-    document.addEventListener('visibilitychange', handleTabVisibilityChange);
+    if (!isMounted || !formDataLoaded) return;
+    
+    // Use a more efficient approach to watch form changes
+    const subscription = form.watch((formValues) => {
+      setShouldSaveFormData(true);
+    });
     
     return () => {
-      window.removeEventListener('focus', handleTabVisibilityChange);
-      document.removeEventListener('visibilitychange', handleTabVisibilityChange);
+      subscription.unsubscribe();
     };
-  }, [form, updateLocations, updateProvinces, formDataLoaded]);
+  }, [form, isMounted, formDataLoaded]);
+  
+  // Separate effect to handle the actual saving to prevent infinite loops
+  useEffect(() => {
+    if (shouldSaveFormData && isMounted && formDataLoaded) {
+      const currentValues = form.getValues();
+      
+      // Make sure null values are preserved
+      if (!currentValues.city) currentValues.city = null;
+      if (!currentValues.municipality) currentValues.municipality = null;
+      
+      // Ensure read-only fields from Firebase are preserved
+      if (userProfileData) {
+        readOnlyFields.forEach(field => {
+          // Keep the Firebase data for read-only fields
+          currentValues[field as keyof typeof currentValues] = userProfileData[field] || currentValues[field as keyof typeof currentValues];
+        });
+      }
+      
+      // Update local storage through the hook
+      setFormData(currentValues as typeof defaultFormData);
+      
+      // Reset the flag
+      setShouldSaveFormData(false);
+    }
+  }, [shouldSaveFormData, setFormData, form, isMounted, formDataLoaded, userProfileData, readOnlyFields]);
+
+  // Before unloading the page, save form data to ensure it persists
+  useEffect(() => {
+    if (!isMounted) return;
+    
+    const handleBeforeUnload = () => {
+      const currentFormValues = form.getValues();
+      
+      // Ensure read-only fields from Firebase are preserved
+      if (userProfileData) {
+        readOnlyFields.forEach(field => {
+          // Keep the Firebase data for read-only fields
+          currentFormValues[field as keyof typeof currentFormValues] = userProfileData[field] || currentFormValues[field as keyof typeof currentFormValues];
+        });
+      }
+      
+      localStorage.setItem("personalDetailsForm", JSON.stringify(currentFormValues));
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [form, isMounted, userProfileData, readOnlyFields]);
 
   // Fetch user data on component mount
   useEffect(() => {
+    if (!isMounted) return;
+    
     if (user && !formDataLoaded) {
       const fetchUserData = async () => {
         try {
+          console.log("Fetching user data from Firebase...");
           const userDoc = await getDoc(doc(db, "accounts", user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            console.log("User data fetched:", userData);
+            setUserProfileData(userData);
             
-            // Store permanent fields
-            const permanentData = {
+            // Create merged form data with all sources
+            const storedData = localStorage.getItem("personalDetailsForm");
+            const parsedStoredData = storedData ? JSON.parse(storedData) : {};
+            
+            // IMPORTANT: Always prioritize Firebase data for read-only fields
+            const formData = {
+              ...defaultFormData,
+              // First populate with stored data
+              ...parsedStoredData,
+              // Then override with Firebase data for read-only fields
               firstName: userData.firstName || "",
               lastName: userData.lastName || "",
-              gender: userData.gender || "",
               email: userData.email || "",
-              dateOfBirth: userData.dateOfBirth || ""
+              dateOfBirth: userData.dateOfBirth || "",
+              gender: userData.gender || "",
             };
-            setPermanentFields(permanentData);
             
-            // Use stored form data or initialize from user data
-            const storedFormData = localStorage.getItem("personalDetailsForm");
+            // Log to check gender value
+            console.log("Setting gender from Firebase:", userData.gender);
             
-            if (!storedFormData) {
-              // Create new form data from user data
-              const formData = {
-                ...defaultFormData,
-                ...Object.fromEntries(
-                  Object.entries(userData)
-                    .filter(([key]) => key in defaultFormData)
-                    .map(([key, value]) => [key, value || ""])
-                )
-              };
+            // Ensure city and municipality are properly handled
+            if (!formData.city) formData.city = null;
+            if (!formData.municipality) formData.municipality = null;
+            
+            console.log("Setting form data:", formData);
+            form.reset(formData);
+            
+            // Set form data to localStorage
+            setFormData(formData);
+            
+            // Initialize location fields if region and province are available
+            if (formData.region && formData.province) {
+              updateProvinces(formData.region);
+              updateLocations(formData.region, formData.province);
               
-              form.reset(formData);
-              setFormData(formData);
-            } else {
-              // If form data exists in localStorage, update it with permanent fields
-              try {
-                const parsedData = JSON.parse(storedFormData);
-                form.reset({
-                  ...parsedData,
-                  firstName: permanentData.firstName,
-                  lastName: permanentData.lastName,
-                  gender: permanentData.gender,
-                  email: permanentData.email,
-                  dateOfBirth: permanentData.dateOfBirth
-                });
-              } catch (error) {
-                console.error("Error parsing stored form data:", error);
-              }
-            }
-            
-            // Initialize location dropdowns
-            if (userData.region && userData.region in locationHierarchy) {
-              updateProvinces(userData.region);
-              
-              if (userData.province && userData.province in locationHierarchy[userData.region].locations) {
-                updateLocations(userData.region, userData.province);
+              // Set zip code appropriately
+              if (formData.city) {
+                const zipCode = getZipCode(formData.region, formData.province, formData.city);
+                form.setValue("zipCode", zipCode);
+              } else if (formData.municipality) {
+                const zipCode = getZipCode(formData.region, formData.province, undefined, formData.municipality);
+                form.setValue("zipCode", zipCode);
+              } else {
+                const zipCode = getZipCode(formData.region, formData.province);
+                form.setValue("zipCode", zipCode);
               }
             }
           }
@@ -482,62 +447,100 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     } else if (!formDataLoaded) {
       setFormDataLoaded(true);
     }
-  }, [user, form, setFormData, formDataLoaded, updateLocations, updateProvinces]);
+  }, [user, form, setFormData, formDataLoaded, updateProvinces, updateLocations, getZipCode, isMounted]);
 
-  // Form submission handler
-  const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    // Ensure permanent fields aren't modified
-    const submissionData = {
-      ...data,
-      firstName: permanentFields.firstName,
-      lastName: permanentFields.lastName,
-      gender: permanentFields.gender,
-      email: permanentFields.email,
-      dateOfBirth: permanentFields.dateOfBirth
-    };
+  // NEW: Re-apply Firebase data whenever the form is rendered or the component is re-mounted
+  useEffect(() => {
+    if (!isMounted || !userProfileData) return;
     
-    setFormData(submissionData);
+    // Get current form values
+    const currentValues = form.getValues();
+    let needsUpdate = false;
+    
+    // Check if any read-only fields need updating
+    readOnlyFields.forEach(field => {
+      const fieldKey = field as keyof typeof currentValues;
+      if (userProfileData[field] && currentValues[fieldKey] !== userProfileData[field]) {
+        currentValues[fieldKey] = userProfileData[field];
+        needsUpdate = true;
+      }
+    });
+    
+    // Update form if needed
+    if (needsUpdate) {
+      form.reset(currentValues);
+      
+      // Also update local storage
+      setFormData(currentValues as typeof defaultFormData);
+      localStorage.setItem("personalDetailsForm", JSON.stringify(currentValues));
+    }
+  }, [isMounted, userProfileData, form, readOnlyFields, setFormData]);
+
+  // Form submission handler - memoized for performance
+  const handleSubmit = useCallback((data: z.infer<typeof formSchema>) => {
+    // Ensure we preserve the original read-only fields from Firebase
+    const submissionData = { ...data };
+    
+    if (userProfileData) {
+      readOnlyFields.forEach(field => {
+        submissionData[field as keyof typeof submissionData] = userProfileData[field] || data[field as keyof typeof data];
+      });
+    }
+    
+    // Make sure nulls are preserved
+    if (!submissionData.city) submissionData.city = null;
+    if (!submissionData.municipality) submissionData.municipality = null;
+    
+    // Save the final data both to the hook and directly to localStorage
+    setFormData(submissionData as typeof defaultFormData);
+    localStorage.setItem("personalDetailsForm", JSON.stringify(submissionData));
+    
     onSubmit(submissionData);
-  };
+  }, [onSubmit, setFormData, userProfileData, readOnlyFields]);
 
-  // Reset form handler - only reset editable address fields
-  const handleReset = () => {
-    // Reset editable fields to empty values
-    form.setValue("phoneNumber", "");
-    form.setValue("region", "");
-    form.setValue("province", "");
-    form.setValue("city", "");
-    form.setValue("municipality", "");
-    form.setValue("streetAddress", "");
-    form.setValue("zipCode", "");
+  // Reset form handler - only clear non-read-only fields
+  const handleReset = useCallback(() => {
+    if (!isMounted) return;
     
-    // Reset available locations
-    setAvailableProvinces([]);
+    const resetValues = { ...defaultFormData };
+    
+    // Preserve read-only fields from Firebase
+    if (userProfileData) {
+      readOnlyFields.forEach(field => {
+        resetValues[field as keyof typeof defaultFormData] = userProfileData[field] || defaultFormData[field as keyof typeof defaultFormData];
+      });
+    }
+    
+    form.reset(resetValues);
+    setFormData(resetValues);
+    localStorage.setItem("personalDetailsForm", JSON.stringify(resetValues));
     setAvailableCities([]);
     setAvailableMunicipalities([]);
-    
-    // Update localStorage with reset form data - do this once
-    setFormData({
-      ...form.getValues(),
-      phoneNumber: "",
-      region: "",
-      province: "",
-      city: "",
-      municipality: "",
-      streetAddress: "",
-      zipCode: ""
-    });
-  };
+  }, [form, setFormData, readOnlyFields, isMounted, userProfileData]);
 
-  // Modified function with proper type
-  const handleFormFieldChange = (fieldName: FormFieldName, value: string) => {
-    form.setValue(fieldName, value);
-    setShouldSaveFormData(true);
-  };
+  // Prepare field props factory for optimization
+  const getFieldProps = useCallback((fieldName: string) => {
+    const isReadOnly = readOnlyFields.includes(fieldName);
+    return {
+      disabled: isReadOnly,
+      className: `bg-white/50 ${isReadOnly ? 'cursor-not-allowed opacity-80 border-blue-300 border-2' : ''}`,
+      title: isReadOnly ? "This field is auto-filled from your profile" : ""
+    };
+  }, [readOnlyFields]);
 
-  // If not hydrated yet, return null or a simple loading state to prevent hydration mismatch
-  if (!hydrated) {
-    return <div className="min-h-[300px] flex items-center justify-center">Loading form...</div>;
+  // Get consistent styling for select fields
+  const getSelectFieldProps = useCallback((fieldName: string) => {
+    const isReadOnly = readOnlyFields.includes(fieldName);
+    return {
+      disabled: isReadOnly,
+      className: `bg-white/50 ${isReadOnly ? 'cursor-not-allowed opacity-80 border-blue-300 border-2' : ''}`,
+      title: isReadOnly ? "This field is auto-filled from your profile" : ""
+    };
+  }, [readOnlyFields]);
+
+  // Don't render the full form until client-side hydration is complete
+  if (!isMounted) {
+    return <div className="flex items-center justify-center p-8">Loading form...</div>;
   }
 
   return (
@@ -551,15 +554,12 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input 
-                    placeholder="First Name" 
-                    className="bg-white transition-colors focus:!ring-2 focus:!ring-blue-300" 
-                    {...field} 
-                    disabled={true}
-                    value={permanentFields.firstName}  
-                  />
+                  <Input placeholder="First Name" {...field} {...getFieldProps("firstName")} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                {readOnlyFields.includes("firstName") && (
+                  <p className="text-xs text-blue-600">Auto-filled from profile</p>
+                )}
               </FormItem>
             )}
           />
@@ -569,15 +569,12 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input 
-                    placeholder="Last Name" 
-                    className="bg-white transition-colors focus:!ring-2 focus:!ring-blue-300" 
-                    {...field} 
-                    disabled={true} 
-                    value={permanentFields.lastName}
-                  />
+                  <Input placeholder="Last Name" {...field} {...getFieldProps("lastName")} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                {readOnlyFields.includes("lastName") && (
+                  <p className="text-xs text-blue-600">Auto-filled from profile</p>
+                )}
               </FormItem>
             )}
           />
@@ -593,13 +590,14 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                 <FormControl>
                   <Input 
                     placeholder="Gender" 
-                    className="bg-white transition-colors focus:!ring-2 focus:!ring-blue-300" 
                     {...field} 
-                    disabled={true}
-                    value={permanentFields.gender === "MALE" ? "Male" : permanentFields.gender === "FEMALE" ? "Female" : permanentFields.gender} 
+                    {...getFieldProps("gender")} 
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                {readOnlyFields.includes("gender") && (
+                  <p className="text-xs text-blue-600">Auto-filled from profile</p>
+                )}
               </FormItem>
             )}
           />
@@ -612,13 +610,14 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                   <Input 
                     type="date" 
                     placeholder="Date of Birth" 
-                    className="bg-white transition-colors focus:!ring-2 focus:!ring-blue-300" 
                     {...field} 
-                    disabled={true}
-                    value={permanentFields.dateOfBirth} 
+                    {...getFieldProps("dateOfBirth")} 
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                {readOnlyFields.includes("dateOfBirth") && (
+                  <p className="text-xs text-blue-600">Auto-filled from profile</p>
+                )}
               </FormItem>
             )}
           />
@@ -635,13 +634,14 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                   <Input 
                     type="email" 
                     placeholder="Email Address" 
-                    className="bg-white transition-colors focus:!ring-2 focus:!ring-blue-300" 
                     {...field} 
-                    disabled={true}
-                    value={permanentFields.email} 
+                    {...getFieldProps("email")} 
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                {readOnlyFields.includes("email") && (
+                  <p className="text-xs text-blue-600">Auto-filled from profile</p>
+                )}
               </FormItem>
             )}
           />
@@ -653,27 +653,27 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                 <FormControl>
                   <Input 
                     placeholder="Phone Number (09XXXXXXXXX)" 
-                    className="bg-white/50 transition-colors hover:bg-white/60 focus:!ring-2 focus:!ring-blue-300" 
-                    {...field} 
-                    maxLength={11}
+                    {...field}
                     onChange={(e) => {
-                      const value = e.target.value;
-                      // Only allow digits
-                      const digits = value.replace(/\D/g, '');
-                      // Ensure it starts with 09 if there are at least 2 digits
-                      if (digits.length >= 2 && !digits.startsWith('09')) {
-                        field.onChange('09' + digits.substring(2));
-                      } else {
-                        field.onChange(digits);
+                      // Ensure the input always starts with "09"
+                      let value = e.target.value;
+                      if (!value.startsWith("09") && value.length > 0) {
+                        value = "09" + value.replace(/^0+9*/, "");
                       }
+                      // Limit to 11 digits
+                      value = value.slice(0, 11);
+                      // Only allow digits
+                      value = value.replace(/[^\d]/g, "");
+                      field.onChange(value);
                       
-                      // Mark for saving later
+                      // Don't save here - let the watch handler do it
                       setShouldSaveFormData(true);
                     }}
+                    className="bg-white/50"
                   />
                 </FormControl>
-                <p className="text-xs text-gray-500 mt-1">Philippine Phone Number</p>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                <p className="text-xs text-gray-500">Philippine Phone Number</p>
               </FormItem>
             )}
           />
@@ -688,12 +688,14 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
               <FormItem>
                 <Select 
                   onValueChange={(value) => {
-                    handleFormFieldChange("region", value);
+                    field.onChange(value);
+                    // Don't save directly here - let the watch handler handle it
+                    setShouldSaveFormData(true);
                   }} 
                   value={field.value}
                 >
                   <FormControl>
-                    <SelectTrigger className="bg-white/50 transition-colors hover:bg-white/60 focus:!ring-2 focus:!ring-blue-300">
+                    <SelectTrigger className="bg-white/50">
                       <SelectValue placeholder="Region" />
                     </SelectTrigger>
                   </FormControl>
@@ -703,8 +705,8 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">My Current Geographical Area</p>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                <p className="text-xs text-gray-500">My Current Geographical Area</p>
               </FormItem>
             )}
           />
@@ -715,13 +717,15 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
               <FormItem>
                 <Select 
                   onValueChange={(value) => {
-                    handleFormFieldChange("province", value);
+                    field.onChange(value);
+                    // Don't save directly here - let the watch handler handle it
+                    setShouldSaveFormData(true);
                   }} 
                   value={field.value} 
                   disabled={!availableProvinces.length}
                 >
                   <FormControl>
-                    <SelectTrigger className="bg-white/50 transition-colors hover:bg-white/60 focus:!ring-2 focus:!ring-blue-300">
+                    <SelectTrigger className="bg-white/50">
                       <SelectValue placeholder="Province" />
                     </SelectTrigger>
                   </FormControl>
@@ -731,7 +735,7 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
               </FormItem>
             )}
           />
@@ -741,14 +745,9 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input 
-                    placeholder="ZIP Code" 
-                    className="bg-white/50 transition-colors hover:bg-white/60 focus:!ring-2 focus:!ring-blue-300" 
-                    {...field} 
-                    disabled={true} 
-                  />
+                  <Input placeholder="ZIP Code" className="bg-white/50" {...field} disabled={true} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
               </FormItem>
             )}
           />
@@ -763,13 +762,15 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
               <FormItem>
                 <Select 
                   onValueChange={(value) => {
-                    handleFormFieldChange("city", value);
-                  }}
-                  value={field.value}
+                    field.onChange(value || null);
+                    // Don't save directly here - let the watch handler handle it
+                    setShouldSaveFormData(true);
+                  }} 
+                  value={field.value || ""} 
                   disabled={!availableCities.length || !currentProvince}
                 >
                   <FormControl>
-                    <SelectTrigger className="bg-white/50 transition-colors hover:bg-white/60 focus:!ring-2 focus:!ring-blue-300">
+                    <SelectTrigger className="bg-white/50">
                       <SelectValue placeholder="Select City" />
                     </SelectTrigger>
                   </FormControl>
@@ -779,8 +780,8 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">Select a city or municipality</p>
-                <FormMessage />
+                <FormMessage className="text-red-500" />
+                <p className="text-xs text-gray-500">Select a city or municipality</p>
               </FormItem>
             )}
           />
@@ -791,13 +792,15 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
               <FormItem>
                 <Select 
                   onValueChange={(value) => {
-                    handleFormFieldChange("municipality", value);
-                  }}
-                  value={field.value}
+                    field.onChange(value || null);
+                    // Don't save directly here - let the watch handler handle it
+                    setShouldSaveFormData(true);
+                  }} 
+                  value={field.value || ""} 
                   disabled={!availableMunicipalities.length || !currentProvince}
                 >
                   <FormControl>
-                    <SelectTrigger className="bg-white/50 transition-colors hover:bg-white/60 focus:!ring-2 focus:!ring-blue-300">
+                    <SelectTrigger className="bg-white/50">
                       <SelectValue placeholder="Select Municipality" />
                     </SelectTrigger>
                   </FormControl>
