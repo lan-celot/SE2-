@@ -38,8 +38,8 @@ export function CustomersTable({ searchQuery, onSearchChange }: CustomersTablePr
       try {
         setLoading(true)
         
-        // Fetch customers from Firestore
-        const customersRef = collection(db, "users")
+        // Fetch customers from Firestore 'accounts' collection instead of 'users'
+        const customersRef = collection(db, "accounts")
         const customersSnapshot = await getDocs(customersRef)
         
         const fetchedCustomers: Customer[] = []
@@ -49,19 +49,20 @@ export function CustomersTable({ searchQuery, onSearchChange }: CustomersTablePr
           
           // Create customer object from user data
           fetchedCustomers.push({
-            id: `#C${fetchedCustomers.length.toString().padStart(5, "0")}`,
+            id: userData.authUid || `#C${String(fetchedCustomers.length + 91).padStart(5, "0")}`, // Generate ID based on index
             uid: userData.uid || doc.id,
             firstName: userData.firstName || "",
             lastName: userData.lastName || "",
             username: userData.username || "",
             email: userData.email || "",
-            phone: userData.phone || "N/A"
+            phone: userData.phone || userData.phoneNumber || "N/A" // Try both phone and phoneNumber fields
           })
         })
         
         setCustomers(fetchedCustomers)
       } catch (error) {
         console.error("Error fetching customers:", error)
+        setCustomers([])
       } finally {
         setLoading(false)
       }
@@ -129,18 +130,12 @@ export function CustomersTable({ searchQuery, onSearchChange }: CustomersTablePr
     )
   }
 
-  if (customers.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-[#8B909A] text-lg">No customers found</p>
-      </div>
-    )
-  }
+  // Remove the empty customers check that was blocking the display
 
   return (
     <div>
-      <div className="flex justify-between mb-4">
-        <h2 className="text-xl font-semibold text-[#1A365D]">Customer List</h2>
+      {/* Remove the title since we already have one in the parent component */}
+      <div className="flex justify-end mb-4">
         <div className="relative w-72">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
@@ -233,16 +228,10 @@ export function CustomersTable({ searchQuery, onSearchChange }: CustomersTablePr
               <tr key={customer.id} className="hover:bg-gray-50">
                 <td className="px-4 py-4">
                   <div className="flex items-center">
-                    <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center">
-                      {customer.firstName && customer.lastName ? (
-                        <span className="text-sm font-medium text-gray-700">
-                          {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
-                        </span>
-                      ) : (
-                        <UserCircle2 className="h-6 w-6 text-gray-500" />
-                      )}
+                    <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                      <UserCircle2 className="h-6 w-6" />
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-3">
                       <div className="text-sm font-medium text-gray-900">
                         {customer.firstName} {customer.lastName}
                       </div>

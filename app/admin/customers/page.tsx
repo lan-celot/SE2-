@@ -4,6 +4,8 @@ import { useState } from "react"
 import { DashboardHeader } from "@/components/admin-components/header"
 import { Sidebar } from "@/components/admin-components/sidebar"
 import { CustomersTable } from "./customers-table"
+import { Search } from "lucide-react"
+import { Input } from "@/components/admin-components/input"
 
 export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState("")
