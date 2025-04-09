@@ -1,17 +1,18 @@
-just npm install
+Code is running on an older version, but should work just fine when merged with main
 
-if not work use these:
-
-npm install notificationapi-node-server-sdk (backend)
-
-npm install @notificationapi/react (frontend)
+Steps
+npm install
+npm run dev
 
 
-Backend code located at
-components\customer-components\dashboard\book\confirmation-page.tsx
-
-Frontend code located at
+User/admin notification bell codes on:
 components\customer-components\dashboard\header.tsx
+components\admin-components\header.tsx
 
+Backend functionality located on
+USER
+components\customer-components\dashboard\book\review-details.tsx
 
-error: AxiosError: NetworkError
+ADMIN
+WIP
+
