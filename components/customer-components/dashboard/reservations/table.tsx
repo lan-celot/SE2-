@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -44,25 +42,23 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [showStatusNotification, setShowStatusNotification] = useState<{ message: string; type: string } | null>(null);
   const [lastStatusUpdate, setLastStatusUpdate] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
-  
+
+  // Helper function to generate completion date when status is completed
+  const generateCompletionDate = () => {
+    const now = new Date();
+    return now.toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
 
   useEffect(() => {
-    // Add event listener for status filtering
-    const handleStatusFilter = (event: CustomEvent) => {
-      setStatusFilter(event.detail);
-    };
-
-    // Cast to any to work around TypeScript's event typing
-    window.addEventListener('filterStatus', handleStatusFilter as EventListener);
-
-    // Cleanup listener
-    return () => {
-      window.removeEventListener('filterStatus', handleStatusFilter as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    
     const user = auth.currentUser;
     if (!user) {
       console.log("User is not authenticated");
@@ -75,8 +71,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     const bookingsCollectionRef = collection(db, "bookings");
     const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
 
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
       if (snapshot.empty) {
         console.log("No reservations found");
         setReservations([]);
@@ -89,13 +84,19 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
         const id = doc.id;
         const reservationDate = booking.reservationDate || "";
         const formattedReservationDate = reservationDate ? formatDate(reservationDate) : "N/A";
-        const completionDate = booking.completionDate && booking.completionDate !== "Pending"
+        
+        // Determine completion date based on status
+        let completionDate = booking.completionDate && booking.completionDate !== "Pending"
           ? formatDateTime(booking.completionDate)
           : "Pending";
-        const createdDateTime = booking.createdAt ? formatDateTime(booking.createdAt) : "N/A";
 
         // Safely handle status conversion
         const status = booking.status ? String(booking.status).toUpperCase() : "PENDING";
+
+        // If status is COMPLETED and completion date is still Pending, generate a new completion date
+        if (status === "COMPLETED" && completionDate === "Pending") {
+          completionDate = generateCompletionDate();
+        }
 
         // Safely handle services array
         const services = Array.isArray(booking.services)
@@ -118,7 +119,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
           status: status,
           services: services,
           statusUpdatedAt: booking.statusUpdatedAt || null,
-          createdAt: createdDateTime
+          createdAt: booking.createdAt ? formatDateTime(booking.createdAt) : "N/A"
         };
       });
 
@@ -129,19 +130,33 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
       console.log("Fetched reservations:", uniqueReservations);
       setReservations(uniqueReservations);
 
-      uniqueReservations.forEach(newReservation => {
-        const prevStatus = lastStatusUpdate[newReservation.id];
-        if (prevStatus && prevStatus !== newReservation.status) {
+      // Update Firestore if any reservations need completion date
+      for (const reservation of uniqueReservations) {
+        if (reservation.status === "COMPLETED" && reservation.completionDate === "Pending") {
+          try {
+            const bookingDocRef = doc(db, "bookings", reservation.id);
+            await updateDoc(bookingDocRef, {
+              completionDate: new Date().toISOString(),
+              status: "COMPLETED"
+            });
+          } catch (error) {
+            console.error("Error updating completion date:", error);
+          }
+        }
+
+        // Status change notification logic
+        const prevStatus = lastStatusUpdate[reservation.id];
+        if (prevStatus && prevStatus !== reservation.status) {
           setShowStatusNotification({
-            message: `Your booking status has been updated to ${newReservation.status}`,
-            type: newReservation.status.toLowerCase()
+            message: `Your booking status has been updated to ${reservation.status}`,
+            type: reservation.status.toLowerCase()
           });
         }
         setLastStatusUpdate(prev => ({
           ...prev,
-          [newReservation.id]: newReservation.status
+          [reservation.id]: reservation.status
         }));
-      });
+      }
 
       setIsLoading(false);
     }, (error) => {
@@ -150,6 +165,21 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Add event listener for status filtering
+    const handleStatusFilter = (event: CustomEvent) => {
+      setStatusFilter(event.detail);
+    };
+
+    // Cast to any to work around TypeScript's event typing
+    window.addEventListener('filterStatus', handleStatusFilter as EventListener);
+
+    // Cleanup listener
+    return () => {
+      window.removeEventListener('filterStatus', handleStatusFilter as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -266,6 +296,24 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
 
     return a.reservationDate.localeCompare(b.reservationDate);
   });
+
+  // You'll want to add this function to handle status updates
+  const handleStatusUpdate = async (reservationId: string, newStatus: string) => {
+    try {
+      const bookingDocRef = doc(db, "bookings", reservationId);
+      const updateData: any = { status: newStatus.toUpperCase() };
+
+      // If status is changed to COMPLETED, add completion date
+      if (newStatus.toUpperCase() === "COMPLETED") {
+        updateData.completionDate = new Date().toISOString();
+      }
+
+      await updateDoc(bookingDocRef, updateData);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("There was an error updating the status. Please try again.");
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     try {

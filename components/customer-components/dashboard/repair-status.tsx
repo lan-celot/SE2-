@@ -53,7 +53,7 @@ export function RepairStatus() {
 
         // Get all bookings and sort them in memory
         const bookings = snapshot.docs.map(doc => {
-          const data = doc.data();
+          const data = doc.data() as { reservationDate: string; carModel: string; status: string; createdAt?: any };
           return {
             ...data,
             id: doc.id,
