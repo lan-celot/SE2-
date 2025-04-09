@@ -45,7 +45,7 @@ export function PersonalInformationPopup() {
       if (user) {
         setUserId(user.uid);
         // Fetch user data using Firebase Auth UID
-        const userRef = doc(db, "users", user.uid);
+        const userRef = doc(db, "accounts", user.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
@@ -187,7 +187,7 @@ export function PersonalInformationPopup() {
     });
 
     try {
-      const userRef = doc(db, "users", userId);
+      const userRef = doc(db, "accounts", userId);
       await setDoc(userRef, updateData, { merge: true });
 
       // Fetch the updated user data

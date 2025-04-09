@@ -170,7 +170,7 @@ export function DashboardHeader({ title }: HeaderProps) {
 
           <div className="relative">
               <NotificationAPIProvider
-              userId="admin1"
+              userId="user1"
               clientId="owvp6sijxsgcijmqlu69gzfgcs"
               >
               <NotificationPopup/>

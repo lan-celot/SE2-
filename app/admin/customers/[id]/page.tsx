@@ -83,7 +83,7 @@ export default function CustomerDetailsPage() {
         console.log("Fetching customer data for ID:", customerId)
 
         // Fetch customer data
-        const usersRef = collection(db, "users")
+        const usersRef = collection(db, "accounts")
         const usersQuery = query(usersRef, where("uid", "==", customerId))
         const usersSnapshot = await getDocs(usersQuery)
 

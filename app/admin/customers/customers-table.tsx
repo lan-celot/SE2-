@@ -96,7 +96,7 @@ export function CustomersTable({ searchQuery }: CustomersTableProps) {
         }
 
         // Now fetch the customer details for these IDs
-        const customersRef = collection(db, "users")
+        const customersRef = collection(db, "accounts")
         const customersSnapshot = await getDocs(customersRef)
         console.log(`Fetched ${customersSnapshot.size} total users`)
 

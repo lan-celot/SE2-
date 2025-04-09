@@ -384,7 +384,7 @@ export function RegisterForm() {
       await setDoc(doc(db, "accounts", user.uid), accountData)
 
       // Also save to users collection for backward compatibility
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "accounts", user.uid), {
         ...accountData,
         createdAt: new Date().toISOString(), // String format for users collection
       })

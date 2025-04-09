@@ -368,6 +368,19 @@ export default function ReservationsPage() {
     }
   }
 
+  const sendNotification = async () => {
+
+  const res = await fetch('/api/admin-approve-notification', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      comment: "Your reservation has been approved!",
+    })
+  });
+}
+
   // Update the handleStatusChange function to show a success message
   const handleStatusChange = async (reservationId: string, userId: string, newStatus: Status) => {
     try {
@@ -381,7 +394,7 @@ export default function ReservationsPage() {
 
       // References to both locations in Firestore
       const globalDocRef = doc(db, "bookings", reservationId)
-      const userDocRef = doc(db, "users", userId, "bookings", reservationId)
+      const userDocRef = doc(db, "accounts", userId, "bookings", reservationId)
 
       // Use setDoc with merge option
       await Promise.all([
@@ -395,6 +408,8 @@ export default function ReservationsPage() {
           reservation.id === reservationId ? { ...reservation, status: normalizedStatus } : reservation,
         ),
       )
+      
+      sendNotification();
 
       // Show success message
       setShowSuccessMessage(`Status changed to ${statusStyles[normalizedStatus].display}`)
@@ -431,7 +446,7 @@ export default function ReservationsPage() {
         }
 
         const globalDocRef = doc(db, "bookings", reservationId)
-        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservationId)
+        const userDocRef = doc(db, "accounts", reservation.userId, "bookings", reservationId)
 
         return Promise.all([
           setDoc(globalDocRef, { status: newStatus }, { merge: true }),
@@ -762,7 +777,7 @@ export default function ReservationsPage() {
         )
 
         const globalDocRef = doc(db, "bookings", reservation.id)
-        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id)
+        const userDocRef = doc(db, "accounts", reservation.userId, "bookings", reservation.id)
 
         try {
           await Promise.all([
@@ -854,7 +869,7 @@ export default function ReservationsPage() {
         const updatedServices = [...(reservation.services || []), ...newServices]
 
         const globalDocRef = doc(db, "bookings", reservation.id)
-        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id)
+        const userDocRef = doc(db, "accounts", reservation.userId, "bookings", reservation.id)
 
         try {
           await Promise.all([

@@ -47,7 +47,7 @@ export function ReviewDetails({
   //Function to send notification(when confirm booking)
   const sendNotification = async () => {
     try {
-      const res = await fetch('/api/send-notification', {
+      const res = await fetch('/api/user-reserve-notification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -156,7 +156,7 @@ export function ReviewDetails({
         transaction.set(bookingRef, bookingData);
 
         // Add the booking to the user's subcollection
-        const userBookingsRef = doc(collection(db, `users/${user.uid}/bookings`), bookingId);
+        const userBookingsRef = doc(collection(db, `accounts/${user.uid}/bookings`), bookingId);
         transaction.set(userBookingsRef, bookingData);
         
       });
