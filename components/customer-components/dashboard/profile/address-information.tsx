@@ -160,4 +160,3 @@ export function AddressInformation() {
     </div>
   )
 }
-

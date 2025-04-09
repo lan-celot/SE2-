@@ -4,16 +4,18 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin-components/table"
 import { ReservationCalendar } from "@/components/admin-components/reservation-calendar"
 import { DashboardLayout } from "@/components/admin-components/dashboard-layout"
-import { collection, query, getDocs, orderBy } from "firebase/firestore"
+import { collection, query, getDocs, orderBy, where, onSnapshot, Timestamp, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import Loading from "@/components/admin-components/loading"
 import { formatDateTime } from "@/lib/date-utils"
 
 // Define types for our data
 interface Log {
-  id: number
+  id: string
   message: string
-  timestamp: Date
+  timestamp: Timestamp
+  userId?: string
+  type?: string
 }
 
 interface Reservation {
@@ -28,8 +30,10 @@ interface Booking {
   lastName: string
   carModel: string
   status: string
-  reservationDate: string | Date
+  reservationDate: string | Date | Timestamp
   userId?: string
+  createdAt?: Timestamp
+  updatedAt?: Timestamp
 }
 
 export default function DashboardPage() {
@@ -42,11 +46,195 @@ export default function DashboardPage() {
   const [arrivingToday, setArrivingToday] = useState<Reservation[]>([])
   const [logs, setLogs] = useState<Log[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRealtime, setIsRealtime] = useState(true)
 
+  // Set up real-time listeners for Firestore collections
   useEffect(() => {
-    void fetchDashboardData()
-  }, [])
+    // Only use real-time updates if enabled
+    if (!isRealtime) {
+      fetchDashboardData()
+      return
+    }
 
+    setIsLoading(true)
+
+    // Get today's date at midnight
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Get tomorrow's date for comparison
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Get first day of current month
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    // Convert dates to Firestore Timestamps
+    const todayTimestamp = Timestamp.fromDate(today)
+    const tomorrowTimestamp = Timestamp.fromDate(tomorrow)
+    const firstDayOfMonthTimestamp = Timestamp.fromDate(firstDayOfMonth)
+
+    // Set up listeners
+
+    // 1. All bookings for general stats
+    const bookingsQuery = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
+    const unsubscribeBookings = onSnapshot(bookingsQuery, (snapshot) => {
+      const bookings = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Booking[]
+
+      // Calculate counts based on status
+      const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
+      setPendingCount(pendingBookings.length)
+
+      // For today's stats, filter by date
+      const todayBookings = bookings.filter((booking) => {
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
+        return bookingDate >= today && bookingDate < tomorrow
+      })
+
+      const completedTodayCount = todayBookings.filter((booking) => booking.status === "COMPLETED").length
+      setCompletedToday(completedTodayCount)
+
+      const repairingTodayCount = todayBookings.filter((booking) => booking.status === "REPAIRING").length
+      setRepairingToday(repairingTodayCount)
+
+      const confirmedTodayCount = todayBookings.filter((booking) => booking.status === "CONFIRMED").length
+      setConfirmedToday(confirmedTodayCount)
+
+      // Get arriving today (bookings for today with status PENDING or CONFIRMED)
+      const arrivingTodayBookings = todayBookings
+        .filter((booking) => booking.status === "PENDING" || booking.status === "CONFIRMED")
+        .slice(0, 5) // Limit to 5 for display
+
+      setArrivingToday(
+        arrivingTodayBookings.map((booking) => ({
+          id: booking.id,
+          customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
+          carModel: booking.carModel,
+        }))
+      )
+
+      // For clients this month, filter by date and count unique customer IDs
+      const thisMonthBookings = bookings.filter((booking) => {
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
+        return bookingDate >= firstDayOfMonth
+      })
+
+      // Count unique users
+      const uniqueUserIds = new Set<string>()
+      const returningUserIds = new Set<string>()
+      
+      // Process bookings to identify new vs returning users
+      // A returning user is one who has more than one booking
+      const userBookingCounts: Record<string, number> = {}
+      
+      bookings.forEach(booking => {
+        if (booking.userId) {
+          if (userBookingCounts[booking.userId]) {
+            userBookingCounts[booking.userId]++
+            returningUserIds.add(booking.userId)
+          } else {
+            userBookingCounts[booking.userId] = 1
+            uniqueUserIds.add(booking.userId)
+          }
+        }
+      })
+      
+      // New clients are those who only appear in this month's bookings and have only one booking
+      const newClientThisMonth = thisMonthBookings.filter(booking => 
+        booking.userId && 
+        userBookingCounts[booking.userId] === 1 &&
+        !returningUserIds.has(booking.userId)
+      )
+      
+      // Returning clients are those who have more than one booking
+      const returningClientsThisMonth = thisMonthBookings.filter(booking => 
+        booking.userId && 
+        returningUserIds.has(booking.userId)
+      )
+      
+      // Count unique client IDs
+      const uniqueNewClients = new Set(newClientThisMonth.map(b => b.userId))
+      const uniqueReturningClients = new Set(returningClientsThisMonth.map(b => b.userId))
+      
+      setNewClientsCount(uniqueNewClients.size)
+      setReturningClientsCount(uniqueReturningClients.size)
+
+      setIsLoading(false)
+    }, (error) => {
+      console.error("Error fetching bookings:", error)
+      setIsLoading(false)
+    })
+
+    // 2. Logs collection
+    const logsQuery = query(
+      collection(db, "logs"), 
+      orderBy("timestamp", "desc"),
+      limit(10)
+    )
+    
+    const unsubscribeLogs = onSnapshot(logsQuery, (snapshot) => {
+      const logData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Log[]
+      
+      setLogs(logData)
+    }, (error) => {
+      console.error("Error fetching logs:", error)
+      // If logs collection doesn't exist or has permission issues, 
+      // use demo data instead
+      const dummyLogs: Log[] = [
+        {
+          id: "1",
+          message: "Transaction #T1234 completed for Andrea Salazar",
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
+          type: "transaction"
+        },
+        {
+          id: "2",
+          message: "New reservation #R00101 created for John Doe",
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
+          type: "reservation"
+        },
+        { 
+          id: "3", 
+          message: "Employee Mark Johnson logged in", 
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
+          type: "auth"
+        },
+        { 
+          id: "4", 
+          message: "Inventory update: 5 oil filters added", 
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
+          type: "inventory"
+        },
+        {
+          id: "5",
+          message: "Customer feedback received for service #S0098",
+          timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
+          type: "feedback"
+        }
+      ]
+      setLogs(dummyLogs)
+    })
+
+    // Clean up listeners on unmount
+    return () => {
+      unsubscribeBookings()
+      unsubscribeLogs()
+    }
+  }, [isRealtime])
+
+  // Regular fetch method (used if real-time updates are disabled)
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true)
@@ -76,7 +264,10 @@ export default function DashboardPage() {
 
       // For today's stats, filter by date
       const todayBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
         return bookingDate >= today && bookingDate < tomorrow
       })
 
@@ -102,52 +293,126 @@ export default function DashboardPage() {
         })),
       )
 
-      // For clients this month, we'll use a simplified approach
-      // In a real app, you'd have more sophisticated client tracking
+      // For clients this month, we'll use a more sophisticated approach
       const thisMonthBookings = bookings.filter((booking) => {
-        const bookingDate = new Date(booking.reservationDate)
+        const bookingDate = booking.reservationDate instanceof Timestamp 
+          ? booking.reservationDate.toDate() 
+          : new Date(booking.reservationDate)
+        
         return bookingDate >= firstDayOfMonth
       })
 
-      // Count unique customer IDs for this month
-      const uniqueCustomerIds = new Set<string>()
-      thisMonthBookings.forEach((booking) => {
-        if (booking.userId) uniqueCustomerIds.add(booking.userId)
+      // Process bookings to identify new vs returning users
+      const userBookingCounts: Record<string, number> = {}
+      
+      bookings.forEach(booking => {
+        if (booking.userId) {
+          userBookingCounts[booking.userId] = (userBookingCounts[booking.userId] || 0) + 1
+        }
       })
+      
+      // Count new vs returning clients
+      const uniqueNewClients = new Set()
+      const uniqueReturningClients = new Set()
+      
+      thisMonthBookings.forEach(booking => {
+        if (booking.userId) {
+          if (userBookingCounts[booking.userId] > 1) {
+            uniqueReturningClients.add(booking.userId)
+          } else {
+            uniqueNewClients.add(booking.userId)
+          }
+        }
+      })
+      
+      setNewClientsCount(uniqueNewClients.size)
+      setReturningClientsCount(uniqueReturningClients.size)
 
-      // For demo purposes, split these into new and returning
-      // In a real app, you'd track first visit date
-      setNewClientsCount(Math.ceil(uniqueCustomerIds.size * 0.6)) // 60% new
-      setReturningClientsCount(Math.floor(uniqueCustomerIds.size * 0.4)) // 40% returning
-
-      // For logs, we'll use a simplified approach with dummy data
-      // In a real app, you'd have a dedicated logs collection
-      const dummyLogs: Log[] = [
-        {
-          id: 1,
-          message: "Transaction #T1234 completed for Andrea Salazar",
-          timestamp: new Date(Date.now() - 15 * 60000),
-        },
-        {
-          id: 2,
-          message: "New reservation #R00101 created for John Doe",
-          timestamp: new Date(Date.now() - 28 * 60000),
-        },
-        { id: 3, message: "Employee Mark Johnson logged in", timestamp: new Date(Date.now() - 35 * 60000) },
-        { id: 4, message: "Inventory update: 5 oil filters added", timestamp: new Date(Date.now() - 50 * 60000) },
-        {
-          id: 5,
-          message: "Customer feedback received for service #S0098",
-          timestamp: new Date(Date.now() - 58 * 60000),
-        },
-        { id: 6, message: "Employee Sarah Lee logged out", timestamp: new Date(Date.now() - 75 * 60000) },
-        {
-          id: 7,
-          message: "Reservation #R00100 status changed to 'In Progress'",
-          timestamp: new Date(Date.now() - 90 * 60000),
-        },
-      ]
-      setLogs(dummyLogs)
+      // Try to fetch real logs data first
+      try {
+        const logsQuery = query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(7))
+        const logsSnapshot = await getDocs(logsQuery)
+        
+        if (!logsSnapshot.empty) {
+          const logData = logsSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Log[]
+          
+          setLogs(logData)
+        } else {
+          // If logs collection is empty, use demo data
+          const dummyLogs: Log[] = [
+            {
+              id: "1",
+              message: "Transaction #T1234 completed for Andrea Salazar",
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
+              type: "transaction"
+            },
+            {
+              id: "2",
+              message: "New reservation #R00101 created for John Doe",
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
+              type: "reservation"
+            },
+            { 
+              id: "3", 
+              message: "Employee Mark Johnson logged in", 
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
+              type: "auth"
+            },
+            { 
+              id: "4", 
+              message: "Inventory update: 5 oil filters added", 
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
+              type: "inventory"
+            },
+            {
+              id: "5",
+              message: "Customer feedback received for service #S0098",
+              timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
+              type: "feedback"
+            }
+          ]
+          setLogs(dummyLogs)
+        }
+      } catch (error) {
+        console.error("Error fetching logs:", error)
+        // Use dummy logs as fallback
+        const dummyLogs: Log[] = [
+          {
+            id: "1",
+            message: "Transaction #T1234 completed for Andrea Salazar",
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
+            type: "transaction"
+          },
+          {
+            id: "2",
+            message: "New reservation #R00101 created for John Doe",
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
+            type: "reservation"
+          },
+          { 
+            id: "3", 
+            message: "Employee Mark Johnson logged in", 
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
+            type: "auth"
+          },
+          { 
+            id: "4", 
+            message: "Inventory update: 5 oil filters added", 
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
+            type: "inventory"
+          },
+          {
+            id: "5",
+            message: "Customer feedback received for service #S0098",
+            timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
+            type: "feedback"
+          }
+        ]
+        setLogs(dummyLogs)
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
     } finally {
@@ -155,15 +420,40 @@ export default function DashboardPage() {
     }
   }
 
-  const formatLogDate = (timestamp: Date | null | undefined): string => {
+  const formatLogDate = (timestamp: Timestamp | Date | null | undefined): string => {
     if (!timestamp) return ""
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+    
+    let date: Date
+    if (timestamp instanceof Timestamp) {
+      date = timestamp.toDate()
+    } else if (timestamp instanceof Date) {
+      date = timestamp
+    } else {
+      date = new Date(timestamp)
+    }
+    
     return formatDateTime(date.toString())
   }
 
   return (
     <DashboardLayout>
       <div className="grid gap-4">
+        {/* Toggle for real-time updates */}
+        <div className="flex justify-end mb-2">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">Real-time updates:</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={isRealtime}
+                onChange={() => setIsRealtime(!isRealtime)}
+              />
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2a69ac]"></div>
+            </label>
+          </div>
+        </div>
+
         {/* First row: Calendar and Logs */}
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Calendar */}
@@ -279,4 +569,3 @@ export default function DashboardPage() {
     </DashboardLayout>
   )
 }
-
