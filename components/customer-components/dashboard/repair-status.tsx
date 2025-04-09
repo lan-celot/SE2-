@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import Cookies from "js-cookie";
 
 interface Repair {
   reservationDate: string;
   carModel: string;
   status: string;
+  createdAt?: string;
 }
 
 export function RepairStatus() {
@@ -16,46 +18,109 @@ export function RepairStatus() {
 
   useEffect(() => {
     const fetchLatestRepair = async () => {
-      const user = auth.currentUser;
-      if (!user) {
+      // Get the user ID from Cookies or localStorage as a fallback
+      const userId = Cookies.get("userId") || localStorage.getItem("userId");
+      
+      // If no userId found, try to get from Firebase auth
+      if (!userId && !auth.currentUser) {
         console.log("User is not authenticated");
         setIsLoading(false);
         return;
       }
+      
+      // Use either the cookie/localStorage userId or the one from auth
+      const currentUserId = userId || auth.currentUser?.uid;
 
       try {
         setIsLoading(true);
-        const bookingsCollectionRef = collection(db, "bookings");
         
-        // Query for the user's bookings, ordered by reservationDate in descending order
-        const q = query(
+        // To avoid composite index errors, we'll query only by userId
+        // and then sort the results on the client side
+        const bookingsCollectionRef = collection(db, "bookings");
+        const userBookingsQuery = query(
           bookingsCollectionRef, 
-          where("userId", "==", user.uid),
-          orderBy("reservationDate", "desc"),
-          limit(1)
+          where("userId", "==", currentUserId)
         );
-
-        const snapshot = await getDocs(q);
+        
+        const snapshot = await getDocs(userBookingsQuery);
         
         if (snapshot.empty) {
-          console.log("No recent repairs found");
+          console.log("No repairs found for user");
           setLatestRepair(null);
           setIsLoading(false);
           return;
         }
 
-        const latestBooking = snapshot.docs[0].data();
+        // Get all bookings and sort them in memory
+        const bookings = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            id: doc.id,
+            // Create a numeric timestamp value for sorting
+            sortableTimestamp: getSortableTimestamp(data)
+          };
+        });
+        
+        // Sort by the calculated timestamp (newest first)
+        bookings.sort((a, b) => b.sortableTimestamp - a.sortableTimestamp);
+        
+        // Take the first one (most recent)
+        const latestBooking = bookings[0];
         
         setLatestRepair({
           reservationDate: formatDate(latestBooking.reservationDate),
-          carModel: latestBooking.carModel,
-          status: latestBooking.status.toUpperCase()
+          carModel: latestBooking.carModel || "Unknown Vehicle",
+          status: (latestBooking.status || "PENDING").toUpperCase(),
+          createdAt: latestBooking.createdAt ? 
+            formatDate(new Date(latestBooking.createdAt.toDate ? 
+              latestBooking.createdAt.toDate() : latestBooking.createdAt).toISOString()) : 
+            'N/A'
         });
       } catch (error) {
         console.error("Error fetching latest repair:", error);
       } finally {
         setIsLoading(false);
       }
+    };
+
+    // Helper function to extract a sortable timestamp from various fields
+    // Returns a numeric value representing the timestamp
+    const getSortableTimestamp = (booking: any): number => {
+      // Try createdAt first (preferred field)
+      if (booking.createdAt) {
+        if (booking.createdAt.toDate) {
+          // Firebase Timestamp object
+          return booking.createdAt.toDate().getTime();
+        } else if (typeof booking.createdAt === 'string') {
+          // ISO string
+          return new Date(booking.createdAt).getTime();
+        } else if (booking.createdAt.seconds) {
+          // Firebase timestamp seconds
+          return booking.createdAt.seconds * 1000;
+        }
+      }
+      
+      // Try timestamp field
+      if (booking.timestamp) {
+        if (booking.timestamp.toDate) {
+          return booking.timestamp.toDate().getTime();
+        } else if (typeof booking.timestamp === 'string') {
+          return new Date(booking.timestamp).getTime();
+        } else if (booking.timestamp.seconds) {
+          return booking.timestamp.seconds * 1000;
+        }
+      }
+      
+      // As a fallback, use the reservationDate
+      if (booking.reservationDate) {
+        if (typeof booking.reservationDate === 'string') {
+          return new Date(booking.reservationDate).getTime();
+        }
+      }
+      
+      // If all else fails, return 0 (will be sorted last)
+      return 0;
     };
 
     fetchLatestRepair();
