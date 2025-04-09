@@ -53,8 +53,8 @@ export function ReviewDetails({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          comment: 'hi from client',
-          commentId: '123'
+          comment: `${formData.firstName} ${formData.lastName}`,
+          commentId: getDisplayCarModel(formData.carBrand, formData.carModel)
         })
       });
 

@@ -18,8 +18,8 @@ export async function POST(req: Request){
                 number: "+15005550006" // Replace with your phone number, use format [+][country code][area code][local number]
             },
             mergeTags: {
-                "comment": "testComment",
-                "commentId": "testCommentId"
+                "comment": body.comment,
+                "commentId": body.commentId
             }
         });
 
