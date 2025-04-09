@@ -1,11 +1,10 @@
-//custoner
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { ChevronUp, ChevronDown } from "lucide-react";
-import { collection, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from '@/lib/firebase';
 import React from "react";
@@ -31,7 +30,7 @@ interface Transaction {
   discountAmount?: number;
   amountTendered?: number;
   services: Service[];
-  transactionServices?: Service[]; // Some records might use this field name instead
+  transactionServices?: Service[];
   userId?: string;
 }
 
@@ -83,9 +82,79 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
     return () => unsubscribe();
   }, [propUserId, isClient]);
 
-  const formatCarModel = (model: string): string => {
+  const formatCarModel = useCallback((model: string): string => {
     return model || "N/A";
-  };
+  }, []);
+
+  const formatCurrency = useCallback((amount: number | undefined | null) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return "₱0.00";
+    }
+    return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }, []);
+
+  const processServiceData = useCallback((service: any): Service => {
+    // Handle when service is just a string (service name)
+    if (typeof service === 'string') {
+      return {
+        service: service,
+        mechanic: "Not assigned",
+        price: 0,
+        quantity: 1,
+        discount: 0,
+        total: 0
+      };
+    }
+    
+    // Otherwise make sure all fields exist with defaults
+    return {
+      service: service.service || "Service",
+      mechanic: service.mechanic || "Not assigned",
+      price: typeof service.price === 'number' ? service.price : 0,
+      quantity: typeof service.quantity === 'number' ? service.quantity : 1,
+      discount: typeof service.discount === 'number' ? service.discount : 0,
+      total: typeof service.total === 'number' ? service.total : 0
+    };
+  }, []);
+
+  const processTransactionData = useCallback((doc: any) => {
+    const data = doc.data();
+    
+    // Properly handle different field names for services
+    const services = data.transactionServices || data.services || [];
+    
+    // Process services with consistent structure
+    const processedServices = services.map(processServiceData);
+    
+    // Calculate totals if they don't exist
+    let subtotal = data.subtotal;
+    let discountAmount = data.discountAmount;
+    let totalPrice = data.totalPrice;
+    
+    if (!subtotal || !totalPrice) {
+      subtotal = processedServices.reduce((sum: number, s: Service) => 
+        sum + s.price * s.quantity, 0);
+        
+      discountAmount = processedServices.reduce((sum: number, s: Service) => 
+        sum + (s.price * s.quantity * s.discount / 100), 0);
+        
+      totalPrice = subtotal - discountAmount;
+    }
+    
+    return {
+      id: doc.id,
+      reservationId: data.reservationId || doc.id,
+      reservationDate: data.reservationDate || (data.date?.toDate ? formatDateTime(data.date.toDate()) : ""),
+      carModel: formatCarModel(data.carModel || ""),
+      completionDate: data.completionDate || (data.date?.toDate ? formatDateTime(data.date.toDate()) : ""),
+      totalPrice: totalPrice || 0,
+      subtotal: subtotal || 0,
+      discountAmount: discountAmount || 0,
+      amountTendered: data.amountTendered || totalPrice || 0,
+      services: processedServices,
+      userId: data.userId
+    };
+  }, [formatCarModel, processServiceData]);
 
   useEffect(() => {
     if (!isClient || !userId) {
@@ -97,11 +166,17 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
     setError(null);
     
     try {
+      // Create a query to filter by userId and status directly in Firestore
       const bookingsRef = collection(db, 'bookings');
+      const completedStatusQuery = query(
+        bookingsRef, 
+        where('userId', '==', userId),
+        where('status', 'in', ['COMPLETED', 'Completed', 'completed'])
+      );
       
       const unsub = onSnapshot(
-        bookingsRef, 
-        async (snapshot) => {
+        completedStatusQuery, 
+        (snapshot) => {
           console.log("Snapshot received, docs count:", snapshot.docs.length);
           
           if (snapshot.empty) {
@@ -111,78 +186,11 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
             return;
           }
           
-          // Filter for this user's transactions
-          // We also need to filter for completed transactions
-          const userTransactions = snapshot.docs
-            .filter(doc => doc.data().userId === userId && 
-                         (doc.data().status === "COMPLETED" || 
-                          doc.data().status === "Completed" || 
-                          doc.data().status === "completed"))
-            .map(async (doc) => {
-              const data = doc.data();
-              
-              // Properly handle different field names for services
-              const services = data.transactionServices || data.services || [];
-              
-              // Make sure each service has all required fields
-              const processedServices = services.map((service: any) => {
-                // Handle when service is just a string (service name)
-                if (typeof service === 'string') {
-                  return {
-                    service: service,
-                    mechanic: "Not assigned",
-                    price: 0,
-                    quantity: 1,
-                    discount: 0,
-                    total: 0
-                  };
-                }
-                
-                // Otherwise make sure all fields exist with defaults
-                return {
-                  service: service.service || "Service",
-                  mechanic: service.mechanic || "Not assigned",
-                  price: typeof service.price === 'number' ? service.price : 0,
-                  quantity: typeof service.quantity === 'number' ? service.quantity : 1,
-                  discount: typeof service.discount === 'number' ? service.discount : 0,
-                  total: typeof service.total === 'number' ? service.total : 0
-                };
-              });
-              
-              // Calculate totals if they don't exist
-              let subtotal = data.subtotal;
-              let discountAmount = data.discountAmount;
-              let totalPrice = data.totalPrice;
-              
-              if (!subtotal || !totalPrice) {
-                subtotal = processedServices.reduce((sum: number, s: Service) => 
-                  sum + s.price * s.quantity, 0);
-                  
-                discountAmount = processedServices.reduce((sum: number, s: Service) => 
-                  sum + (s.price * s.quantity * s.discount / 100), 0);
-                  
-                totalPrice = subtotal - discountAmount;
-              }
-              
-              return {
-                id: doc.id,
-                reservationId: data.reservationId || doc.id,
-                reservationDate: data.reservationDate || (data.date ? formatDateTime(data.date.toDate()) : ""),
-                carModel: formatCarModel(data.carModel || ""),
-                completionDate: data.completionDate || (data.date ? formatDateTime(data.date.toDate()) : ""),
-                totalPrice: totalPrice || 0,
-                subtotal: subtotal || 0,
-                discountAmount: discountAmount || 0,
-                amountTendered: data.amountTendered || totalPrice || 0,
-                services: processedServices
-              };
-            });
+          // Process the transactions directly without additional filtering
+          const processedTransactions = snapshot.docs.map(processTransactionData);
           
-          // Wait for all async operations to complete
-          const resolvedTransactions = await Promise.all(userTransactions);
-          
-          console.log("Parsed transactions:", resolvedTransactions.length);
-          setTransactionsData(resolvedTransactions);
+          console.log("Parsed transactions:", processedTransactions.length);
+          setTransactionsData(processedTransactions);
           setLoading(false);
         },
         (err) => {
@@ -202,28 +210,35 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
       setLoading(false);
       return () => {};
     }
-  }, [userId, isClient]);
+  }, [userId, isClient, processTransactionData]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortOrder("asc");
-    }
-  };
+  const handleSort = useCallback((field: SortField) => {
+    setSortField(prevField => {
+      if (prevField === field) {
+        setSortOrder(prevOrder => prevOrder === "asc" ? "desc" : "asc");
+        return field;
+      } else {
+        setSortOrder("asc");
+        return field;
+      }
+    });
+  }, []);
 
-  const formatCurrency = (amount: number | undefined | null) => {
-    // Check if amount is undefined, null, or NaN
-    if (amount === undefined || amount === null || isNaN(amount)) {
-      return "₱0.00";
-    }
-    return `₱${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const toggleExpandedRow = useCallback((id: string) => {
+    setExpandedRow(prev => prev === id ? null : id);
+  }, []);
 
-  const filteredAndSortedTransactions = [...transactionsData]
-    .filter((transaction) => {
-      if (searchQuery) {
+  const changePage = useCallback((page: number) => {
+    setCurrentPage(page);
+    setExpandedRow(null); // Reset expanded row when changing pages
+  }, []);
+
+  // Memoize filtered and sorted transactions to prevent unnecessary re-calculations
+  const filteredAndSortedTransactions = useMemo(() => {
+    return [...transactionsData]
+      .filter((transaction) => {
+        if (!searchQuery) return true;
+        
         const query = searchQuery.toLowerCase();
         return (
           transaction.id.toLowerCase().includes(query) ||
@@ -232,34 +247,96 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
           transaction.completionDate.toLowerCase().includes(query) ||
           transaction.totalPrice.toString().includes(query)
         );
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      const modifier = sortOrder === "asc" ? 1 : -1;
-      
-      if (sortField === "completionDate" || sortField === "reservationDate") {
-        return (new Date(aValue).getTime() - new Date(bValue).getTime()) * modifier;
-      }
-      
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return aValue.localeCompare(bValue) * modifier;
-      }
-      
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return (aValue - bValue) * modifier;
-      }
-      
-      return 0;
-    });
+      })
+      .sort((a, b) => {
+        const aValue = a[sortField];
+        const bValue = b[sortField];
+        const modifier = sortOrder === "asc" ? 1 : -1;
+        
+        if (sortField === "completionDate" || sortField === "reservationDate") {
+          return (new Date(aValue).getTime() - new Date(bValue).getTime()) * modifier;
+        }
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return aValue.localeCompare(bValue) * modifier;
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return (aValue - bValue) * modifier;
+        }
+        
+        return 0;
+      });
+  }, [transactionsData, searchQuery, sortField, sortOrder]);
 
-  const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
-  const currentItems = filteredAndSortedTransactions.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = useMemo(() => Math.ceil(filteredAndSortedTransactions.length / itemsPerPage), [filteredAndSortedTransactions.length, itemsPerPage]);
+  
+  const currentItems = useMemo(() => 
+    filteredAndSortedTransactions.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    ), 
+  [filteredAndSortedTransactions, currentPage, itemsPerPage]);
+
+  const renderPagination = () => {
+    if (totalPages <= 0) return null;
+    
+    return (
+      <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => changePage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className={cn(
+              "px-3 py-1 rounded-md text-sm",
+              currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+            )}
+          >
+            Previous
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => changePage(page)}
+              className={cn(
+                "px-3 py-1 rounded-md text-sm",
+                currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+              )}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => changePage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className={cn(
+              "px-3 py-1 rounded-md text-sm",
+              currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
+            )}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderServiceDetails = (transaction: Transaction) => {
+    if (!transaction.services || transaction.services.length === 0) {
+      return <div className="py-4 text-center text-gray-500">No service details available</div>;
+    }
+
+    return transaction.services.map((service, index) => (
+      <div key={index} className="grid grid-cols-6 w-full items-center py-2 border-b border-gray-100">
+        <div className="text-sm text-[#1A365D] uppercase">{service.service}</div>
+        <div className="text-sm text-[#1A365D] uppercase">{service.mechanic || "Not assigned"}</div>
+        <div className="text-sm text-[#1A365D]">{formatCurrency(service.price)}</div>
+        <div className="text-sm text-[#1A365D]">x{service.quantity}</div>
+        <div className="text-sm text-[#EA5455]">{service.discount}%</div>
+        <div className="text-sm text-[#1A365D] text-right">{formatCurrency(service.total)}</div>
+      </div>
+    ));
+  };
 
   if (!isClient) {
     return <div className="bg-white rounded-lg shadow-sm p-6 text-center">Loading...</div>;
@@ -354,7 +431,7 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
                   <td className="px-6 py-4 text-sm text-[#1A365D]">{formatCurrency(transaction.totalPrice)}</td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => setExpandedRow(expandedRow === transaction.id ? null : transaction.id)}
+                      onClick={() => toggleExpandedRow(transaction.id)}
                       className="text-[#1A365D] hover:text-[#63B3ED]"
                     >
                       <Image
@@ -380,20 +457,7 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
                           <div className="text-xs font-medium text-[#8B909A] uppercase text-right">Total</div>
                         </div>
                         
-                        {transaction.services && transaction.services.length > 0 ? (
-                          transaction.services.map((service, index) => (
-                            <div key={index} className="grid grid-cols-6 w-full items-center py-2 border-b border-gray-100">
-                              <div className="text-sm text-[#1A365D] uppercase">{service.service}</div>
-                              <div className="text-sm text-[#1A365D] uppercase">{service.mechanic || "Not assigned"}</div>
-                              <div className="text-sm text-[#1A365D]">{formatCurrency(service.price)}</div>
-                              <div className="text-sm text-[#1A365D]">x{service.quantity}</div>
-                              <div className="text-sm text-[#EA5455]">{service.discount}%</div>
-                              <div className="text-sm text-[#1A365D] text-right">{formatCurrency(service.total)}</div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="py-4 text-center text-gray-500">No service details available</div>
-                        )}
+                        {renderServiceDetails(transaction)}
                         
                         <div className="border-t border-gray-200 pt-4 space-y-2">
                           <div className="flex justify-end">
@@ -430,53 +494,7 @@ export function TransactionsTable({ searchQuery, userId: propUserId }: Transacti
           </tbody>
         </table>
       </div>
-      {totalPages > 0 && (
-        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setCurrentPage(Math.max(1, currentPage - 1));
-                setExpandedRow(null); // Reset expanded row when changing pages
-              }}
-              disabled={currentPage === 1}
-              className={cn(
-                "px-3 py-1 rounded-md text-sm",
-                currentPage === 1 ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-              )}
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => {
-                  setCurrentPage(page);
-                  setExpandedRow(null); // Reset expanded row when changing pages
-                }}
-                className={cn(
-                  "px-3 py-1 rounded-md text-sm",
-                  currentPage === page ? "bg-[#1A365D] text-white" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-                )}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setCurrentPage(Math.min(totalPages, currentPage + 1));
-                setExpandedRow(null); // Reset expanded row when changing pages
-              }}
-              disabled={currentPage === totalPages}
-              className={cn(
-                "px-3 py-1 rounded-md text-sm",
-                currentPage === totalPages ? "text-[#8B909A] cursor-not-allowed" : "text-[#1A365D] hover:bg-[#EBF8FF]",
-              )}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      {renderPagination()}
     </div>
   );
 }

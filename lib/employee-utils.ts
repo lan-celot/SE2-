@@ -14,23 +14,28 @@ import {
 
 // Define the Employee interface
 export interface Employee {
-  id: string // EMP_001 format
+  streetAddress1: string
+  streetAddress2: string
+  barangay: string
+  province: string
+  zipCode: string
+  dateOfBirth(dateOfBirth: any): import("react").ReactNode
+  workingSince(workingSince: any): import("react").ReactNode
+  id: string
   firstName: string
   lastName: string
   username: string
+  gender: string;
   role: "Administrator" | "Lead Mechanic" | "Assistant Mechanic" | "Helper Mechanic"
   phone: string
-  dateOfBirth: string
-  gender: "Male" | "Female" | "Other"
-  workingSince: string
-  streetAddress1: string
-  streetAddress2?: string
-  barangay: string
+  email: string
+  address: string
   city: string
-  province: string
-  zipCode: string
+  state: string
+  zip: string
   status: "Active" | "Inactive" | "Terminated"
-  email?: string
+  dateHired: string
+  currentReservation?: string | null
   avatar?: string
 }
 

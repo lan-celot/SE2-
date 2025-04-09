@@ -233,8 +233,8 @@ function AddServicePageContent() {
         const firebaseTransaction: Transaction = {
           id: id,
           reservationId: id,
-          customerName: data.customerName || "Unknown Customer",
-          customerId: data.customerId || "---",
+          customerName: data.fullName || "Unknown Customer",
+          customerId: data.authUid || "---",
           carModel: data.carModel || "---",
           reservationDate: data.date ? createdAt.toLocaleDateString() : "---",
           completionDate: data.completionDate ? completionDate.toLocaleDateString() : new Date().toLocaleDateString(),
@@ -303,7 +303,7 @@ function AddServicePageContent() {
           const firebaseTransaction: Transaction = {
             id: id,
             reservationId: id,
-            customerName: data.customerName || "Unknown Customer",
+            customerName: data.fullName || "Unknown Customer",
             customerId: data.customerId || "---",
             carModel: data.carModel || "---",
             reservationDate: data.date ? createdAt.toLocaleDateString() : "---",
