@@ -11,6 +11,98 @@ import Loading from "@/components/admin-components/loading"
 import { PasswordVerificationDialog } from "@/components/admin-components/password-verification-dialog"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { type Employee, getAllEmployees, updateEmployee, deleteEmployee } from "@/lib/employee-utils"
+import { collection, query, where, orderBy, limit, getDocs, getFirestore } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Adjust the import path to your Firebase config
+
+// Add this function near your existing utility functions
+interface ReservationData {
+  id: string;
+  statusChangedAt: { seconds: number; nanoseconds: number } | null;
+  lastUpdated: string | number;
+  status: string;
+  mechanics: string[];
+  [key: string]: any;
+}
+
+const getCurrentReservation = async (employeeName: string): Promise<string | null> => {
+  try {
+    console.log(`[DEBUG] Starting reservation search for mechanic: ${employeeName}`);
+
+    const db = getFirestore();
+    const reservationsRef = collection(db, 'bookings');
+
+    // Query all reservations
+    const q = query(reservationsRef);
+
+    const querySnapshot = await getDocs(q);
+
+    console.log(`[DEBUG] Total reservations found: ${querySnapshot.size}`);
+
+    if (!querySnapshot.empty) {
+      // Detailed logging for each reservation
+      const recentReservations = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data() as Omit<ReservationData, 'id'>;
+          
+          console.log(`[DEBUG] Reservation Details:`, {
+            id: doc.id,
+            status: data.status,
+            services: data.services?.map((service: { service: any; mechanic: any; status: any }) => ({
+              service: service.service,
+              mechanic: service.mechanic,
+              status: service.status
+            })),
+            lastUpdated: data.lastUpdated
+          });
+
+          return {
+            id: doc.id,
+            statusChangedAt: data.statusChangedAt,
+            lastUpdated: data.lastUpdated,
+            status: data.status,
+            mechanics: data.mechanics,
+            ...data,
+          } as ReservationData;
+        })
+        .filter((reservation: ReservationData) => {
+          // Additional filtering and logging
+          const isRepairing = reservation.status === 'REPAIRING';
+          const hasMechanicAssigned = Array.isArray(reservation.services) && 
+            reservation.services.some((service: { mechanic: string }) => 
+              service.mechanic && 
+              service.mechanic.toUpperCase() === employeeName.toUpperCase()
+            );
+
+          console.log(`[DEBUG] Reservation Filtering:`, {
+            reservationId: reservation.id,
+            isRepairing,
+            hasMechanicAssigned,
+            mechanics: reservation.services?.map((s: { mechanic: any }) => s.mechanic)
+          });
+
+          return isRepairing && hasMechanicAssigned;
+        })
+        .sort((a, b) => {
+          // Sort by last updated timestamp
+          const lastUpdatedA = new Date(a.lastUpdated || 0).getTime();
+          const lastUpdatedB = new Date(b.lastUpdated || 0).getTime();
+          return lastUpdatedB - lastUpdatedA;
+        });
+
+      console.log(`[DEBUG] Filtered Reservations:`, recentReservations.map(r => r.id));
+
+      // Return the ID of the most recent reservation
+      return recentReservations.length > 0 ? recentReservations[0].id : null;
+    }
+
+    console.log(`[DEBUG] No reservations found for mechanic: ${employeeName}`);
+    return null;
+  } catch (error) {
+    console.error(`[ERROR] Fetching current reservation for ${employeeName}:`, error);
+    return null;
+  }
+};
+
 
 const statusStyles: Record<string, { bg: string; text: string; borderColor: string }> = {
   Active: {
@@ -79,21 +171,48 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
     })
   }
 
-  // Fetch employees from Firebase when component mounts
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        console.log(`[DEBUG] Starting employee reservation fetch`);
         setIsLoading(true)
         const fetchedEmployees = await getAllEmployees()
-        setEmployees(fetchedEmployees)
-
-        // Sort employees by ID (newest first)
-        const sorted = sortEmployeesById(fetchedEmployees, "desc")
-
+  
+        console.log(`[DEBUG] Fetched Employees:`, fetchedEmployees.map(e => `${e.firstName} ${e.lastName}`));
+  
+        // Enrich employees with their current reservation
+        const enrichedEmployees = await Promise.all(
+          fetchedEmployees.map(async (employee) => {
+            // Construct full name
+            const fullNameUpper = `${employee.firstName} ${employee.lastName}`.toUpperCase();
+            
+            console.log(`[DEBUG] Searching reservation for employee: ${fullNameUpper}`);
+  
+            // Try to find a current reservation
+            const currentReservation = await getCurrentReservation(fullNameUpper);
+  
+            console.log(`[DEBUG] Employee ${fullNameUpper} Current Reservation:`, currentReservation);
+  
+            return {
+              ...employee,
+              currentReservation
+            }
+          })
+        )
+  
+        console.log(`[DEBUG] Enriched Employees:`, enrichedEmployees.map(e => ({
+          name: `${e.firstName} ${e.lastName}`,
+          currentReservation: e.currentReservation
+        })));
+  
+        setEmployees(enrichedEmployees)
+  
+        // Sort and set other states as before
+        const sorted = sortEmployeesById(enrichedEmployees, "desc")
         setSortedEmployees(sorted)
         setIsLoading(false)
       } catch (error) {
-        console.error("Error fetching employees:", error)
+        console.error("[ERROR] Fetching employees:", error)
         toast({
           title: "Error",
           description: "Failed to fetch employees",
@@ -102,10 +221,8 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
         setIsLoading(false)
       }
     }
-
+  
     fetchEmployees()
-
-    // Remove the fetch call to the initialization endpoint since we've deleted that file
   }, [])
 
   const handleSort = (field: keyof Employee) => {
@@ -413,9 +530,9 @@ export function EmployeesTable({ searchQuery, activeTab }: EmployeesTableProps) 
                 <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.id}>
                   {employee.id}
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title="Not assigned">
-                  Not assigned
-                </td>
+                <td className="px-3 py-4 text-sm text-[#1A365D] truncate uppercase" title={employee.currentReservation || ''}>
+  {employee.currentReservation || "Not assigned"}
+</td>
                 <td className="px-3 py-4">
                   <div className="relative inline-block">
                     <Select
