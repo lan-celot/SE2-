@@ -1,8 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/customer-components/ui/accordion"
 import { BackgroundLogo } from "./background-logo"
-import { ChevronDown } from "lucide-react"
 
 // Organize FAQs by category
 const faqCategories = [
@@ -111,66 +115,98 @@ const faqCategories = [
 ]
 
 export function FAQSection() {
-  // Track open/closed state for each question
-  const [openItems, setOpenItems] = useState<Record<string, boolean>>({})
-
-  const toggleItem = (id: string) => {
-    setOpenItems((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }))
-  }
-
   return (
     <section id="faqs" className="relative py-16 md:py-24 overflow-hidden">
       <BackgroundLogo position="right" className="-z-10" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-center text-3xl md:text-4xl font-bold mb-16">
+        <h2 className="text-center text-3xl md:text-4xl font-bold mb-12">
           <span className="text-primary-dark">Frequently Asked</span> <span className="text-secondary">Questions</span>
         </h2>
 
-        <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
-          {faqCategories.map((category, categoryIndex) => (
-            <div key={categoryIndex} className="bg-blue-50 rounded-lg overflow-hidden">
-              <h3 className="text-xl font-semibold text-primary-dark p-6 pb-4">{category.category}</h3>
-              <div className="flex flex-col">
-                {category.questions.map((faq, index) => {
-                  const itemId = `${categoryIndex}-item-${index}`
-                  const isOpen = openItems[itemId] || false
-
-                  return (
-                    <div key={index} className="border-t border-blue-100">
-                      <div className="w-full">
-                        <button
-                          onClick={() => toggleItem(itemId)}
-                          className="flex justify-between items-center w-full px-6 py-4 text-left hover:text-secondary transition-colors duration-200 focus:outline-none"
-                          aria-expanded={isOpen}
-                        >
-                          <span className={`text-sm md:text-base font-medium ${isOpen ? "text-secondary" : ""}`}>
-                            {faq.question}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? "transform rotate-180" : ""}`}
-                          />
-                        </button>
-
-                        <div
-                          className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                            isOpen ? "max-h-96" : "max-h-0"
-                          }`}
-                        >
-                          <div className="px-6 pb-4 text-gray-600 text-sm">{faq.answer}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+        <div className="grid grid-cols-1 gap-6 lg:gap-8">
+          {/* First row: General Information and Services & Repairs */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* General Information */}
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-primary-dark mb-4">{faqCategories[0].category}</h3>
+              <Accordion type="single" collapsible className="space-y-2">
+                {faqCategories[0].questions.map((faq, index) => (
+                  <AccordionItem
+                    key={index}
+                    value={`0-item-${index}`}
+                    className="bg-white/80 rounded-md overflow-hidden"
+                  >
+                    <AccordionTrigger className="text-left px-4 py-2 text-sm hover:no-underline hover:text-secondary [&[data-state=open]]:text-secondary">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-3 text-gray-600 text-xs">{faq.answer}</AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
-          ))}
+
+            {/* Services & Repairs */}
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-primary-dark mb-4">{faqCategories[1].category}</h3>
+              <Accordion type="single" collapsible className="space-y-2">
+                {faqCategories[1].questions.map((faq, index) => (
+                  <AccordionItem
+                    key={index}
+                    value={`1-item-${index}`}
+                    className="bg-white/80 rounded-md overflow-hidden"
+                  >
+                    <AccordionTrigger className="text-left px-4 py-2 text-sm hover:no-underline hover:text-secondary [&[data-state=open]]:text-secondary">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-3 text-gray-600 text-xs">{faq.answer}</AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          </div>
+
+          {/* Second row: Pricing & Payments and Additional Services */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Pricing & Payments */}
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-primary-dark mb-4">{faqCategories[2].category}</h3>
+              <Accordion type="single" collapsible className="space-y-2">
+                {faqCategories[2].questions.map((faq, index) => (
+                  <AccordionItem
+                    key={index}
+                    value={`2-item-${index}`}
+                    className="bg-white/80 rounded-md overflow-hidden"
+                  >
+                    <AccordionTrigger className="text-left px-4 py-2 text-sm hover:no-underline hover:text-secondary [&[data-state=open]]:text-secondary">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-3 text-gray-600 text-xs">{faq.answer}</AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+
+            {/* Additional Services */}
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-primary-dark mb-4">{faqCategories[3].category}</h3>
+              <Accordion type="single" collapsible className="space-y-2">
+                {faqCategories[3].questions.map((faq, index) => (
+                  <AccordionItem
+                    key={index}
+                    value={`3-item-${index}`}
+                    className="bg-white/80 rounded-md overflow-hidden"
+                  >
+                    <AccordionTrigger className="text-left px-4 py-2 text-sm hover:no-underline hover:text-secondary [&[data-state=open]]:text-secondary">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-3 text-gray-600 text-xs">{faq.answer}</AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   )
 }
-

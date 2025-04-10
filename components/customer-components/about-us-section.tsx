@@ -1,9 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Clock, Users, Car, Shield, ChevronLeft, ChevronRight } from "lucide-react";
-import { collection, getDocs, getFirestore, query, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
+import { Clock, Users, Car, Shield, ChevronLeft, ChevronRight } from "lucide-react"
 
 const features = [
   {
@@ -26,97 +24,96 @@ const features = [
     title: "Treat vehicles like it's ours",
     description: "We handle every vehicle with the utmost care, treating it as if it were our own.",
   },
-];
+]
 
 // Type definition for Expert
 interface Expert {
-  id: string;
-  name: string;
-  position: string;
-  location: string;
-  quote: string;
-  image: string;
+  id: string
+  name: string
+  quote: string
+  image: string
 }
 
 // Skeleton Loading Component
 const ExpertCardSkeleton = () => (
   <div className="w-1/2 md:w-1/3 animate-pulse">
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="aspect-[3/2] bg-gray-300"></div>
+      <div className="aspect-square bg-gray-300"></div>
       <div className="p-4 md:p-5">
         <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
         <div className="h-3 bg-gray-200 rounded w-full"></div>
       </div>
     </div>
   </div>
-);
+)
 
 // Swipeable Cards Component
 const SwipeableCards = () => {
-  const [experts, setExperts] = useState<Expert[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [startX, setStartX] = useState(0);
-  const [animating, setAnimating] = useState(false);
-  const [offsetX, setOffsetX] = useState(0);
-  const cardsContainerRef = useRef(null);
-  const [direction, setDirection] = useState('');
+  const [experts, setExperts] = useState<Expert[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [startX, setStartX] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const [offsetX, setOffsetX] = useState(0)
+  const cardsContainerRef = useRef(null)
+  const [direction, setDirection] = useState("")
 
   // Fetch experts from Firestore with performance optimization
   useEffect(() => {
-    const fetchExperts = async () => {
-      try {
-        const expertsCollection = collection(db, 'employees');
-        const querySnapshot = await getDocs(expertsCollection);
-        
-        querySnapshot.docs.forEach(doc => {
-          console.log('Expert Document:', {
-            id: doc.id,
-            data: doc.data()
-          });
-        });
-      } catch (error) {
-        console.error("Error fetching experts:", error);
-      }
-    };
-  
-    fetchExperts();
-  }, []);
-  // Memoize indices to prevent unnecessary recalculations
-  const prevIndex = useMemo(() => 
-    currentIndex === 0 ? experts.length - 1 : currentIndex - 1, 
-    [currentIndex, experts.length]
-  );
+    // Instead of fetching from Firestore, we'll use hardcoded data for now
+    const expertData = [
+      {
+        id: "1",
+        name: "Danny Tamondong",
+        quote: "Quality service is not just a promise, it's our standard.",
+        image: "/images/danny-tamondong.jpg",
+      },
+      {
+        id: "2",
+        name: "Joven Civilla",
+        quote: "Every car deserves the best care possible.",
+        image: "/images/joven-civilla.jpg",
+      },
+    ]
 
-  const nextIndex = useMemo(() => 
-    currentIndex === experts.length - 1 ? 0 : currentIndex + 1, 
-    [currentIndex, experts.length]
-  );
+    setExperts(expertData)
+    setIsLoading(false)
+  }, [])
+
+  // Memoize indices to prevent unnecessary recalculations
+  const prevIndex = useMemo(
+    () => (currentIndex === 0 ? experts.length - 1 : currentIndex - 1),
+    [currentIndex, experts.length],
+  )
+
+  const nextIndex = useMemo(
+    () => (currentIndex === experts.length - 1 ? 0 : currentIndex + 1),
+    [currentIndex, experts.length],
+  )
 
   // Navigation and interaction handlers
   const nextCard = useCallback(() => {
-    if (animating || isLoading) return;
-    setAnimating(true);
-    setDirection('right');
-    setCurrentIndex(prev => prev < experts.length - 1 ? prev + 1 : 0);
+    if (animating || isLoading) return
+    setAnimating(true)
+    setDirection("right")
+    setCurrentIndex((prev) => (prev < experts.length - 1 ? prev + 1 : 0))
     setTimeout(() => {
-      setAnimating(false);
-      setDirection('');
-    }, 400);
-  }, [animating, isLoading, experts.length]);
+      setAnimating(false)
+      setDirection("")
+    }, 400)
+  }, [animating, isLoading, experts.length])
 
   const prevCard = useCallback(() => {
-    if (animating || isLoading) return;
-    setAnimating(true);
-    setDirection('left');
-    setCurrentIndex(prev => prev > 0 ? prev - 1 : experts.length - 1);
+    if (animating || isLoading) return
+    setAnimating(true)
+    setDirection("left")
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : experts.length - 1))
     setTimeout(() => {
-      setAnimating(false);
-      setDirection('');
-    }, 400);
-  }, [animating, isLoading, experts.length]);
+      setAnimating(false)
+      setDirection("")
+    }, 400)
+  }, [animating, isLoading, experts.length])
 
   // Error or loading state rendering
   if (isLoading) {
@@ -128,127 +125,129 @@ const SwipeableCards = () => {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
       <div className="flex justify-center items-center h-96 text-red-500">
         <p>{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="ml-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
         >
           Retry
         </button>
       </div>
-    );
+    )
   }
 
   // No experts found
-  if (experts.length === 0) {
+  if (experts.length === 0 && !isLoading) {
     return (
       <div className="flex justify-center items-center h-96 text-gray-500">
         <p>No experts found</p>
       </div>
-    );
+    )
   }
 
   return (
     <div className="relative w-full py-10">
       {/* Navigation buttons */}
-      <button 
-        onClick={prevCard} 
+      <button
+        onClick={prevCard}
         disabled={isLoading}
         className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition-transform duration-300 hover:scale-110 disabled:opacity-50"
         aria-label="Previous expert"
       >
         <ChevronLeft className="w-6 h-6 text-primary" />
       </button>
-      
-      <button 
-        onClick={nextCard} 
+
+      <button
+        onClick={nextCard}
         disabled={isLoading}
         className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition-transform duration-300 hover:scale-110 disabled:opacity-50"
         aria-label="Next expert"
       >
         <ChevronRight className="w-6 h-6 text-primary" />
       </button>
-      
+
       {/* Three-card view container */}
       <div className="max-w-6xl mx-auto px-4">
-        <div 
-          ref={cardsContainerRef}
-          className="overflow-hidden w-full"
-        >
+        <div ref={cardsContainerRef} className="overflow-hidden w-full">
           {/* Main visible cards - always show 3 cards with center card highlighted */}
           <div className="flex justify-center items-stretch gap-4 md:gap-6 relative">
             {/* Previous card (smaller) */}
-            <div className={`w-1/4 md:w-1/3 flex-shrink-0 opacity-70 transform scale-90 transition-all duration-400 ${direction === 'left' ? 'animate-slide-out-left' : direction === 'right' ? 'animate-slide-in-left' : ''} ${offsetX > 0 ? 'translate-x-3' : ''}`}>
+            <div
+              className={`w-1/4 md:w-1/3 flex-shrink-0 opacity-70 transform scale-90 transition-all duration-400 ${direction === "left" ? "animate-slide-out-left" : direction === "right" ? "animate-slide-in-left" : ""} ${offsetX > 0 ? "translate-x-3" : ""}`}
+            >
               <div className="bg-white rounded-xl shadow-md overflow-hidden h-full transition-shadow duration-300 hover:shadow-lg">
-                <div className="aspect-[3/2] w-full overflow-hidden">
+                <div className="aspect-square w-full overflow-hidden flex items-center justify-center">
                   <img
                     src={experts[prevIndex].image || "/placeholder.svg"}
-                    alt={`${experts[prevIndex].name} working on a car`}
+                    alt={`${experts[prevIndex].name}`}
                     className="w-full h-full object-cover transition-transform duration-300"
                     loading="lazy"
                   />
                 </div>
                 <div className="p-3 md:p-4">
-                  <h3 className="text-lg font-bold text-gray-800 mb-1">{experts[prevIndex].name}</h3>
-                  <p className="text-xs text-gray-500 mb-2">{experts[prevIndex].position} · {experts[prevIndex].location}</p>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">{experts[prevIndex].name}</h3>
+                  <blockquote className="text-sm text-gray-700">"{experts[prevIndex].quote}"</blockquote>
                 </div>
               </div>
             </div>
 
             {/* Current card (larger, highlighted) */}
-            <div className={`w-1/2 md:w-1/3 flex-shrink-0 z-10 transform scale-105 shadow-xl transition-all duration-400 ${animating ? 'animate-pulse-subtle' : ''}`} 
-                style={{ transform: `scale(1.05) translateX(${offsetX * 0.2}px)` }}>
+            <div
+              className={`w-1/2 md:w-1/3 flex-shrink-0 z-10 transform scale-105 shadow-xl transition-all duration-400 ${animating ? "animate-pulse-subtle" : ""}`}
+              style={{ transform: `scale(1.05) translateX(${offsetX * 0.2}px)` }}
+            >
               <div className="bg-white rounded-xl shadow-lg overflow-hidden h-full transition-all duration-300">
-                <div className="aspect-[3/2] w-full overflow-hidden">
+                <div className="aspect-square w-full overflow-hidden flex items-center justify-center">
                   <img
                     src={experts[currentIndex].image || "/placeholder.svg"}
-                    alt={`${experts[currentIndex].name} working on a car`}
+                    alt={`${experts[currentIndex].name}`}
                     className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                     loading="lazy"
                   />
                 </div>
                 <div className="p-4 md:p-5">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">{experts[currentIndex].name}</h3>
-                  <p className="text-sm text-gray-500 mb-3">{experts[currentIndex].position} · {experts[currentIndex].location}</p>
+                  <h3 className="text-xl font-bold text-gray-800 mb-3">{experts[currentIndex].name}</h3>
                   <blockquote className="text-base text-gray-700">"{experts[currentIndex].quote}"</blockquote>
                 </div>
               </div>
             </div>
 
             {/* Next card (smaller) */}
-            <div className={`w-1/4 md:w-1/3 flex-shrink-0 opacity-70 transform scale-90 transition-all duration-400 ${direction === 'right' ? 'animate-slide-out-right' : direction === 'left' ? 'animate-slide-in-right' : ''} ${offsetX < 0 ? 'translate-x-[-0.75rem]' : ''}`}>
+            <div
+              className={`w-1/4 md:w-1/3 flex-shrink-0 opacity-70 transform scale-90 transition-all duration-400 ${direction === "right" ? "animate-slide-out-right" : direction === "left" ? "animate-slide-in-right" : ""} ${offsetX < 0 ? "translate-x-[-0.75rem]" : ""}`}
+            >
               <div className="bg-white rounded-xl shadow-md overflow-hidden h-full transition-shadow duration-300 hover:shadow-lg">
-                <div className="aspect-[3/2] w-full overflow-hidden">
+                <div className="aspect-square w-full overflow-hidden flex items-center justify-center">
                   <img
                     src={experts[nextIndex].image || "/placeholder.svg"}
-                    alt={`${experts[nextIndex].name} working on a car`}
+                    alt={`${experts[nextIndex].name}`}
                     className="w-full h-full object-cover transition-transform duration-300"
                     loading="lazy"
                   />
                 </div>
                 <div className="p-3 md:p-4">
-                  <h3 className="text-lg font-bold text-gray-800 mb-1">{experts[nextIndex].name}</h3>
-                  <p className="text-xs text-gray-500 mb-2">{experts[nextIndex].position} · {experts[nextIndex].location}</p>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">{experts[nextIndex].name}</h3>
+                  <blockquote className="text-sm text-gray-700">"{experts[nextIndex].quote}"</blockquote>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Pagination indicators */}
       <div className="flex justify-center mt-8 gap-2">
         {experts.map((_, index) => (
           <button
             key={index}
             className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-              currentIndex === index ? 'bg-primary scale-125' : 'bg-gray-300'
+              currentIndex === index ? "bg-primary scale-125" : "bg-gray-300"
             } hover:scale-110`}
             onClick={() => setCurrentIndex(index)}
             aria-label={`Go to slide ${index + 1}`}
@@ -256,8 +255,8 @@ const SwipeableCards = () => {
         ))}
       </div>
     </div>
-  );
-};
+  )
+}
 
 export function AboutUsSection() {
   return (
@@ -304,7 +303,7 @@ export function AboutUsSection() {
         <SwipeableCards />
       </div>
     </section>
-  );
+  )
 }
 
-export default AboutUsSection;
+export default AboutUsSection
