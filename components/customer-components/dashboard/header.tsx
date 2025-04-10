@@ -170,13 +170,14 @@ export function DashboardHeader({ title }: HeaderProps) {
   return (
     <header className="bg-[#EBF8FF]">
       <div className="flex justify-between items-center px-6 py-4">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          {title || (
-            <>
-              Welcome back, <span className="text-[#2a69ac]">{userFirstName || "User"}</span>
-            </>
-          )}
-        </h1>
+      <h1 className="text-2xl font-semibold text-gray-900">
+        {title || (
+          <>
+            <span className="text-[#1A365D]">Welcome back, </span>
+            <span className="text-[#2a69ac]">{userFirstName || "User"}</span>
+          </>
+        )}
+      </h1>
 
         <div className="flex items-center gap-4">
           <div className="text-gray-600 font-medium">

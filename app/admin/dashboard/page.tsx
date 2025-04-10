@@ -8,14 +8,16 @@ import { collection, query, getDocs, orderBy, where, onSnapshot, Timestamp, limi
 import { db } from "@/lib/firebase"
 import Loading from "@/components/admin-components/loading"
 import { formatDateTime } from "@/lib/date-utils"
+import type { LogActionType } from "@/lib/log-utils"
 
 // Define types for our data
 interface Log {
   id: string
-  message: string
+  activity: string
   timestamp: Timestamp
+  performedBy: string
+  logType: LogActionType
   userId?: string
-  type?: string
 }
 
 interface Reservation {
@@ -78,154 +80,134 @@ export default function DashboardPage() {
 
     // 1. All bookings for general stats
     const bookingsQuery = query(collection(db, "bookings"), orderBy("reservationDate", "desc"))
-    const unsubscribeBookings = onSnapshot(bookingsQuery, (snapshot) => {
-      const bookings = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Booking[]
+    const unsubscribeBookings = onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        const bookings = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Booking[]
 
-      // Calculate counts based on status
-      const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
-      setPendingCount(pendingBookings.length)
+        // Calculate counts based on status
+        const pendingBookings = bookings.filter((booking) => booking.status === "PENDING")
+        setPendingCount(pendingBookings.length)
 
-      // For today's stats, filter by date
-      const todayBookings = bookings.filter((booking) => {
-        const bookingDate = booking.reservationDate instanceof Timestamp 
-          ? booking.reservationDate.toDate() 
-          : new Date(booking.reservationDate)
-        
-        return bookingDate >= today && bookingDate < tomorrow
-      })
+        // For today's stats, filter by date
+        const todayBookings = bookings.filter((booking) => {
+          const bookingDate =
+            booking.reservationDate instanceof Timestamp
+              ? booking.reservationDate.toDate()
+              : new Date(booking.reservationDate)
 
-      const completedTodayCount = todayBookings.filter((booking) => booking.status === "COMPLETED").length
-      setCompletedToday(completedTodayCount)
+          return bookingDate >= today && bookingDate < tomorrow
+        })
 
-      const repairingTodayCount = todayBookings.filter((booking) => booking.status === "REPAIRING").length
-      setRepairingToday(repairingTodayCount)
+        const completedTodayCount = todayBookings.filter((booking) => booking.status === "COMPLETED").length
+        setCompletedToday(completedTodayCount)
 
-      const confirmedTodayCount = todayBookings.filter((booking) => booking.status === "CONFIRMED").length
-      setConfirmedToday(confirmedTodayCount)
+        const repairingTodayCount = todayBookings.filter((booking) => booking.status === "REPAIRING").length
+        setRepairingToday(repairingTodayCount)
 
-      // Get arriving today (bookings for today with status PENDING or CONFIRMED)
-      const arrivingTodayBookings = todayBookings
-        .filter((booking) => booking.status === "PENDING" || booking.status === "CONFIRMED")
-        .slice(0, 5) // Limit to 5 for display
+        const confirmedTodayCount = todayBookings.filter((booking) => booking.status === "CONFIRMED").length
+        setConfirmedToday(confirmedTodayCount)
 
-      setArrivingToday(
-        arrivingTodayBookings.map((booking) => ({
-          id: booking.id,
-          customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
-          carModel: booking.carModel,
-        }))
-      )
+        // Get arriving today (bookings for today with status PENDING or CONFIRMED)
+        const arrivingTodayBookings = todayBookings
+          .filter((booking) => booking.status === "PENDING" || booking.status === "CONFIRMED")
+          .slice(0, 5) // Limit to 5 for display
 
-      // For clients this month, filter by date and count unique customer IDs
-      const thisMonthBookings = bookings.filter((booking) => {
-        const bookingDate = booking.reservationDate instanceof Timestamp 
-          ? booking.reservationDate.toDate() 
-          : new Date(booking.reservationDate)
-        
-        return bookingDate >= firstDayOfMonth
-      })
+        setArrivingToday(
+          arrivingTodayBookings.map((booking) => ({
+            id: booking.id,
+            customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
+            carModel: booking.carModel,
+          })),
+        )
 
-      // Count unique users
-      const uniqueUserIds = new Set<string>()
-      const returningUserIds = new Set<string>()
-      
-      // Process bookings to identify new vs returning users
-      // A returning user is one who has more than one booking
-      const userBookingCounts: Record<string, number> = {}
-      
-      bookings.forEach(booking => {
-        if (booking.userId) {
-          if (userBookingCounts[booking.userId]) {
-            userBookingCounts[booking.userId]++
-            returningUserIds.add(booking.userId)
-          } else {
-            userBookingCounts[booking.userId] = 1
-            uniqueUserIds.add(booking.userId)
+        // For clients this month, filter by date and count unique customer IDs
+        const thisMonthBookings = bookings.filter((booking) => {
+          const bookingDate =
+            booking.reservationDate instanceof Timestamp
+              ? booking.reservationDate.toDate()
+              : new Date(booking.reservationDate)
+
+          return bookingDate >= firstDayOfMonth
+        })
+
+        // Count unique users
+        const uniqueUserIds = new Set<string>()
+        const returningUserIds = new Set<string>()
+
+        // Process bookings to identify new vs returning users
+        // A returning user is one who has more than one booking
+        const userBookingCounts: Record<string, number> = {}
+
+        bookings.forEach((booking) => {
+          if (booking.userId) {
+            if (userBookingCounts[booking.userId]) {
+              userBookingCounts[booking.userId]++
+              returningUserIds.add(booking.userId)
+            } else {
+              userBookingCounts[booking.userId] = 1
+              uniqueUserIds.add(booking.userId)
+            }
           }
-        }
-      })
-      
-      // New clients are those who only appear in this month's bookings and have only one booking
-      const newClientThisMonth = thisMonthBookings.filter(booking => 
-        booking.userId && 
-        userBookingCounts[booking.userId] === 1 &&
-        !returningUserIds.has(booking.userId)
-      )
-      
-      // Returning clients are those who have more than one booking
-      const returningClientsThisMonth = thisMonthBookings.filter(booking => 
-        booking.userId && 
-        returningUserIds.has(booking.userId)
-      )
-      
-      // Count unique client IDs
-      const uniqueNewClients = new Set(newClientThisMonth.map(b => b.userId))
-      const uniqueReturningClients = new Set(returningClientsThisMonth.map(b => b.userId))
-      
-      setNewClientsCount(uniqueNewClients.size)
-      setReturningClientsCount(uniqueReturningClients.size)
+        })
 
-      setIsLoading(false)
-    }, (error) => {
-      console.error("Error fetching bookings:", error)
-      setIsLoading(false)
-    })
+        // New clients are those who only appear in this month's bookings and have only one booking
+        const newClientThisMonth = thisMonthBookings.filter(
+          (booking) =>
+            booking.userId && userBookingCounts[booking.userId] === 1 && !returningUserIds.has(booking.userId),
+        )
 
-    // 2. Logs collection
-    const logsQuery = query(
-      collection(db, "logs"), 
-      orderBy("timestamp", "desc"),
-      limit(10)
+        // Returning clients are those who have more than one booking
+        const returningClientsThisMonth = thisMonthBookings.filter(
+          (booking) => booking.userId && returningUserIds.has(booking.userId),
+        )
+
+        // Count unique client IDs
+        const uniqueNewClients = new Set(newClientThisMonth.map((b) => b.userId))
+        const uniqueReturningClients = new Set(returningClientsThisMonth.map((b) => b.userId))
+
+        setNewClientsCount(uniqueNewClients.size)
+        setReturningClientsCount(uniqueReturningClients.size)
+
+        setIsLoading(false)
+      },
+      (error) => {
+        console.error("Error fetching bookings:", error)
+        setIsLoading(false)
+      },
     )
-    
-    const unsubscribeLogs = onSnapshot(logsQuery, (snapshot) => {
-      const logData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Log[]
-      
-      setLogs(logData)
-    }, (error) => {
-      console.error("Error fetching logs:", error)
-      // If logs collection doesn't exist or has permission issues, 
-      // use demo data instead
-      const dummyLogs: Log[] = [
-        {
-          id: "1",
-          message: "Transaction #T1234 completed for Andrea Salazar",
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
-          type: "transaction"
-        },
-        {
-          id: "2",
-          message: "New reservation #R00101 created for John Doe",
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
-          type: "reservation"
-        },
-        { 
-          id: "3", 
-          message: "Employee Mark Johnson logged in", 
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
-          type: "auth"
-        },
-        { 
-          id: "4", 
-          message: "Inventory update: 5 oil filters added", 
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
-          type: "inventory"
-        },
-        {
-          id: "5",
-          message: "Customer feedback received for service #S0098",
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
-          type: "feedback"
+
+    // 2. Logs collection - only LOGIN and LOGOUT logs
+    const logsQuery = query(
+      collection(db, "logs"),
+      where("logType", "in", ["LOGIN", "LOGOUT"]),
+      orderBy("timestamp", "desc"),
+      limit(10),
+    )
+
+    const unsubscribeLogs = onSnapshot(
+      logsQuery,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const logData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Log[]
+
+          setLogs(logData)
+        } else {
+          // If no logs found, set empty array
+          setLogs([])
         }
-      ]
-      setLogs(dummyLogs)
-    })
+      },
+      (error) => {
+        console.error("Error fetching logs:", error)
+        setLogs([])
+      },
+    )
 
     // Clean up listeners on unmount
     return () => {
@@ -264,10 +246,11 @@ export default function DashboardPage() {
 
       // For today's stats, filter by date
       const todayBookings = bookings.filter((booking) => {
-        const bookingDate = booking.reservationDate instanceof Timestamp 
-          ? booking.reservationDate.toDate() 
-          : new Date(booking.reservationDate)
-        
+        const bookingDate =
+          booking.reservationDate instanceof Timestamp
+            ? booking.reservationDate.toDate()
+            : new Date(booking.reservationDate)
+
         return bookingDate >= today && bookingDate < tomorrow
       })
 
@@ -295,27 +278,28 @@ export default function DashboardPage() {
 
       // For clients this month, we'll use a more sophisticated approach
       const thisMonthBookings = bookings.filter((booking) => {
-        const bookingDate = booking.reservationDate instanceof Timestamp 
-          ? booking.reservationDate.toDate() 
-          : new Date(booking.reservationDate)
-        
+        const bookingDate =
+          booking.reservationDate instanceof Timestamp
+            ? booking.reservationDate.toDate()
+            : new Date(booking.reservationDate)
+
         return bookingDate >= firstDayOfMonth
       })
 
       // Process bookings to identify new vs returning users
       const userBookingCounts: Record<string, number> = {}
-      
-      bookings.forEach(booking => {
+
+      bookings.forEach((booking) => {
         if (booking.userId) {
           userBookingCounts[booking.userId] = (userBookingCounts[booking.userId] || 0) + 1
         }
       })
-      
+
       // Count new vs returning clients
       const uniqueNewClients = new Set()
       const uniqueReturningClients = new Set()
-      
-      thisMonthBookings.forEach(booking => {
+
+      thisMonthBookings.forEach((booking) => {
         if (booking.userId) {
           if (userBookingCounts[booking.userId] > 1) {
             uniqueReturningClients.add(booking.userId)
@@ -324,94 +308,34 @@ export default function DashboardPage() {
           }
         }
       })
-      
+
       setNewClientsCount(uniqueNewClients.size)
       setReturningClientsCount(uniqueReturningClients.size)
 
-      // Try to fetch real logs data first
+      // Fetch login/logout logs
       try {
-        const logsQuery = query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(7))
+        const logsQuery = query(
+          collection(db, "logs"),
+          where("logType", "in", ["LOGIN", "LOGOUT"]),
+          orderBy("timestamp", "desc"),
+          limit(10),
+        )
         const logsSnapshot = await getDocs(logsQuery)
-        
+
         if (!logsSnapshot.empty) {
           const logData = logsSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           })) as Log[]
-          
+
           setLogs(logData)
         } else {
-          // If logs collection is empty, use demo data
-          const dummyLogs: Log[] = [
-            {
-              id: "1",
-              message: "Transaction #T1234 completed for Andrea Salazar",
-              timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
-              type: "transaction"
-            },
-            {
-              id: "2",
-              message: "New reservation #R00101 created for John Doe",
-              timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
-              type: "reservation"
-            },
-            { 
-              id: "3", 
-              message: "Employee Mark Johnson logged in", 
-              timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
-              type: "auth"
-            },
-            { 
-              id: "4", 
-              message: "Inventory update: 5 oil filters added", 
-              timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
-              type: "inventory"
-            },
-            {
-              id: "5",
-              message: "Customer feedback received for service #S0098",
-              timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
-              type: "feedback"
-            }
-          ]
-          setLogs(dummyLogs)
+          // If logs collection is empty, set empty array
+          setLogs([])
         }
       } catch (error) {
         console.error("Error fetching logs:", error)
-        // Use dummy logs as fallback
-        const dummyLogs: Log[] = [
-          {
-            id: "1",
-            message: "Transaction #T1234 completed for Andrea Salazar",
-            timestamp: Timestamp.fromDate(new Date(Date.now() - 15 * 60000)),
-            type: "transaction"
-          },
-          {
-            id: "2",
-            message: "New reservation #R00101 created for John Doe",
-            timestamp: Timestamp.fromDate(new Date(Date.now() - 28 * 60000)),
-            type: "reservation"
-          },
-          { 
-            id: "3", 
-            message: "Employee Mark Johnson logged in", 
-            timestamp: Timestamp.fromDate(new Date(Date.now() - 35 * 60000)),
-            type: "auth"
-          },
-          { 
-            id: "4", 
-            message: "Inventory update: 5 oil filters added", 
-            timestamp: Timestamp.fromDate(new Date(Date.now() - 50 * 60000)),
-            type: "inventory"
-          },
-          {
-            id: "5",
-            message: "Customer feedback received for service #S0098",
-            timestamp: Timestamp.fromDate(new Date(Date.now() - 58 * 60000)),
-            type: "feedback"
-          }
-        ]
-        setLogs(dummyLogs)
+        setLogs([])
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
@@ -422,7 +346,7 @@ export default function DashboardPage() {
 
   const formatLogDate = (timestamp: Timestamp | Date | null | undefined): string => {
     if (!timestamp) return ""
-    
+
     let date: Date
     if (timestamp instanceof Timestamp) {
       date = timestamp.toDate()
@@ -431,7 +355,7 @@ export default function DashboardPage() {
     } else {
       date = new Date(timestamp)
     }
-    
+
     return formatDateTime(date.toString())
   }
 
@@ -463,15 +387,30 @@ export default function DashboardPage() {
 
           {/* Logs */}
           <div className="rounded-xl bg-white p-4 shadow-sm flex flex-col">
-            <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">Logs</h3>
+            <h3 className="text-xl font-semibold text-[#2a69ac] mb-2">User Activity Logs</h3>
             <div className="flex-1 overflow-auto text-sm">
-              <div className="space-y-2">
-                {logs.map((log) => (
-                  <div key={log.id} className="text-[#8B909A]">
-                    {log.message} at {formatLogDate(log.timestamp)}
-                  </div>
-                ))}
-              </div>
+              {isLoading ? (
+                <Loading />
+              ) : logs.length > 0 ? (
+                <div className="space-y-2">
+                  {logs.map((log) => (
+                    <div
+                      key={log.id}
+                      className={`p-2 rounded-md ${log.logType === "LOGIN" ? "bg-blue-50" : "bg-gray-50"}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${log.logType === "LOGIN" ? "bg-green-500" : "bg-orange-500"}`}
+                        ></span>
+                        <span className="font-medium">{log.activity}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{formatLogDate(log.timestamp)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">No login/logout activity logs found</div>
+              )}
             </div>
           </div>
         </div>

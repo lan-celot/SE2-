@@ -757,7 +757,7 @@ export default function ProfilePage() {
       {/* Personal Information */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-[#3579b8]">PERSONAL INFORMATION</h3>
+          <h3 className="text-xl font-semibold text-[#1A365D]">PERSONAL INFORMATION</h3>
           <button
             className="text-[#3579b8] hover:bg-blue-50 p-2 rounded-full"
             onClick={() => setIsEditingPersonal(true)}
@@ -1011,7 +1011,7 @@ export default function ProfilePage() {
       {/* Address */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-[#3579b8]">ADDRESS</h3>
+          <h3 className="text-xl font-semibold text-[#1A365D]">ADDRESS</h3>
           <button className="text-[#3579b8] hover:bg-blue-50 p-2 rounded-full" onClick={() => setEditingAddress(true)}>
             <Pencil className="h-5 w-5" />
           </button>
