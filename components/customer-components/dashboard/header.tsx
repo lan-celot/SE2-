@@ -1,23 +1,25 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, User as LucideUser } from "lucide-react"
+import { Bell, LucideUser } from "lucide-react"
 import { Button } from "@/components/customer-components/ui/button"
 import { db, auth } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
+import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth"
 import Cookies from "js-cookie"
+import { useRouter } from "next/navigation"
 
 interface HeaderProps {
   title?: string
 }
 
 interface UserData {
-  firstName: string;
-  photoURL?: string;
+  firstName: string
+  photoURL?: string
 }
 
 export function DashboardHeader({ title }: HeaderProps) {
+  const router = useRouter()
   const [notifications, setNotifications] = useState([
     "Car is now ready for pick up",
     "Reservation status updated",
@@ -29,7 +31,7 @@ export function DashboardHeader({ title }: HeaderProps) {
   const [userFirstName, setUserFirstName] = useState<string | null>(null)
   const [user, setUser] = useState<UserData>({
     firstName: "",
-    photoURL: ""
+    photoURL: "",
   })
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -44,7 +46,7 @@ export function DashboardHeader({ title }: HeaderProps) {
 
   useEffect(() => {
     // First try to get user data from sessionStorage for immediate rendering
-    const cachedUserData = sessionStorage.getItem('userData')
+    const cachedUserData = sessionStorage.getItem("userData")
     if (cachedUserData) {
       try {
         const parsedData = JSON.parse(cachedUserData)
@@ -68,7 +70,7 @@ export function DashboardHeader({ title }: HeaderProps) {
       if (authUser) {
         setFirebaseUser(authUser)
         const userDocRef = doc(db, "accounts", authUser.uid)
-        
+
         try {
           const userDocSnap = await getDoc(userDocRef)
 
@@ -77,14 +79,14 @@ export function DashboardHeader({ title }: HeaderProps) {
             setUser(userData)
             setUserFirstName(userData.firstName)
             setLastPhotoURL(userData.photoURL || null)
-            
+
             // Save to cookies for future use
             if (userData.firstName) {
               Cookies.set("userFirstName", userData.firstName, { expires: 7 })
             }
-            
+
             // Cache in sessionStorage for faster loading
-            sessionStorage.setItem('userData', JSON.stringify(userData))
+            sessionStorage.setItem("userData", JSON.stringify(userData))
           } else {
             console.log("User document not found in Firestore")
           }
@@ -96,7 +98,7 @@ export function DashboardHeader({ title }: HeaderProps) {
       } else {
         setUserFirstName(null)
         setLastPhotoURL(null)
-        sessionStorage.removeItem('userData')
+        sessionStorage.removeItem("userData")
         setIsLoading(false)
       }
     })
@@ -106,14 +108,14 @@ export function DashboardHeader({ title }: HeaderProps) {
       if (event.detail && event.detail.photoURL) {
         setUser((prev) => ({ ...prev, photoURL: event.detail.photoURL }))
         setLastPhotoURL(event.detail.photoURL)
-        
+
         // Update cached data
         try {
-          const cachedData = sessionStorage.getItem('userData')
+          const cachedData = sessionStorage.getItem("userData")
           if (cachedData) {
             const parsedData = JSON.parse(cachedData)
             parsedData.photoURL = event.detail.photoURL
-            sessionStorage.setItem('userData', JSON.stringify(parsedData))
+            sessionStorage.setItem("userData", JSON.stringify(parsedData))
           }
         } catch (e) {
           console.error("Failed to update cached user data", e)
@@ -145,6 +147,10 @@ export function DashboardHeader({ title }: HeaderProps) {
   const handleMarkAsRead = () => {
     setNotifications([])
     setShowNotifications(false)
+  }
+
+  const navigateToProfile = () => {
+    router.push("/customer/dashboard/profile")
   }
 
   if (isLoading && !lastPhotoURL) {
@@ -231,13 +237,14 @@ export function DashboardHeader({ title }: HeaderProps) {
             )}
           </div>
 
-          <div key={user.photoURL || 'default'} className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-[#3579b8]/20">
+          <div
+            key={user.photoURL || "default"}
+            className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-[#3579b8]/20 cursor-pointer hover:border-[#3579b8]/50 transition-colors"
+            onClick={navigateToProfile}
+            title="Go to profile"
+          >
             {user.photoURL ? (
-              <img 
-                src={user.photoURL} 
-                alt="Profile" 
-                className="h-full w-full object-cover"
-              />
+              <img src={user.photoURL || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
             ) : (
               <LucideUser className="h-5 w-5 text-gray-400" />
             )}
