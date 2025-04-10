@@ -144,9 +144,17 @@ export function AddServiceDialog({
   const [selectedServices, setSelectedServices] = React.useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null)
 
-  // Format service names to match the format used in the existingServices array
+  // Improved normalize function for more consistent comparison
   const normalizeServiceName = (service: string) => {
-    return service.toUpperCase().replace(/_/g, " ");
+    return service.trim().toUpperCase().replace(/_/g, " ");
+  }
+
+  // Improved check if a service already exists - handles case and format differences
+  const isServiceExisting = (serviceId: string) => {
+    const normalizedServiceId = normalizeServiceName(serviceId);
+    return existingServices.some(existingService => 
+      normalizeServiceName(existingService) === normalizedServiceId
+    );
   }
 
   // Get selected count per category
@@ -160,11 +168,9 @@ export function AddServiceDialog({
   }
 
   const handleServiceSelection = (serviceId: string, checked: boolean) => {
-    const normalizedServiceId = normalizeServiceName(serviceId);
-    
     if (checked) {
-      // Check if service already exists in existing services
-      if (existingServices.includes(normalizedServiceId)) {
+      // Check if service already exists in existing services with improved comparison
+      if (isServiceExisting(serviceId)) {
         // Use toast if available, or fallback to alert
         if (typeof toast === 'function') {
           toast({
@@ -185,11 +191,8 @@ export function AddServiceDialog({
   }
 
   const handleConfirm = () => {
-    // Additional check before confirming
-    const normalizedSelected = selectedServices.map(normalizeServiceName);
-    const duplicates = normalizedSelected.filter((service) => 
-      existingServices.includes(service)
-    );
+    // Additional check before confirming with improved comparison
+    const duplicates = selectedServices.filter(serviceId => isServiceExisting(serviceId));
 
     if (duplicates.length > 0) {
       // Use toast if available, or fallback to alert
@@ -257,8 +260,7 @@ export function AddServiceDialog({
               {getServicesForCategory(selectedCategory).map((service) => {
                 if (!service) return null;
                 
-                const normalizedServiceName = normalizeServiceName(service.id);
-                const isExisting = existingServices.includes(normalizedServiceName);
+                const isExisting = isServiceExisting(service.id);
                 
                 return (
                   <div key={service.id} className="flex items-center space-x-2">
