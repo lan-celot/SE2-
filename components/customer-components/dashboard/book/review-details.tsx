@@ -1,3 +1,4 @@
+// ReviewDetails component with region support added
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/customer-components/ui/button";
 import { db, auth } from "@/lib/firebase";
@@ -31,6 +32,7 @@ interface FormData {
   streetAddress: string;
   city: string;
   province: string;
+  region: string; // Added region field
   zipCode: string;
   
   // Reservation information
@@ -79,7 +81,7 @@ export function ReviewDetails({
   const handleSubmit = async () => {
     if (isSubmitting || isSubmittingLocal) return;
     setIsSubmittingLocal(true);
-
+  
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -87,44 +89,55 @@ export function ReviewDetails({
         setIsSubmittingLocal(false);
         return;
       }
-
+  
       const reservationDate = new Date(formData.reservationDate);
       const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
       const formattedDate = reservationDate.toLocaleDateString('en-CA', options);
-
+  
       const displayCarModel = getDisplayCarModel(formData.carBrand, formData.carModel);
-
+  
       const bookingId = `${user.uid}_${formattedDate}`;
       const bookingRef = doc(db, "bookings", bookingId);
-
+  
       await runTransaction(db, async (transaction) => {
         const existingDoc = await transaction.get(bookingRef);
-
+  
         if (existingDoc.exists()) {
           throw new Error("You already have a reservation for this date.");
         }
-
+  
         const now = new Date();
         const createdDateTime = formatTime(now);
         const normalizedDate = normalizeDate(formData.reservationDate);
-
+  
         // Handle the "need help" scenario by merging helpDescription into specificIssues if needed
         const finalSpecificIssues = formData.needHelp && formData.helpDescription
           ? `${formData.specificIssues || ''}\n\nCustomer needs help: ${formData.helpDescription}`
           : formData.specificIssues;
-
+  
+        // Create service objects for the services array
+        const serviceObjects = (formData.services || []).map((service) => ({
+          service,
+          mechanic: "TO BE ASSIGNED",
+          status: "Confirmed",
+          created: normalizedDate,
+          createdTime: createdDateTime,
+          reservationDate: normalizedDate,
+          serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+        }));
+  
         const bookingData = {
           userId: user.uid,
           carBrand: formData.carBrand,
           carModel: displayCarModel,
           yearModel: formData.yearModel,
-          plateNumber: formData.plateNumber, // Added plateNumber
+          plateNumber: formData.plateNumber,
           transmission: formData.transmission,
           fuelType: formData.fuelType,
           odometer: formData.odometer,
           reservationDate: formattedDate,
           status: "PENDING",
-          services: formData.services || [], // Changed from generalServices
+          services: serviceObjects, // Store the service objects directly in services
           specificIssues: finalSpecificIssues,
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -132,29 +145,21 @@ export function ReviewDetails({
           gender: formData.gender,
           phoneNumber: formData.phoneNumber,
           dateOfBirth: formData.dateOfBirth,
-          address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
+          address: `${formData.streetAddress}, ${formData.city}, ${formData.province}, ${formData.region} ${formData.zipCode}`,
+          region: formData.region,
           completionDate: "Pending",
-          serviceDetails: (formData.services || []).map((service) => ({
-            service,
-            mechanic: "TO BE ASSIGNED",
-            status: "Confirmed",
-            created: normalizedDate,
-            createdTime: createdDateTime,
-            reservationDate: normalizedDate,
-            serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
-          })),
-          needsAssistance: formData.needHelp || false, // Added needHelp flag
+          needsAssistance: formData.needHelp || false,
           createdAt: createdDateTime,
           lastUpdated: now.toISOString()
         };
-
+  
         transaction.set(bookingRef, bookingData);
-
+  
         // Add the booking to the user's subcollection
         const userBookingsRef = doc(collection(db, `users/${user.uid}/bookings`), bookingId);
         transaction.set(userBookingsRef, bookingData);
       });
-
+  
       setSubmissionSuccess(true);
     } catch (error: any) {
       console.error("Error submitting reservation:", error);
@@ -201,7 +206,7 @@ export function ReviewDetails({
         </div>
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Address</p>
-          <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
+          <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province}, ${formData.region} ${formData.zipCode}`}</p>
         </div>
         
         {/* Reservation & Vehicle Information */}
