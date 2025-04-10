@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     notificationapi.send({
       notificationId: "approve_booking",
       user: {
-        id: body.userEmail,
+        id: "user1"
       },
       mergeTags: {
         comment: body.comment,

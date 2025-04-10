@@ -456,15 +456,14 @@ export default function ReservationsPage() {
     }
   };
 
-  const sendNotification = async (status: string, userCar: string, userEmail: string) => {
+  const sendNotification = async (status: string, userCar: string) => {
     const res = await fetch("/api/admin-approve-notification", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        comment: `${userCar} is ${status}`,
-        userEmail
+        comment: `${userCar} is ${status}`
       }),
     });
   };
@@ -493,13 +492,11 @@ export default function ReservationsPage() {
       const userDocSnap = await getDoc(userDocRef);
 
       let userCar = "Unknown";
-      let userEmail = "Unknown";
 
       if (userDocSnap.exists()) {
         const userDocData = userDocSnap.data();
         if (userDocData && typeof userDocData.carModel === "string") {
           userCar = userDocData.carModel;
-          userEmail = userDocData.email;
         }
       }
 
@@ -518,7 +515,7 @@ export default function ReservationsPage() {
         )
       );
 
-      sendNotification(statusMessage, userCar, userEmail);
+      sendNotification(statusMessage, userCar);
 
       // Show success message
       setShowSuccessMessage(`Status changed to ${statusMessage}`);
