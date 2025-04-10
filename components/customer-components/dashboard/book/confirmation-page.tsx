@@ -1,10 +1,11 @@
+// ConfirmationPage component with region support added
 "use client";
 
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/customer-components/ui/button"
 import { useEffect, useState } from "react"
 import { db, auth } from "@/lib/firebase"
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore"
 
 // Updated to match Firestore document structure
 interface BookingData {
@@ -13,6 +14,7 @@ interface BookingData {
   carModel?: string;
   reservationDate?: string;
   userId?: string;
+  region?: string; // Added region field
 }
 
 interface ConfirmationPageProps {
@@ -51,6 +53,13 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
           if (bookingSnap.exists()) {
             console.log("Found booking with ID:", bookingSnap.id);
             setReservationId(bookingSnap.id);
+            
+            // Check if we need to update the services format
+            const bookingData = bookingSnap.data();
+            if (formData.services || formData.generalServices) {
+              // Format services to match the expected format in ReservationsTable
+              await updateServicesFormat(bookingSnap.id, bookingData, formData);
+            }
           } else {
             console.log("Booking document not found with ID:", bookingId);
             setError("Booking not found");
@@ -85,7 +94,8 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
               createdAt: data.createdAt,
               carModel: data.carModel,
               reservationDate: data.reservationDate,
-              userId: data.userId
+              userId: data.userId,
+              region: data.region // Added region field
             };
           });
           
@@ -120,7 +130,8 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
             id: b.id,
             createdAt: b.createdAt ? (typeof b.createdAt === 'object' ? 'timestamp' : b.createdAt) : 'undefined',
             carModel: b.carModel || 'undefined',
-            reservationDate: b.reservationDate || 'undefined'
+            reservationDate: b.reservationDate || 'undefined',
+            region: b.region || 'undefined' // Added region for debugging
           })));
           
           // Take the most recent booking regardless of other criteria
@@ -128,6 +139,18 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
             const mostRecentBooking = allBookings[0];
             console.log("Using most recent booking:", mostRecentBooking.id);
             setReservationId(mostRecentBooking.id);
+            
+            // Get the full booking data
+            const bookingRef = doc(db, "bookings", mostRecentBooking.id);
+            const bookingSnap = await getDoc(bookingRef);
+            
+            if (bookingSnap.exists()) {
+              const bookingData = bookingSnap.data();
+              // Format services to match the expected format in ReservationsTable
+              if (formData.services || formData.generalServices) {
+                await updateServicesFormat(mostRecentBooking.id, bookingData, formData);
+              }
+            }
           } else {
             setError("No bookings available");
           }
@@ -145,6 +168,52 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
 
     fetchReservationId();
   }, [bookingId, formData]);
+
+  // New function to update services format to match ReservationsTable expectations
+  const updateServicesFormat = async (bookingId: string, bookingData: any, formData: any) => {
+    try {
+      // Get services from either formData.services or formData.generalServices
+      const servicesList = formData.services || formData.generalServices || [];
+      if (!servicesList.length) return;
+      
+      // Format the services to match the format expected by ReservationsTable
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
+      const createdDate = now.toLocaleDateString('en-CA', options);
+      const createdTime = now.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+
+      // Check if bookingData already has a services array
+      const existingServices = Array.isArray(bookingData.services) ? bookingData.services : [];
+      
+      // Create properly formatted services
+      const formattedServices = servicesList.map((service: string) => ({
+        mechanic: "TO BE ASSIGNED",
+        service: service.split("_").join(" ").toUpperCase(), // Format to match what's shown in the UI
+        status: "Confirmed",
+        created: createdDate,
+        createdTime: createdTime,
+        reservationDate: bookingData.reservationDate,
+        serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+      }));
+      
+      // Update the booking with properly formatted services
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, {
+        services: [...existingServices, ...formattedServices],
+        status: bookingData.status || "CONFIRMED" // Ensure status is set
+      });
+      
+      console.log("Updated booking services to match expected format");
+    } catch (error) {
+      console.error("Error updating services format:", error);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,11 +273,21 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
         <div className="space-y-2">
           <p className="text-sm text-gray-500">General Services</p>
           <div className="flex flex-wrap gap-2">
-            {formData.generalServices.map((service: string) => (
-              <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
-                {service.split("_").join(" ").toUpperCase()}
-              </span>
-            ))}
+            {formData.services ? (
+              formData.services.map((service: string) => (
+                <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
+                  {service.split("_").join(" ").toUpperCase()}
+                </span>
+              ))
+            ) : formData.generalServices ? (
+              formData.generalServices.map((service: string) => (
+                <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
+                  {service.split("_").join(" ").toUpperCase()}
+                </span>
+              ))
+            ) : (
+              <span className="text-gray-500">No services selected</span>
+            )}
           </div>
         </div>
 

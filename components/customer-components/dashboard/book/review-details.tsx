@@ -1,3 +1,4 @@
+// ReviewDetails component with region support added
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/customer-components/ui/button";
 import { db, auth } from "@/lib/firebase";
@@ -6,23 +7,36 @@ import { useRouter } from "next/navigation";
 import notificationapi from 'notificationapi-node-server-sdk'
 
 interface FormData {
+  // Car details
   carBrand: string;
+  carModel: string;
+  yearModel: string;
+  plateNumber: string;
+  transmission: string;
+  fuelType: string;
+  odometer: string;
+  
+  // Services information
+  services: string[]; // Changed from generalServices for consistency
+  specificIssues: string;
+  needHelp?: boolean;
+  helpDescription?: string;
+  
+  // Personal information
   firstName: string;
   lastName: string;
   gender: string;
   phoneNumber: string;
   dateOfBirth: string;
+  
+  // Address information
   streetAddress: string;
   city: string;
   province: string;
+  region: string; // Added region field
   zipCode: string;
-  carModel: string;
-  yearModel: string;
-  transmission: string;
-  fuelType: string;
-  odometer: string;
-  generalServices: string[];
-  specificIssues: string;
+  
+  // Reservation information
   reservationDate: string;
 }
 
@@ -31,7 +45,6 @@ interface ReviewDetailsProps {
   onSubmit: () => void;
   onBack: () => void;
   isSubmitting: boolean;
-  canModifyServices?: () => boolean;
 }
 
 export function ReviewDetails({
@@ -91,7 +104,7 @@ export function ReviewDetails({
   const handleSubmit = async () => {
     if (isSubmitting || isSubmittingLocal) return;
     setIsSubmittingLocal(true);
-
+  
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -99,67 +112,78 @@ export function ReviewDetails({
         setIsSubmittingLocal(false);
         return;
       }
-
+  
       const reservationDate = new Date(formData.reservationDate);
       const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
       const formattedDate = reservationDate.toLocaleDateString('en-CA', options);
-
+  
       const displayCarModel = getDisplayCarModel(formData.carBrand, formData.carModel);
-
+  
       const bookingId = `${user.uid}_${formattedDate}`;
       const bookingRef = doc(db, "bookings", bookingId);
-
+  
       await runTransaction(db, async (transaction) => {
         const existingDoc = await transaction.get(bookingRef);
-
+  
         if (existingDoc.exists()) {
           throw new Error("You already have a reservation for this date.");
         }
-
+  
         const now = new Date();
         const createdDateTime = formatTime(now);
         const normalizedDate = normalizeDate(formData.reservationDate);
-
+  
+        // Handle the "need help" scenario by merging helpDescription into specificIssues if needed
+        const finalSpecificIssues = formData.needHelp && formData.helpDescription
+          ? `${formData.specificIssues || ''}\n\nCustomer needs help: ${formData.helpDescription}`
+          : formData.specificIssues;
+  
+        // Create service objects for the services array
+        const serviceObjects = (formData.services || []).map((service) => ({
+          service,
+          mechanic: "TO BE ASSIGNED",
+          status: "Confirmed",
+          created: normalizedDate,
+          createdTime: createdDateTime,
+          reservationDate: normalizedDate,
+          serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+        }));
+  
         const bookingData = {
           userId: user.uid,
           carBrand: formData.carBrand,
           carModel: displayCarModel,
           yearModel: formData.yearModel,
+          plateNumber: formData.plateNumber,
           transmission: formData.transmission,
           fuelType: formData.fuelType,
           odometer: formData.odometer,
           reservationDate: formattedDate,
           status: "PENDING",
-          generalServices: formData.generalServices || [],
-          specificIssues: formData.specificIssues,
+          services: serviceObjects, // Store the service objects directly in services
+          specificIssues: finalSpecificIssues,
           firstName: formData.firstName,
           lastName: formData.lastName,
           fullName: `${formData.firstName} ${formData.lastName}`,
           gender: formData.gender,
           phoneNumber: formData.phoneNumber,
           dateOfBirth: formData.dateOfBirth,
-          address: `${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`,
+          address: `${formData.streetAddress}, ${formData.city}, ${formData.province}, ${formData.region} ${formData.zipCode}`,
+          region: formData.region,
           completionDate: "Pending",
-          services: (formData.generalServices || []).map((service) => ({
-            service,
-            mechanic: "TO BE ASSIGNED",
-            status: "Confirmed",
-            created: normalizedDate,
-            createdTime: createdDateTime,
-            reservationDate: normalizedDate,
-            serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
-          })),
+          needsAssistance: formData.needHelp || false,
           createdAt: createdDateTime,
           lastUpdated: now.toISOString()
         };
-
+  
         transaction.set(bookingRef, bookingData);
-
+  
         // Add the booking to the user's subcollection
         const userBookingsRef = doc(collection(db, `accounts/${user.uid}/bookings`), bookingId);
         transaction.set(userBookingsRef, bookingData);
         
       });
+  
       setSubmissionSuccess(true);
       //calls the notification function
       sendNotification();
@@ -185,6 +209,7 @@ export function ReviewDetails({
     <div className="p-4 bg-white rounded-lg shadow-md">
       <h2 className="text-xl font-bold mb-4">Review Your Booking</h2>
       <div className="space-y-4">
+        {/* Personal Information */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Name</p>
@@ -207,8 +232,10 @@ export function ReviewDetails({
         </div>
         <div className="space-y-2">
           <p className="text-sm text-gray-500">Address</p>
-          <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province} ${formData.zipCode}`}</p>
+          <p className="font-medium">{`${formData.streetAddress}, ${formData.city}, ${formData.province}, ${formData.region} ${formData.zipCode}`}</p>
         </div>
+        
+        {/* Reservation & Vehicle Information */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <p className="text-sm text-gray-500">Reservation Date</p>
@@ -231,37 +258,63 @@ export function ReviewDetails({
             <p className="font-medium">{formData.yearModel}</p>
           </div>
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">Transmission</p>
-            <p className="font-medium">{formData.transmission}</p>
+            <p className="text-sm text-gray-500">Plate Number</p>
+            <p className="font-medium">{formData.plateNumber}</p>
           </div>
         </div>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
+            <p className="text-sm text-gray-500">Transmission</p>
+            <p className="font-medium">{formData.transmission}</p>
+          </div>
+          <div className="space-y-2">
             <p className="text-sm text-gray-500">Fuel Type</p>
             <p className="font-medium">{formData.fuelType}</p>
           </div>
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500">Odometer</p>
-            <p className="font-medium">{formData.odometer}</p>
-          </div>
         </div>
         <div className="space-y-2">
-          <p className="text-sm text-gray-500">General Services</p>
+          <p className="text-sm text-gray-500">Odometer</p>
+          <p className="font-medium">{formData.odometer}</p>
+        </div>
+        
+        {/* Services Information */}
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500">Services</p>
           <div className="flex flex-wrap gap-2">
-            {(formData.generalServices || []).map((service: string) => (
-              <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
-                {(service || "").split("_").join(" ").toUpperCase()}
+            {formData.needHelp ? (
+              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-md text-sm">
+                Customer needs assistance identifying services
               </span>
-            ))}
+            ) : (formData.services || []).length > 0 ? (
+              (formData.services || []).map((service: string) => (
+                <span key={service} className="px-2 py-1 bg-[#ebf8ff] text-[#1e4e8c] rounded-md text-sm">
+                  {service.split("_").join(" ")}
+                </span>
+              ))
+            ) : (
+              <span className="text-gray-500">No services selected</span>
+            )}
           </div>
         </div>
-        {formData.specificIssues && (
+        
+        {/* Issues Description */}
+        {(formData.specificIssues || formData.helpDescription) && (
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">Specific Issues</p>
+            <p className="text-sm text-gray-500">
+              {formData.needHelp ? "Customer Description" : "Specific Issues"}
+            </p>
             <p className="text-sm">{formData.specificIssues}</p>
+            
+            {formData.needHelp && formData.helpDescription && (
+              <>
+                <p className="text-sm text-gray-500 mt-2">Additional Help Description</p>
+                <p className="text-sm">{formData.helpDescription}</p>
+              </>
+            )}
           </div>
         )}
       </div>
+      
       <div className="flex justify-between mt-6">
         <Button type="button" variant="outline" onClick={onBack} className="border-[#1e4e8c] text-[#1e4e8c]">
           Back
@@ -277,4 +330,3 @@ export function ReviewDetails({
     </div>
   );
 }
-
