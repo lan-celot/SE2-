@@ -7,10 +7,11 @@ import { Textarea } from "@/components/customer-components/ui/textarea"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/customer-components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/customer-components/ui/select"
 import { Checkbox } from "@/components/customer-components/ui/checkbox"
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 
 // Import car database
-import { getCarBrands, getModelsByBrand, getYearsByModel } from "@/components/customer-components/dashboard/book/carDatabase.js"
+import { getCarBrands, getModelsByBrand, getYearsByModel } from "@/components/customer-components/dashboard/book/carDatabase"
+import { AddCarDialog } from "@/components/customer-components/dashboard/book/addcardialog"
 
 const formSchema = z.object({
   carBrand: z.string().min(1, "Car brand is required"),
@@ -18,7 +19,8 @@ const formSchema = z.object({
   yearModel: z.string().min(1, "Year model is required"),
   plateNumber: z.string()
     .min(1, "Plate number is required")
-    .regex(/^([A-Za-z]{3}\d{3,4}|[A-Za-z]{2}\d{4,5}|[A-Za-z]{1}\d{4,5}|[A-Za-z]{3}\d{3}[A-Za-z]{1})$/, 
+    .max(8, "Plate number must not exceed 8 characters") // Set a maximum length of 8 characters
+    .regex(/^([A-Za-z]{3}\d{3,4}|[A-Za-z]{2}\d{4,5}|[A-Za-z]{1}\d{4,5}|[A-Za-z]{3}\d{3}[A-Za-z]{1})$/,
       "Enter a valid Philippine plate number (e.g., ABC1234, AB1234, A1234, ABC123A)"),
   transmission: z.string().min(1, "Transmission is required"),
   fuelType: z.string().min(1, "Fuel type is required"),
@@ -30,7 +32,8 @@ const formSchema = z.object({
   specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
   needHelp: z.boolean().optional(),
   helpDescription: z.string().optional().refine(() => true),
-})
+});
+
 
 // Constants
 const transmissionTypes = ["Automatic", "Manual", "CVT", "Semi-automatic", "Dual-clutch"]
@@ -146,6 +149,15 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const [showModelDropdown, setShowModelDropdown] = useState(false)
   const [showYearDropdown, setShowYearDropdown] = useState(false)
 
+  // Refs for detecting clicks outside
+  const brandDropdownRef = useRef<HTMLDivElement>(null)
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
+  const yearDropdownRef = useRef<HTMLDivElement>(null)
+
+  // State for showing add car dialog
+  const [showAddCarDialog, setShowAddCarDialog] = useState(false)
+  const [addCarType, setAddCarType] = useState<"brand" | "model" | "year">("brand")
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -173,6 +185,29 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const transmission = form.watch("transmission")
   const fuelType = form.watch("fuelType")
   const odometer = form.watch("odometer")
+
+  // Handle clicks outside dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      // Handle brand dropdown
+      if (brandDropdownRef.current && !brandDropdownRef.current.contains(event.target as Node)) {
+        setShowBrandDropdown(false)
+      }
+      // Handle model dropdown
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setShowModelDropdown(false)
+      }
+      // Handle year dropdown
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target as Node)) {
+        setShowYearDropdown(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
 
   // Memoized values
   const characterCount = useMemo(() => specificIssues?.length || 0, [specificIssues])
@@ -217,35 +252,64 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     return [...getYearsByModel(selectedBrand, selectedModel)].sort((a, b) => b - a)
   }, [selectedBrand, selectedModel])
 
-  // Filtered lists for searchable dropdowns - memoized to prevent recalculation
+  // Filter lists with max 5 items visible at once (scrollable)
   const filteredBrands = useMemo(() => {
-    if (brandSearchText.trim() === '') return []
-    return carBrands
-      .filter(brand => brand.toLowerCase().includes(brandSearchText.toLowerCase()))
-      .slice(0, 5)
-  }, [carBrands, brandSearchText])
+    if (showBrandDropdown) {
+      if (brandSearchText.trim() === '') {
+        return carBrands // Show all brands but only 5 visible at once (rest are scrollable)
+      }
+      return carBrands
+        .filter(brand => brand.toLowerCase().includes(brandSearchText.toLowerCase()))
+    }
+    return []
+  }, [carBrands, brandSearchText, showBrandDropdown])
 
   const filteredModels = useMemo(() => {
-    if (modelSearchText.trim() === '') return []
-    return availableModels
-      .filter((model: string) => model.toLowerCase().includes(modelSearchText.toLowerCase()))
-      .slice(0, 5)
-  }, [availableModels, modelSearchText])
+    if (showModelDropdown) {
+      if (modelSearchText.trim() === '') {
+        return availableModels // Show all models but only 5 visible at once (rest are scrollable)
+      }
+      return availableModels
+        .filter((model: string) => model.toLowerCase().includes(modelSearchText.toLowerCase()))
+    }
+    return []
+  }, [availableModels, modelSearchText, showModelDropdown])
 
   const filteredYears = useMemo(() => {
-    if (yearSearchText.trim() === '') return []
-    return availableYears
-      .filter((year: number) => year.toString().includes(yearSearchText))
-      .slice(0, 5)
-  }, [availableYears, yearSearchText])
+    if (showYearDropdown) {
+      if (yearSearchText.trim() === '') {
+        return availableYears // Show all years but only 5 visible at once (rest are scrollable)
+      }
+      return availableYears
+        .filter((year: number) => year.toString().includes(yearSearchText))
+    }
+    return []
+  }, [availableYears, yearSearchText, showYearDropdown])
 
   // Reset dependent fields when parent fields change
   useEffect(() => {
-    if (selectedBrand && !availableModels.includes(form.getValues("carModel"))) {
-      form.setValue("carModel", "", { shouldValidate: false })
-      form.setValue("yearModel", "", { shouldValidate: false })
+    if (selectedBrand) {
+      // Reset car model and year model when brand changes
+      if (!availableModels.includes(form.getValues("carModel"))) {
+        form.setValue("carModel", "", { shouldValidate: false })
+        form.setValue("yearModel", "", { shouldValidate: false })
+        setModelSearchText("")
+        setYearSearchText("")
+      }
     }
   }, [selectedBrand, availableModels, form])
+
+  // Reset year model when car model changes
+  useEffect(() => {
+    if (selectedModel) {
+      // Reset year model when model changes
+      const currentYear = form.getValues("yearModel")
+      if (currentYear && !availableYears.includes(parseInt(currentYear))) {
+        form.setValue("yearModel", "", { shouldValidate: false })
+        setYearSearchText("")
+      }
+    }
+  }, [selectedModel, availableYears, form])
 
   // Update validation schema based on needHelp
   useEffect(() => {
@@ -297,6 +361,11 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const handleBrandSelect = useCallback((brand: string) => {
     form.setValue("carBrand", brand, { shouldValidate: true })
     setBrandSearchText(brand)
+    // Reset car model and year model when brand changes
+    form.setValue("carModel", "", { shouldValidate: false })
+    form.setValue("yearModel", "", { shouldValidate: false })
+    setModelSearchText("")
+    setYearSearchText("")
     setShowBrandDropdown(false)
   }, [form])
 
@@ -304,6 +373,9 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const handleModelSelect = useCallback((model: string) => {
     form.setValue("carModel", model, { shouldValidate: true })
     setModelSearchText(model)
+    // Reset year model when model changes
+    form.setValue("yearModel", "", { shouldValidate: false })
+    setYearSearchText("")
     setShowModelDropdown(false)
   }, [form])
 
@@ -316,56 +388,64 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
 
   // Toggle dropdowns with memoized callbacks
   const toggleBrandDropdown = useCallback(() => {
-    setShowBrandDropdown(prevState => {
-      if (!prevState && brandSearchText.trim() === '') {
-        const brands = getCarBrands().slice(0, 5)
-        return brands.length > 0
-      }
-      return !prevState
-    })
-  }, [brandSearchText])
+    setShowBrandDropdown(prevState => !prevState)
+    if (!showBrandDropdown) {
+      setBrandSearchText("")
+    }
+  }, [showBrandDropdown])
 
   const toggleModelDropdown = useCallback(() => {
     if (!selectedBrand) return
-    setShowModelDropdown(prevState => {
-      if (!prevState && modelSearchText.trim() === '') {
-        const models = getModelsByBrand(selectedBrand).slice(0, 5)
-        return models.length > 0
-      }
-      return !prevState
-    })
-  }, [selectedBrand, modelSearchText])
+    setShowModelDropdown(prevState => !prevState)
+    if (!showModelDropdown) {
+      setModelSearchText("")
+    }
+  }, [selectedBrand, showModelDropdown])
 
   const toggleYearDropdown = useCallback(() => {
     if (!selectedModel) return
-    setShowYearDropdown(prevState => {
-      if (!prevState && yearSearchText.trim() === '') {
-        const years = [...getYearsByModel(selectedBrand, selectedModel)]
-          .sort((a, b) => b - a)
-          .slice(0, 5)
-        return years.length > 0
-      }
-      return !prevState
-    })
-  }, [selectedBrand, selectedModel, yearSearchText])
+    setShowYearDropdown(prevState => !prevState)
+    if (!showYearDropdown) {
+      setYearSearchText("")
+    }
+  }, [selectedBrand, selectedModel, showYearDropdown])
 
   // Handle brand search input changes
   const handleBrandSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setBrandSearchText(e.target.value)
-    setShowBrandDropdown(e.target.value.trim() !== '')
+    setShowBrandDropdown(true)
   }, [])
 
   // Handle model search input changes
   const handleModelSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setModelSearchText(e.target.value)
-    setShowModelDropdown(e.target.value.trim() !== '')
+    setShowModelDropdown(true)
   }, [])
 
   // Handle year search input changes
   const handleYearSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setYearSearchText(e.target.value)
-    setShowYearDropdown(e.target.value.trim() !== '')
+    setShowYearDropdown(true)
   }, [])
+
+  // Handle "Add new" button click
+  const handleAddNew = useCallback((type: "brand" | "model" | "year") => {
+    setAddCarType(type)
+    setShowAddCarDialog(true)
+  }, [])
+
+  // Handle success after adding new car data
+  const handleAddCarSuccess = useCallback(() => {
+    // Since we can't directly update the car database, we'll just notify the user
+    // In a real implementation, we would refresh the data from the database
+    
+    // Close the dialog
+    setShowAddCarDialog(false)
+    
+    // Show a message or take appropriate action
+    alert("Car data added successfully! Please refresh to see updated data.")
+    
+  }, [addCarType, selectedBrand, selectedModel])
 
   // Custom form submission handler
   const handleSubmit = useCallback((data: FormData) => {
@@ -503,20 +583,14 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   name="carBrand"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="relative">
+                      <div className="relative" ref={brandDropdownRef}>
                         <input
                           type="text"
                           placeholder="Car Brand"
                           className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background"
                           value={brandSearchText}
                           onChange={handleBrandSearchChange}
-                          onFocus={() => {
-                            if (brandSearchText.trim() !== '') {
-                              setShowBrandDropdown(true)
-                            } else {
-                              toggleBrandDropdown()
-                            }
-                          }}
+                          onFocus={() => setShowBrandDropdown(true)}
                         />
                         <div 
                           className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
@@ -526,27 +600,30 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         </div>
                         {showBrandDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {brandSearchText.trim() === '' 
-                              ? carBrands.slice(0, 5).map((brand) => (
+                            {filteredBrands.length > 0 
+                              ? filteredBrands.map((brand) => (
                                   <div
                                     key={brand}
-                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center"
                                     onClick={() => handleBrandSelect(brand)}
                                   >
-                                    {brand}
+                                    <span>{brand}</span>
+                                    {selectedBrand === brand && <span className="text-blue-800">✓</span>}
                                   </div>
                                 ))
-                              : filteredBrands.length > 0 
-                                ? filteredBrands.map((brand) => (
-                                    <div
-                                      key={brand}
-                                      className="px-3 py-2 cursor-pointer hover:bg-blue-50"
-                                      onClick={() => handleBrandSelect(brand)}
-                                    >
-                                      {brand}
-                                    </div>
-                                  ))
-                                : <div className="px-3 py-2 text-gray-500">No brands found</div>
+                              : (
+                                <div className="p-3 space-y-2">
+                                  <div className="text-gray-500">Car brand not found</div>
+                                  <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
+                                    onClick={() => handleAddNew("brand")}
+                                  >
+                                    Add New Brand
+                                  </Button>
+                                </div>
+                              )
                             }
                           </div>
                         )}
@@ -562,7 +639,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   name="carModel"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="relative">
+                      <div className="relative" ref={modelDropdownRef}>
                         <input
                           type="text"
                           placeholder="Car Model"
@@ -570,10 +647,8 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           value={modelSearchText}
                           onChange={handleModelSearchChange}
                           onFocus={() => {
-                            if (modelSearchText.trim() !== '') {
+                            if (selectedBrand) {
                               setShowModelDropdown(true)
-                            } else if (selectedBrand) {
-                              toggleModelDropdown()
                             }
                           }}
                           disabled={!selectedBrand}
@@ -586,27 +661,30 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         </div>
                         {showModelDropdown && selectedBrand && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {modelSearchText.trim() === ''
-                              ? availableModels.slice(0, 5).map((model: string) => (
+                            {filteredModels.length > 0 
+                              ? filteredModels.map((model: string) => (
                                   <div
                                     key={model}
-                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center"
                                     onClick={() => handleModelSelect(model)}
                                   >
-                                    {model}
+                                    <span>{model}</span>
+                                    {selectedModel === model && <span className="text-blue-800">✓</span>}
                                   </div>
                                 ))
-                              : filteredModels.length > 0 
-                                ? filteredModels.map((model: string) => (
-                                    <div
-                                      key={model}
-                                      className="px-3 py-2 cursor-pointer hover:bg-blue-50"
-                                      onClick={() => handleModelSelect(model)}
-                                    >
-                                      {model}
-                                    </div>
-                                  ))
-                                : <div className="px-3 py-2 text-gray-500">No models found</div>
+                              : (
+                                <div className="p-3 space-y-2">
+                                  <div className="text-gray-500">Car model not found</div>
+                                  <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
+                                    onClick={() => handleAddNew("model")}
+                                  >
+                                    Add New Model
+                                  </Button>
+                                </div>
+                              )
                             }
                           </div>
                         )}
@@ -624,7 +702,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   name="yearModel"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="relative">
+                      <div className="relative" ref={yearDropdownRef}>
                         <input
                           type="text"
                           placeholder="Year Model"
@@ -632,10 +710,8 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           value={yearSearchText}
                           onChange={handleYearSearchChange}
                           onFocus={() => {
-                            if (yearSearchText.trim() !== '') {
+                            if (selectedModel) {
                               setShowYearDropdown(true)
-                            } else if (selectedModel) {
-                              toggleYearDropdown()
                             }
                           }}
                           disabled={!selectedModel}
@@ -648,27 +724,30 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         </div>
                         {showYearDropdown && selectedModel && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {yearSearchText.trim() === ''
-                              ? availableYears.slice(0, 5).map((year: number) => (
+                            {filteredYears.length > 0 
+                              ? filteredYears.map((year: number) => (
                                   <div
                                     key={year}
-                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center"
                                     onClick={() => handleYearSelect(year)}
                                   >
-                                    {year}
+                                    <span>{year}</span>
+                                    {form.getValues("yearModel") === year.toString() && <span className="text-blue-800">✓</span>}
                                   </div>
                                 ))
-                              : filteredYears.length > 0 
-                                ? filteredYears.map((year: number) => (
-                                    <div
-                                      key={year}
-                                      className="px-3 py-2 cursor-pointer hover:bg-blue-50"
-                                      onClick={() => handleYearSelect(year)}
-                                    >
-                                      {year}
-                                    </div>
-                                  ))
-                                : <div className="px-3 py-2 text-gray-500">No years found</div>
+                              : (
+                                <div className="p-3 space-y-2">
+                                  <div className="text-gray-500">Year model not found</div>
+                                  <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
+                                    onClick={() => handleAddNew("year")}
+                                  >
+                                    Add New Year
+                                  </Button>
+                                </div>
+                              )
                             }
                           </div>
                         )}
@@ -702,10 +781,10 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   control={form.control}
                   name="transmission"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="h-10">
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10 text-base">
                             <SelectValue placeholder="Transmission" />
                           </SelectTrigger>
                         </FormControl>
@@ -726,10 +805,10 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   control={form.control}
                   name="fuelType"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="h-10">
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10 text-base">
                             <SelectValue placeholder="Fuel Type" />
                           </SelectTrigger>
                         </FormControl>
@@ -750,10 +829,10 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   control={form.control}
                   name="odometer"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="h-10">
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10 text-base">
                             <SelectValue placeholder="Odometer" />
                           </SelectTrigger>
                         </FormControl>
@@ -942,6 +1021,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
               )}
             </>
           )}
+
   
           {/* Form Controls */}
           <div className="flex justify-between pt-4">
