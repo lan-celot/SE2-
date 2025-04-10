@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { Button } from "@/components/admin-components/button"
 import Cookies from "js-cookie"
-import { NotificationAPIProvider, NotificationPopup } from '@notificationapi/react';
+import { NotificationAPIProvider, NotificationPopup } from "@notificationapi/react"
 
 interface HeaderProps {
   title?: string
@@ -43,6 +41,9 @@ export function DashboardHeader({ title }: HeaderProps) {
     return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date).toUpperCase()
   }
 
+  // Ensure client ID isn't empty
+  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || ""
+  
   return (
     <header className="bg-[#EBF8FF] pt-1">
       <div className="flex justify-between items-center px-6 py-2">
@@ -60,12 +61,15 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative">
-              <NotificationAPIProvider
-              userId="admin1"
-              clientId="owvp6sijxsgcijmqlu69gzfgcs"
-              >
-              <NotificationPopup/>
+            {clientId ? (
+              <NotificationAPIProvider userId="admin1" clientId={clientId}>
+                <NotificationPopup />
               </NotificationAPIProvider>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                <span className="text-xs text-gray-500">?</span>
+              </div>
+            )}
           </div>
 
           <div className="h-8 w-8 rounded-full overflow-hidden">
@@ -84,4 +88,3 @@ export function DashboardHeader({ title }: HeaderProps) {
     </header>
   )
 }
-

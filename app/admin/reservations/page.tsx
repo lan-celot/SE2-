@@ -1,4 +1,3 @@
-//admin
 "use client";
 
 import { useEffect, useState } from "react";
@@ -572,26 +571,74 @@ const formatDateOnly = (dateStr: string) => {
     }
   };
 
-  const sendNotification = async (status: string, userCar: string) => {
-    const res = await fetch("/api/admin-approve-notification", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        comment: `${userCar} is ${status}`
-      }),
-    });
+  const getAuthUidFromFirestore = async (userId: string): Promise<string> => {
+    try {
+      // First check if we already have this user's authUid in memory (could add caching here)
+      const userDocRef = doc(db, "accounts", userId);
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData.authUid) {
+          console.log(`Found authUid for user ${userId}: ${userData.authUid}`);
+          return userData.authUid;
+        }
+      }
+      
+      // If we couldn't find authUid, return the original userId
+      return userId;
+    } catch (error) {
+      console.error(`Error getting authUid for user ${userId}:`, error);
+      return userId; // Fall back to the original userId
+    }
   };
-
+  
+  const sendNotification = async (status: string, userCar: string, userId: string) => {
+    try {
+      console.log("Preparing to send status update notification:", {
+        status: status,
+        userCar: userCar,
+        userId: userId
+      });
+      
+      // Get the user's authUid if possible
+      const authUid = await getAuthUidFromFirestore(userId);
+      
+      console.log(`Sending notification to user with authUid: ${authUid}`);
+      
+      const res = await fetch("/api/admin-approve-notification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          comment: `${userCar} is ${status}`,
+          userId: authUid // Use the authUid we found (or the original userId as fallback)
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("Notification API Error:", errorData);
+        throw new Error(`Notification failed: ${errorData.error || 'Unknown error'}`);
+      }
+      
+      console.log("Status notification sent successfully to user:", authUid);
+      return true;
+    } catch (error) {
+      console.error("Failed to send notification:", error);
+      return false;
+    }
+  };
+  
   const handleStatusChange = async (reservationId: string, userId: string, newStatus: Status) => {
     try {
       const normalizedStatus = newStatus.toUpperCase() as Status;
-  
+    
       if (!reservationId || !userId || !normalizedStatus) {
         throw new Error("Missing required data for status update");
       }
-  
+    
       // Get the reservation to update service statuses as needed
       const reservation = reservationData.find(res => res.id === reservationId);
       
@@ -621,11 +668,11 @@ const formatDateOnly = (dateStr: string) => {
           return { ...service, status: "COMPLETED" as MechanicStatus };
         });
       }
-  
+    
       // References to both locations in Firestore
       const globalDocRef = doc(db, "bookings", reservationId);
       const userDocRef = doc(db, "users", userId, "bookings", reservationId);
-  
+    
       // Use setDoc with merge option
       await Promise.all([
         setDoc(globalDocRef, { 
@@ -637,7 +684,7 @@ const formatDateOnly = (dateStr: string) => {
           services: updatedServices
         }, { merge: true }),
       ]);
-  
+    
       // Update state to reflect changes immediately
       setReservationData((prevData) =>
         prevData.map((reservation) =>
@@ -649,14 +696,23 @@ const formatDateOnly = (dateStr: string) => {
           } : reservation,
         ),
       );
-  
+    
+      // Get car model and status message for notification
+      const userCar = reservation.carModel || "Vehicle";
+      const statusMessage = statusStyles[normalizedStatus].display;
+      
+      // Send notification to customer with their correct authUid
+      const notificationSent = await sendNotification(statusMessage, userCar, userId);
+    
       // Show success message
       setShowSuccessMessage(`Status changed to ${statusStyles[normalizedStatus].display}`);
       setTimeout(() => setShowSuccessMessage(null), 3000);
-  
+    
       toast({
         title: "Status Updated",
-        description: `Reservation status has been changed to ${statusMessage}.`,
+        description: `Reservation status has been changed to ${statusMessage}.${
+          notificationSent ? "" : " (Customer notification failed)"
+        }`,
         variant: "default",
       });
     } catch (error) {
@@ -668,20 +724,20 @@ const formatDateOnly = (dateStr: string) => {
       });
     }
   };
-
-  // Update the handleBulkStatusChange function to show a success message
+  
+  // Also update the bulk status change function to use the right user ID
   const handleBulkStatusChange = async (newStatus: Status) => {
     try {
       // Create an array of promises for all updates
       const updatePromises = selectedRows.map((reservationId) => {
         const reservation = reservationData.find((r) => r.id === reservationId);
         if (!reservation || !reservation.userId) return Promise.resolve();
-  
+    
         // Skip if the transition is not valid
         if (!validStatusTransitions[reservation.status].includes(newStatus)) {
           return Promise.resolve();
         }
-  
+    
         // Update service statuses based on reservation status
         let updatedServices = reservation.services || [];
         
@@ -703,10 +759,10 @@ const formatDateOnly = (dateStr: string) => {
             return { ...service, status: "COMPLETED" as MechanicStatus };
           });
         }
-  
+    
         const globalDocRef = doc(db, "bookings", reservationId);
         const userDocRef = doc(db, "users", reservation.userId, "bookings", reservationId);
-  
+    
         return Promise.all([
           setDoc(globalDocRef, { 
             status: newStatus,
@@ -718,10 +774,26 @@ const formatDateOnly = (dateStr: string) => {
           }, { merge: true }),
         ]);
       });
-  
+    
       // Execute all updates
       await Promise.all(updatePromises);
-  
+    
+      // Send notifications for all updated reservations with specific user IDs
+      const notificationPromises = selectedRows.map(async (reservationId) => {
+        const reservation = reservationData.find((r) => r.id === reservationId);
+        if (!reservation || !reservation.userId || !validStatusTransitions[reservation.status].includes(newStatus)) {
+          return Promise.resolve(false);
+        }
+        
+        const userCar = reservation.carModel || "Vehicle";
+        const statusMessage = statusStyles[newStatus].display;
+        
+        // Send notification to the specific user with their authUid
+        return sendNotification(statusMessage, userCar, reservation.userId);
+      });
+      
+      await Promise.all(notificationPromises);
+    
       // Update local state
       setReservationData((prevData) =>
         prevData.map((reservation) => {
@@ -757,17 +829,17 @@ const formatDateOnly = (dateStr: string) => {
           return reservation;
         }),
       );
-  
+    
       // Show success message
       setShowSuccessMessage(`Status changed for ${selectedRows.length} reservation(s)`);
       setTimeout(() => setShowSuccessMessage(null), 3000);
-  
+    
       toast({
         title: "Status Updated",
         description: `${selectedRows.length} reservation(s) updated to ${statusStyles[newStatus].display}.`,
         variant: "default",
       });
-  
+    
       // Clear selection
       setSelectedRows([]);
       setBulkStatus("");

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Bell, User as LucideUser } from "lucide-react";
-import { Button } from "@/components/customer-components/ui/button";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -11,6 +10,7 @@ import {
   NotificationAPIProvider,
   NotificationPopup,
 } from "@notificationapi/react";
+import Link from "next/link";
 
 interface HeaderProps {
   title?: string;
@@ -18,7 +18,9 @@ interface HeaderProps {
 
 interface UserData {
   firstName: string;
+  lastName?: string;
   photoURL?: string;
+  authUid?: string; // Add authUid field to match your Firestore structure
 }
 
 export function DashboardHeader({ title }: HeaderProps) {
@@ -147,6 +149,16 @@ export function DashboardHeader({ title }: HeaderProps) {
       .toUpperCase();
   };
 
+  // Get the Firebase auth UID for notifications - this is what changed
+  // We're using the authUid from the user's data if available, otherwise falling back to the Firebase auth UID
+  // This ensures we match the authUid field in your Firestore structure
+  const userId = user.authUid || firebaseUser?.uid || ""; 
+  
+  console.log("Customer dashboard notification using userId:", userId);
+  
+  // Use environment variable with fallback
+  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || "owvp6sijxsgcijmqlu69gzfgcs";
+
   if (isLoading && !lastPhotoURL) {
     return (
       <header className="bg-[#EBF8FF]">
@@ -179,16 +191,22 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative">
-            <NotificationAPIProvider
-              userId="user1"
-              clientId="owvp6sijxsgcijmqlu69gzfgcs"
-            >
-              <NotificationPopup />
-            </NotificationAPIProvider>
+            {userId ? (
+              <NotificationAPIProvider
+                userId={userId}
+                clientId={clientId}
+              >
+                <NotificationPopup />
+              </NotificationAPIProvider>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                <Bell className="h-4 w-4 text-gray-400" />
+              </div>
+            )}
           </div>
 
-          <div
-            key={user.photoURL || "default"}
+          <Link
+            href="/customer/profile"
             className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-[#3579b8]/20"
           >
             {user.photoURL ? (
@@ -200,7 +218,7 @@ export function DashboardHeader({ title }: HeaderProps) {
             ) : (
               <LucideUser className="h-5 w-5 text-gray-400" />
             )}
-          </div>
+          </Link>
         </div>
       </div>
     </header>
