@@ -1,3 +1,4 @@
+//admin
 "use client"
 
 import { useEffect, useState } from "react"
@@ -25,13 +26,6 @@ import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { formatDateTime } from "@/lib/date-utils"
 import { getActiveEmployees, type Employee } from "@/lib/employee-utils"
 
-const toTitleCase = (text: string): string => {
-  return text
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
-}
 
 type Status = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
 type MechanicStatus = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
@@ -336,59 +330,87 @@ export default function ReservationsPage() {
     fetchActiveEmployees()
   }, [])
 
-  // Add useEffect to update service statuses when reservation status changes
- // Add useEffect to update service statuses when reservation status changes
-useEffect(() => {
-  // Sync mechanic statuses with reservation status
-  const updatedReservationData = reservationData.map(reservation => {
-    // Skip if there are no services
-    if (!reservation.services || reservation.services.length === 0) return reservation
-
-    // Define how services status should be updated based on reservation status
-    let updatedServices = [...reservation.services]
+  // Add this function if it doesn't exist, or modify an existing one around line 600-700
+const formatDateOnly = (dateStr: string) => {
+  try {
+    if (!dateStr) return "N/A";
     
-    // When reservation is CONFIRMED, all mechanic statuses should be CONFIRMED
-    if (reservation.status === "CONFIRMED") {
-      updatedServices = updatedServices.map(service => {
-        return { ...service, status: "CONFIRMED" as MechanicStatus }
-      })
-    }
-    // When reservation is set to REPAIRING, update all PENDING mechanic statuses to REPAIRING
-    else if (reservation.status === "REPAIRING") {
-      updatedServices = updatedServices.map(service => {
-        if (service.status === "PENDING" || service.status === "CONFIRMED") {
-          return { ...service, status: "REPAIRING" as MechanicStatus }
-        }
-        return service
-      })
-    }
-    
-    // Check if all services are COMPLETED and reservation is REPAIRING
-    // This prompts the completion dialog for the reservation
-    if (reservation.status === "REPAIRING" && 
-        updatedServices.length > 0 && 
-        updatedServices.every(service => 
-          service.status === "COMPLETED" || service.status === "CANCELLED") &&
-        updatedServices.some(service => service.status === "COMPLETED")) {
-      
-      // Set pending reservation to complete
-      if (pendingReservationToComplete !== reservation.id) {
-        setPendingReservationToComplete(reservation.id)
-        setShowCompleteReservationDialog(true)
-      }
-    }
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
 
-    return {
-      ...reservation,
-      services: updatedServices
-    }
-  })
-
-  // Only update if there are actual changes
-  if (JSON.stringify(updatedReservationData) !== JSON.stringify(reservationData)) {
-    setReservationData(updatedReservationData)
+    return date.toLocaleDateString('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  } catch {
+    return dateStr || "N/A";
   }
-}, [reservationData, pendingReservationToComplete])
+};
+
+
+  useEffect(() => {
+    // Sync mechanic statuses with reservation status
+    const updatedReservationData = reservationData.map(reservation => {
+      // Skip if there are no services
+      if (!reservation.services || reservation.services.length === 0) return reservation;
+  
+      // Define how services status should be updated based on reservation status
+      let updatedServices = [...reservation.services];
+      
+      // Handle terminal states first - they override everything
+      if (reservation.status === "CANCELLED") {
+        // If reservation is CANCELLED, ALL services must be CANCELLED regardless of current status
+        updatedServices = updatedServices.map(service => {
+          return { ...service, status: "CANCELLED" as MechanicStatus };
+        });
+      } else if (reservation.status === "COMPLETED") {
+        // If reservation is COMPLETED, ALL services must be COMPLETED regardless of current status
+        updatedServices = updatedServices.map(service => {
+          return { ...service, status: "COMPLETED" as MechanicStatus };
+        });
+      } else if (reservation.status === "CONFIRMED") {
+        // When CONFIRMED, set all services to CONFIRMED
+        updatedServices = updatedServices.map(service => {
+          return { ...service, status: "CONFIRMED" as MechanicStatus };
+        });
+      } else if (reservation.status === "REPAIRING") {
+        // When REPAIRING, update PENDING/CONFIRMED services to REPAIRING
+        // but preserve COMPLETED/CANCELLED services
+        updatedServices = updatedServices.map(service => {
+          if (service.status === "PENDING" || service.status === "CONFIRMED") {
+            return { ...service, status: "REPAIRING" as MechanicStatus };
+          }
+          return service;
+        });
+      }
+      
+      // Check if all services are COMPLETED and reservation is REPAIRING
+      if (reservation.status === "REPAIRING" && 
+          updatedServices.length > 0 && 
+          updatedServices.every(service => 
+            service.status === "COMPLETED" || service.status === "CANCELLED") &&
+          updatedServices.some(service => service.status === "COMPLETED")) {
+        
+        // Set pending reservation to complete
+        if (pendingReservationToComplete !== reservation.id) {
+          setPendingReservationToComplete(reservation.id);
+          setShowCompleteReservationDialog(true);
+        }
+      }
+  
+      return {
+        ...reservation,
+        services: updatedServices
+      };
+    });
+  
+    // Only update if there are actual changes
+    if (JSON.stringify(updatedReservationData) !== JSON.stringify(reservationData)) {
+      setReservationData(updatedReservationData);
+    }
+  }, [reservationData, pendingReservationToComplete]);
 
   const handleStatusChangeAttempt = (reservationId: string, userId: string, newStatus: Status) => {
     const reservation = reservationData.find((res) => res.id === reservationId)
@@ -473,39 +495,48 @@ useEffect(() => {
     }
   }
 
-  // Update the handleStatusChange function to show a success message
   const handleStatusChange = async (reservationId: string, userId: string, newStatus: Status) => {
     try {
-      const normalizedStatus = newStatus.toUpperCase() as Status
-
+      const normalizedStatus = newStatus.toUpperCase() as Status;
+  
       if (!reservationId || !userId || !normalizedStatus) {
-        throw new Error("Missing required data for status update")
+        throw new Error("Missing required data for status update");
       }
-
+  
       // Get the reservation to update service statuses as needed
-      const reservation = reservationData.find(res => res.id === reservationId)
+      const reservation = reservationData.find(res => res.id === reservationId);
       
       if (!reservation) {
-        throw new Error("Reservation not found")
+        throw new Error("Reservation not found");
       }
       
       // Update service statuses based on reservation status
-      let updatedServices = reservation.services || []
+      let updatedServices = reservation.services || [];
       
-      // When changing to REPAIRING, update all PENDING mechanic statuses to REPAIRING
       if (normalizedStatus === "REPAIRING") {
+        // When changing to REPAIRING, update all PENDING mechanic statuses to REPAIRING
         updatedServices = updatedServices.map(service => {
           if (service.status === "PENDING") {
-            return { ...service, status: "REPAIRING" as MechanicStatus }
+            return { ...service, status: "REPAIRING" as MechanicStatus };
           }
-          return service
-        })
+          return service;
+        });
+      } else if (normalizedStatus === "CANCELLED") {
+        // When changing to CANCELLED, set ALL service statuses to CANCELLED
+        updatedServices = updatedServices.map(service => {
+          return { ...service, status: "CANCELLED" as MechanicStatus };
+        });
+      } else if (normalizedStatus === "COMPLETED") {
+        // When changing to COMPLETED, set all service statuses to COMPLETED
+        updatedServices = updatedServices.map(service => {
+          return { ...service, status: "COMPLETED" as MechanicStatus };
+        });
       }
-
+  
       // References to both locations in Firestore
-      const globalDocRef = doc(db, "bookings", reservationId)
-      const userDocRef = doc(db, "users", userId, "bookings", reservationId)
-
+      const globalDocRef = doc(db, "bookings", reservationId);
+      const userDocRef = doc(db, "users", userId, "bookings", reservationId);
+  
       // Use setDoc with merge option
       await Promise.all([
         setDoc(globalDocRef, { 
@@ -516,8 +547,8 @@ useEffect(() => {
           status: normalizedStatus,
           services: updatedServices
         }, { merge: true }),
-      ])
-
+      ]);
+  
       // Update state to reflect changes immediately
       setReservationData((prevData) =>
         prevData.map((reservation) =>
@@ -528,56 +559,65 @@ useEffect(() => {
             services: updatedServices
           } : reservation,
         ),
-      )
-
+      );
+  
       // Show success message
-      setShowSuccessMessage(`Status changed to ${statusStyles[normalizedStatus].display}`)
-      setTimeout(() => setShowSuccessMessage(null), 3000)
-
+      setShowSuccessMessage(`Status changed to ${statusStyles[normalizedStatus].display}`);
+      setTimeout(() => setShowSuccessMessage(null), 3000);
+  
       toast({
         title: "Status Updated",
         description: `Reservation status has been changed to ${statusStyles[normalizedStatus].display}.`,
         variant: "default",
-      })
+      });
     } catch (error) {
-      console.error("Error updating status:", error instanceof Error ? error.message : "Unknown error")
+      console.error("Error updating status:", error instanceof Error ? error.message : "Unknown error");
       toast({
         title: "Error",
         description: "Failed to update reservation status.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   // Update the handleBulkStatusChange function to show a success message
   const handleBulkStatusChange = async (newStatus: Status) => {
     try {
       // Create an array of promises for all updates
       const updatePromises = selectedRows.map((reservationId) => {
-        const reservation = reservationData.find((r) => r.id === reservationId)
-        if (!reservation || !reservation.userId) return Promise.resolve()
-
+        const reservation = reservationData.find((r) => r.id === reservationId);
+        if (!reservation || !reservation.userId) return Promise.resolve();
+  
         // Skip if the transition is not valid
         if (!validStatusTransitions[reservation.status].includes(newStatus)) {
-          return Promise.resolve()
+          return Promise.resolve();
         }
-
+  
         // Update service statuses based on reservation status
-        let updatedServices = reservation.services || []
+        let updatedServices = reservation.services || [];
         
-        // When changing to REPAIRING, update all PENDING mechanic statuses to REPAIRING
         if (newStatus === "REPAIRING") {
           updatedServices = updatedServices.map(service => {
             if (service.status === "PENDING") {
-              return { ...service, status: "REPAIRING" as MechanicStatus }
+              return { ...service, status: "REPAIRING" as MechanicStatus };
             }
-            return service
-          })
+            return service;
+          });
+        } else if (newStatus === "CANCELLED") {
+          // When cancelling, ALL services should be cancelled regardless of mechanic assignment
+          updatedServices = updatedServices.map(service => {
+            return { ...service, status: "CANCELLED" as MechanicStatus };
+          });
+        } else if (newStatus === "COMPLETED") {
+          // When completing, all services should be marked as completed
+          updatedServices = updatedServices.map(service => {
+            return { ...service, status: "COMPLETED" as MechanicStatus };
+          });
         }
-
-        const globalDocRef = doc(db, "bookings", reservationId)
-        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservationId)
-
+  
+        const globalDocRef = doc(db, "bookings", reservationId);
+        const userDocRef = doc(db, "users", reservation.userId, "bookings", reservationId);
+  
         return Promise.all([
           setDoc(globalDocRef, { 
             status: newStatus,
@@ -587,61 +627,71 @@ useEffect(() => {
             status: newStatus,
             services: updatedServices 
           }, { merge: true }),
-        ])
-      })
-
+        ]);
+      });
+  
       // Execute all updates
-      await Promise.all(updatePromises)
-
+      await Promise.all(updatePromises);
+  
       // Update local state
       setReservationData((prevData) =>
         prevData.map((reservation) => {
           if (selectedRows.includes(reservation.id) && validStatusTransitions[reservation.status].includes(newStatus)) {
-            // Update service statuses based on reservation status
-            let updatedServices = reservation.services || []
+            // Update service statuses based on new reservation status
+            let updatedServices = reservation.services || [];
             
-            // When changing to REPAIRING, update all PENDING mechanic statuses to REPAIRING
             if (newStatus === "REPAIRING") {
               updatedServices = updatedServices.map(service => {
                 if (service.status === "PENDING") {
-                  return { ...service, status: "REPAIRING" as MechanicStatus }
+                  return { ...service, status: "REPAIRING" as MechanicStatus };
                 }
-                return service
-              })
+                return service;
+              });
+            } else if (newStatus === "CANCELLED") {
+              // When cancelling, ALL services should be cancelled
+              updatedServices = updatedServices.map(service => {
+                return { ...service, status: "CANCELLED" as MechanicStatus };
+              });
+            } else if (newStatus === "COMPLETED") {
+              // When completing, all services should be marked as completed
+              updatedServices = updatedServices.map(service => {
+                return { ...service, status: "COMPLETED" as MechanicStatus };
+              });
             }
             
             return { 
               ...reservation, 
               status: newStatus,
               services: updatedServices
-            }
+            };
           }
-          return reservation
+          return reservation;
         }),
-      )
-
+      );
+  
       // Show success message
-      setShowSuccessMessage(`Status changed for ${selectedRows.length} reservation(s)`)
-      setTimeout(() => setShowSuccessMessage(null), 3000)
-
+      setShowSuccessMessage(`Status changed for ${selectedRows.length} reservation(s)`);
+      setTimeout(() => setShowSuccessMessage(null), 3000);
+  
       toast({
         title: "Status Updated",
         description: `${selectedRows.length} reservation(s) updated to ${statusStyles[newStatus].display}.`,
         variant: "default",
-      })
-
+      });
+  
       // Clear selection
-      setSelectedRows([])
-      setBulkStatus("")
+      setSelectedRows([]);
+      setBulkStatus("");
     } catch (error) {
-      console.error("Error updating multiple statuses:", error instanceof Error ? error.message : "Unknown error")
+      console.error("Error updating multiple statuses:", error instanceof Error ? error.message : "Unknown error");
       toast({
         title: "Error",
         description: "Failed to update reservation statuses.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
+
 
   // Add handler for mechanic status change
   const handleMechanicStatusVerified = () => {
@@ -903,175 +953,253 @@ useEffect(() => {
     userId: string,
   ) => {
     try {
-      // BACKEND DEV: Add any additional validation or business logic here
-
-      const bookingRef = doc(db, "bookings", reservationId)
-      const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId)
-
-      // Get the main booking data
-      const bookingSnap = await getDoc(bookingRef)
-      if (!bookingSnap.exists()) {
-        throw new Error("Main booking document not found")
+      // Get the reservation to determine appropriate status
+      const reservation = reservationData.find(res => res.id === reservationId);
+      if (!reservation) {
+        throw new Error("Reservation not found");
       }
-
-      const bookingData = bookingSnap.data()
-      const updatedServices = [...(bookingData.services || [])]
+  
+      // Determine the mechanic status based on reservation status
+      let newMechanicStatus: MechanicStatus = "PENDING";
+      
+      if (reservation.status === "CONFIRMED") {
+        newMechanicStatus = "CONFIRMED";
+      } else if (reservation.status === "REPAIRING") {
+        newMechanicStatus = "REPAIRING";
+      }
+  
+      const bookingRef = doc(db, "bookings", reservationId);
+      const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
+  
+      // Get the main booking data
+      const bookingSnap = await getDoc(bookingRef);
+      if (!bookingSnap.exists()) {
+        throw new Error("Main booking document not found");
+      }
+  
+      const bookingData = bookingSnap.data();
+      const updatedServices = [...(bookingData.services || [])];
       updatedServices[serviceIndex] = {
         ...updatedServices[serviceIndex],
         mechanic: mechanicName,
-      }
-
+        status: newMechanicStatus
+      };
+  
       // Use setDoc with merge option to create or update both documents
       await Promise.all([
         setDoc(bookingRef, { services: updatedServices }, { merge: true }),
         setDoc(userBookingRef, { services: updatedServices }, { merge: true }),
-      ])
-
-      console.log("Mechanic assignment updated successfully")
+      ]);
+  
+      console.log("Mechanic assignment updated successfully");
     } catch (error) {
-      console.error("Error in updateMechanicAssignment:", error)
-      throw error
+      console.error("Error in updateMechanicAssignment:", error);
+      throw error;
     }
-  }
-
+  };
   // First, let's update the handleMechanicChange function to check for completed/cancelled status
   // Find the handleMechanicChange function and replace it with:
 
   const handleMechanicChange = async () => {
     if (selectedService && selectedMechanic) {
-      const reservationId = selectedService.reservationId
-      const reservation = reservationData.find((res) => res.id === reservationId)
-
+      const reservationId = selectedService.reservationId;
+      const reservation = reservationData.find((res) => res.id === reservationId);
+  
       if (!reservation) {
-        console.error("Reservation not found")
-        return
+        console.error("Reservation not found");
+        return;
       }
-
+  
       // Check if reservation is completed or cancelled
       if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
         toast({
           title: "Cannot Modify Reservation",
           description: `Cannot modify a ${statusStyles[reservation.status].display.toLowerCase()} reservation.`,
           variant: "destructive",
-        })
-        setShowMechanicDialog(false)
-        setSelectedService(null)
-        setSelectedMechanic("")
-        return
+        });
+        setShowMechanicDialog(false);
+        setSelectedService(null);
+        setSelectedMechanic("");
+        return;
       }
-
-      const userId = reservation.userId
-
+  
+      const userId = reservation.userId;
+  
       if (!userId) {
-        console.error("User ID not found")
-        return
+        console.error("User ID not found");
+        return;
       }
-
+  
       try {
+        // Determine new mechanic status based on reservation status
+        let newMechanicStatus: MechanicStatus = "PENDING";
+        
+        if (reservation.status === "CONFIRMED") {
+          newMechanicStatus = "CONFIRMED";
+        } else if (reservation.status === "REPAIRING") {
+          newMechanicStatus = "REPAIRING";
+        }
+  
         // First update local state for immediate feedback
         setReservationData((prevData) =>
           prevData.map((res) => {
             if (res.id === reservationId && res.services) {
-              const updatedServices = [...res.services]
+              const updatedServices = [...res.services];
               updatedServices[selectedService.serviceIndex] = {
                 ...updatedServices[selectedService.serviceIndex],
                 mechanic: selectedMechanic,
-              }
-              return { ...res, services: updatedServices }
+                // Update status based on reservation status when assigning mechanic
+                status: newMechanicStatus
+              };
+              return { ...res, services: updatedServices };
             }
-            return res
+            return res;
           }),
-        )
-
+        );
+  
         // Then update in Firestore
-        await updateMechanicAssignment(reservationId, selectedService.serviceIndex, selectedMechanic, userId)
-
+        // Get the main booking data
+        const bookingRef = doc(db, "bookings", reservationId);
+        const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
+  
+        // Get the main booking data
+        const bookingSnap = await getDoc(bookingRef);
+        if (!bookingSnap.exists()) {
+          throw new Error("Main booking document not found");
+        }
+  
+        const bookingData = bookingSnap.data();
+        const updatedServices = [...(bookingData.services || [])];
+        updatedServices[selectedService.serviceIndex] = {
+          ...updatedServices[selectedService.serviceIndex],
+          mechanic: selectedMechanic,
+          status: newMechanicStatus
+        };
+  
+        // Use setDoc with merge option to create or update both documents
+        await Promise.all([
+          setDoc(bookingRef, { services: updatedServices }, { merge: true }),
+          setDoc(userBookingRef, { services: updatedServices }, { merge: true }),
+        ]);
+  
         toast({
           title: "Mechanic Assigned",
           description: "Mechanic assignment has been updated successfully.",
           variant: "default",
-        })
+        });
       } catch (error) {
-        console.error("Error updating mechanic assignment:", error)
+        console.error("Error updating mechanic assignment:", error);
         toast({
           title: "Error",
           description: "Failed to update mechanic assignment.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setShowMechanicDialog(false)
-        setSelectedService(null)
-        setSelectedMechanic("")
+        setShowMechanicDialog(false);
+        setSelectedService(null);
+        setSelectedMechanic("");
       }
     }
-  }
+  };
 
   // Now update the handleMechanicVerified function with the same check
   const handleMechanicVerified = async () => {
     if (selectedService && selectedMechanic) {
-      const reservationId = selectedService.reservationId
-      const reservation = reservationData.find((res) => res.id === reservationId)
-
+      const reservationId = selectedService.reservationId;
+      const reservation = reservationData.find((res) => res.id === reservationId);
+  
       if (!reservation) {
-        console.error("Reservation not found")
-        return
+        console.error("Reservation not found");
+        return;
       }
-
+  
       // Check if reservation is completed or cancelled
       if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
         toast({
           title: "Cannot Modify Reservation",
           description: `Cannot modify a ${statusStyles[reservation.status].display.toLowerCase()} reservation.`,
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
-
-      const userId = reservation.userId
-
+  
+      const userId = reservation.userId;
+  
       if (!userId) {
-        console.error("User ID not found")
-        return
+        console.error("User ID not found");
+        return;
       }
-
+  
       try {
+        // Determine new mechanic status based on reservation status
+        let newMechanicStatus: MechanicStatus = "PENDING";
+        
+        if (reservation.status === "CONFIRMED") {
+          newMechanicStatus = "CONFIRMED";
+        } else if (reservation.status === "REPAIRING") {
+          newMechanicStatus = "REPAIRING";
+        }
+  
         // First update local state for immediate feedback
         setReservationData((prevData) =>
           prevData.map((res) => {
             if (res.id === reservationId && res.services) {
-              const updatedServices = [...res.services]
+              const updatedServices = [...res.services];
               updatedServices[selectedService.serviceIndex] = {
                 ...updatedServices[selectedService.serviceIndex],
                 mechanic: selectedMechanic,
-              }
-              return { ...res, services: updatedServices }
+                // Update status based on reservation status when assigning mechanic
+                status: newMechanicStatus
+              };
+              return { ...res, services: updatedServices };
             }
-            return res
+            return res;
           }),
-        )
-
+        );
+  
         // Then update in Firestore
-        await updateMechanicAssignment(reservationId, selectedService.serviceIndex, selectedMechanic, userId)
-
+        const bookingRef = doc(db, "bookings", reservationId);
+        const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
+  
+        // Get the main booking data
+        const bookingSnap = await getDoc(bookingRef);
+        if (!bookingSnap.exists()) {
+          throw new Error("Main booking document not found");
+        }
+  
+        const bookingData = bookingSnap.data();
+        const updatedServices = [...(bookingData.services || [])];
+        updatedServices[selectedService.serviceIndex] = {
+          ...updatedServices[selectedService.serviceIndex],
+          mechanic: selectedMechanic,
+          status: newMechanicStatus
+        };
+  
+        // Use setDoc with merge option to create or update both documents
+        await Promise.all([
+          setDoc(bookingRef, { services: updatedServices }, { merge: true }),
+          setDoc(userBookingRef, { services: updatedServices }, { merge: true }),
+        ]);
+  
         toast({
           title: "Mechanic Assigned",
           description: "Mechanic assignment has been updated successfully.",
           variant: "default",
-        })
+        });
       } catch (error) {
-        console.error("Error updating mechanic assignment:", error)
+        console.error("Error updating mechanic assignment:", error);
         toast({
           title: "Error",
           description: "Failed to update mechanic assignment.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setShowMechanicDialog(false)
-        setSelectedService(null)
-        setSelectedMechanic("")
+        setShowMechanicDialog(false);
+        setSelectedService(null);
+        setSelectedMechanic("");
       }
     }
-  }
+  };
 
   // Now update the handleDeleteService function to check for completed/cancelled status
   const handleDeleteService = async () => {
@@ -1137,11 +1265,10 @@ useEffect(() => {
     }
   }
 
-  // Update the handleAddServices function to implement the status-based restrictions
-// Update the handleAddServices function to ensure proper initial status
+ // Update the handleAddServices function to ensure proper initial status
 const handleAddServices = async (selectedServices: any[]) => {
   if (expandedRowId) {
-    const reservation = reservationData.find((res) => res.id === expandedRowId)
+    const reservation = reservationData.find((res) => res.id === expandedRowId);
     if (reservation) {
       // Check if reservation status allows adding services
       if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
@@ -1149,11 +1276,11 @@ const handleAddServices = async (selectedServices: any[]) => {
           title: "Cannot Add Services",
           description: `Cannot add services to a ${statusStyles[reservation.status].display.toLowerCase()} reservation.`,
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
-      const now = new Date()
+      const now = new Date();
       const formattedNow = now
         .toLocaleString("en-US", {
           month: "2-digit",
@@ -1165,17 +1292,10 @@ const handleAddServices = async (selectedServices: any[]) => {
         })
         .replace(",", "")
         .toLowerCase()
-        .replace(/\//g, "-")
+        .replace(/\//g, "-");
 
-      // Set the initial mechanic status based on reservation status
-      let initialMechanicStatus: MechanicStatus = "PENDING"
-      
-      // If reservation is CONFIRMED, set mechanic status to PENDING
-      if (reservation.status === "CONFIRMED") {
-        initialMechanicStatus = "PENDING"
-      } else if (reservation.status === "REPAIRING") {
-        initialMechanicStatus = "PENDING"
-      }
+      // Initial status is always PENDING for unassigned mechanics
+      const initialMechanicStatus: MechanicStatus = "PENDING";
 
       const newServices = selectedServices.map((service) => ({
         created: formattedNow,
@@ -1183,18 +1303,18 @@ const handleAddServices = async (selectedServices: any[]) => {
         service: service,
         mechanic: "TO BE ASSIGNED",
         status: initialMechanicStatus,
-      }))
+      }));
 
-      const updatedServices = [...(reservation.services || []), ...newServices]
+      const updatedServices = [...(reservation.services || []), ...newServices];
 
-      const globalDocRef = doc(db, "bookings", reservation.id)
-      const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id)
+      const globalDocRef = doc(db, "bookings", reservation.id);
+      const userDocRef = doc(db, "users", reservation.userId, "bookings", reservation.id);
 
       try {
         await Promise.all([
           setDoc(globalDocRef, { services: updatedServices }, { merge: true }),
           setDoc(userDocRef, { services: updatedServices }, { merge: true }),
-        ])
+        ]);
 
         setReservationData((prevData) =>
           prevData.map((res) =>
@@ -1205,24 +1325,24 @@ const handleAddServices = async (selectedServices: any[]) => {
                 }
               : res,
           ),
-        )
+        );
 
         toast({
           title: "Services Added",
           description: "New services have been added to the reservation.",
           variant: "default",
-        })
+        });
       } catch (error) {
-        console.error("Error adding services:", error)
+        console.error("Error adding services:", error);
         toast({
           title: "Error",
           description: "Failed to add services to the reservation.",
           variant: "destructive",
-        })
+        });
       }
     }
   }
-}
+};
 
   const filteredReservations = reservationData.filter((reservation) => {
     // For status filtering, compare lowercase status with activeTab
@@ -1263,28 +1383,6 @@ const handleAddServices = async (selectedServices: any[]) => {
           <Loading />
         </main>
       </div>
-    )
-  }
-
-  // Fix the any type issue
-  const handleServiceStatusChange = (reservationId: string, serviceIndex: number, newStatus: Service["status"]) => {
-    // BACKEND DEV: Add any additional validation or business logic here
-
-    setReservationData((prevData) =>
-      prevData.map((reservation) => {
-        if (reservation.id === reservationId && reservation.services) {
-          const updatedServices = [...reservation.services]
-          updatedServices[serviceIndex] = {
-            ...updatedServices[serviceIndex],
-            status: newStatus,
-          }
-          return {
-            ...reservation,
-            services: updatedServices,
-          }
-        }
-        return reservation
-      }),
     )
   }
 
@@ -1487,13 +1585,13 @@ const handleAddServices = async (selectedServices: any[]) => {
                           </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
-                          <span
-                            className="block truncate uppercase"
-                            title={formatDateTime(reservation.reservationDate)}
-                          >
-                            {formatDateTime(reservation.reservationDate)}
-                          </span>
-                        </TableCell>
+  <span
+    className="block truncate uppercase"
+    title={formatDateOnly(reservation.reservationDate)}
+  >
+    {formatDateOnly(reservation.reservationDate)}
+  </span>
+</TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
                           <span className="block truncate uppercase">
                             {reservation.firstName + " " + reservation.lastName}
