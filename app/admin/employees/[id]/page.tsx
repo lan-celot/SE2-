@@ -580,106 +580,79 @@ export default function EmployeeDetailsPage() {
                             </Button>
                           </td>
                         </tr>
-                        {expandedRow === reservation.id && reservation.services && (
-                          <tr>
-                            <td colSpan={6} className="bg-gray-50">
-                              <div className="px-4 py-2">
-                                <table className="w-full table-fixed">
-                                  <thead>
-                                    <tr>
-                                      <th
-                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
-                                        style={{ width: "25%" }}
-                                      >
-                                        Customer ID
-                                      </th>
-                                      <th
-                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
-                                        style={{ width: "25%" }}
-                                      >
-                                        Service
-                                      </th>
-                                      <th
-                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
-                                        style={{ width: "25%" }}
-                                      >
-                                        Mechanic
-                                      </th>
-                                      <th
-                                        className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
-                                        style={{ width: "25%" }}
-                                      >
-                                        Status
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {reservation.services.map((service: any, index: number) => (
-                                      <tr key={index}>
-                                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.customerId}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.service}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                          {service.mechanic}
-                                        </td>
-                                        <td className="px-6 py-4 flex justify-center">
-                                          <div className="relative inline-block">
-                                            <select
-                                              value={service.status}
-                                              onChange={(e) => {
-                                                handleServiceStatusChange(
-                                                  reservation.id,
-                                                  index,
-                                                  e.target.value as Service["status"],
-                                                )
-                                              }}
-                                              className={cn(
-                                                "appearance-none h-7 w-[120px] px-3 pr-8 py-0 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2",
-                                                serviceStatusStyles[service.status as keyof typeof serviceStatusStyles],
-                                              )}
-                                            >
-                                              <option
-                                                value="Confirmed"
-                                                className="bg-[#EBF8FF] text-[#63B3ED] hover:bg-[#BEE3F8] hover:text-[#2B6CB0] py-1"
-                                              >
-                                                Confirmed
-                                              </option>
-                                              <option
-                                                value="Repairing"
-                                                className="bg-[#FFF5E0] text-[#FFC600] hover:bg-[#FEEBC8] hover:text-[#D97706] py-1"
-                                              >
-                                                Repairing
-                                              </option>
-                                              <option
-                                                value="Completed"
-                                                className="bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C6F6D5] hover:text-[#22A366] py-1"
-                                              >
-                                                Completed
-                                              </option>
-                                            </select>
-                                            <ChevronDown
-                                              className={cn(
-                                                "absolute right-1.5 top-1/2 transform -translate-y-1/2 pointer-events-none h-3 w-3",
-                                                service.status === "Completed"
-                                                  ? "text-[#28C76F]"
-                                                  : service.status === "Repairing"
-                                                    ? "text-[#FFC600]"
-                                                    : "text-[#63B3ED]",
-                                              )}
-                                            />
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
+                       {/* Expanded Row Services - Updated Section */}
+{/* Expanded Row Services - Updated Section */}
+{expandedRow === reservation.id && reservation.services && (
+  <tr>
+    <td colSpan={6} className="bg-gray-50">
+      <div className="px-4 py-2">
+        <table className="w-full table-fixed">
+          <thead>
+            <tr>
+              <th
+                className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                style={{ width: "25%" }}
+              >
+                Customer ID
+              </th>
+              <th
+                className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                style={{ width: "25%" }}
+              >
+                Service
+              </th>
+              <th
+                className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                style={{ width: "25%" }}
+              >
+                Mechanic
+              </th>
+              <th
+                className="px-3 py-2 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider"
+                style={{ width: "25%" }}
+              >
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {reservation.services.map((service: any, index: number) => (
+              <tr key={index}>
+                <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.customerId}
+                </td>
+                <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.service}
+                </td>
+                <td className="px-6 py-4 text-sm text-[#1A365D] text-center">
+                  {service.mechanic}
+                </td>
+                <td className="px-6 py-4 flex justify-center">
+                  <span
+                    className={cn(
+                      "inline-flex items-center justify-center px-3 py-1 h-7 w-[120px] rounded-lg text-sm font-medium",
+                      service.status === "Completed" || service.status === "COMPLETED" 
+                        ? "bg-[#E6FFF3] text-[#28C76F]" 
+                        : service.status === "Repairing" || service.status === "REPAIRING" 
+                          ? "bg-[#FFF5E0] text-[#FFC600]" 
+                          : service.status === "Confirmed" || service.status === "CONFIRMED" 
+                            ? "bg-[#EBF8FF] text-[#63B3ED]" 
+                            : service.status === "Cancelled" || service.status === "CANCELLED" 
+                              ? "bg-[#FFE5E5] text-[#EA5455]"
+                              : "bg-gray-100 text-gray-600"
+                    )}
+                  >
+                    {service.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </td>
+  </tr>
+)}
                       </React.Fragment>
                     ))}
                   </tbody>
