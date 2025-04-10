@@ -1,25 +1,3 @@
-<<<<<<< HEAD
-// This is the updated part of your useEffect in the ReservationsTable component
-// that needs to be modified to handle both service data structures
-
-useEffect(() => {
-  const user = auth.currentUser;
-  if (!user) {
-    console.log("User is not authenticated");
-    setIsLoading(false);
-    return;
-  }
-
-  console.log("User is authenticated, fetching reservations...");
-  setIsLoading(true);
-  const bookingsCollectionRef = collection(db, "bookings");
-  const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
-
-  const unsubscribe = onSnapshot(q, async (snapshot) => {
-    if (snapshot.empty) {
-      console.log("No reservations found");
-      setReservations([]);
-=======
 //customer 
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -31,7 +9,7 @@ import { AddServiceDialog } from "./add-service-dialog";
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/customer-components/ui/dialog";
 import { db, auth } from "@/lib/firebase";
-import { collection, query, onSnapshot, where, doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { collection, query, onSnapshot, where, doc, updateDoc, arrayUnion, getDocs } from "firebase/firestore";
 
 // Update the Service interface (around line 15)
 interface Service {
@@ -187,16 +165,24 @@ const isValidMechanicStatusChange = (
     });
   };
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      console.log("User is not authenticated");
->>>>>>> 6f6182c8f87b9db0e7d13de91c82b7a612c34b2e
-      setIsLoading(false);
-      return;
-    }
+// Complete rewrite of the data fetching logic to fix duplicates
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user) {
+    console.log("User is not authenticated");
+    setIsLoading(false);
+    return;
+  }
 
-    const reservationList: Reservation[] = snapshot.docs.map((doc) => {
+  // Create the query
+  const q = query(
+    collection(db, "bookings"),
+    where("userId", "==", user.uid)
+  );
+
+  // Create the subscription
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const reservationList = snapshot.docs.map((doc) => {
       const booking = doc.data();
       const id = doc.id;
       const reservationDate = booking.reservationDate || "";
@@ -215,153 +201,74 @@ const isValidMechanicStatusChange = (
         completionDate = generateCompletionDate();
       }
 
-<<<<<<< HEAD
-      // Handle services array, checking for both individual services and the services array
-      let services: Service[] = [];
+      // COMPLETELY NEW APPROACH TO HANDLE SERVICES
+      // Use a Map with service name (normalized) as key to prevent duplicates
+      const serviceMap = new Map();
       
-      // First check if there's a serviceDetails array in the booking (from the new structure)
+      // Function to normalize service names for comparison
+      const normalizeServiceName = (name: string) => name.trim().toUpperCase();
+      
+      // Helper function to add a service to our map
+      const addServiceToMap = (service: any, source: string) => {
+        if (!service || !service.service) return;
+        
+        const normalizedName = normalizeServiceName(service.service);
+        
+        // If this service name already exists in our map, skip it
+        if (serviceMap.has(normalizedName)) return;
+        
+        // Valid status or default to PENDING
+        const statusValue = 
+          service.status && isValidMechanicStatus(service.status.toUpperCase())
+            ? service.status.toUpperCase() as MechanicStatus
+            : "PENDING" as MechanicStatus;
+        
+        serviceMap.set(normalizedName, {
+          mechanic: service.mechanic || "TO BE ASSIGNED",
+          service: service.service,
+          status: statusValue,
+          created: service.created || "N/A",
+          createdTime: service.createdTime || "",
+          reservationDate: service.reservationDate || formattedReservationDate,
+          serviceId: service.serviceId || `${normalizedName}-${Date.now()}`
+        });
+      };
+      
+      // Process all possible service sources
+      // 1. First check serviceDetails array (new structure)
       if (Array.isArray(booking.serviceDetails)) {
-        services = booking.serviceDetails.map((service: any) => ({
-          mechanic: service?.mechanic || "TO BE ASSIGNED",
-          service: service?.service || "Unknown Service",
-          status: service?.status || "Pending", 
-          created: service?.created || "N/A",
-          createdTime: service?.createdTime || "",
-          reservationDate: service?.reservationDate || formattedReservationDate,
-          serviceId: service?.serviceId || `legacy-${Math.random().toString(36).substring(2, 9)}`
-=======
-      const reservationList: Reservation[] = snapshot.docs.map((doc) => {
-        const booking = doc.data();
-        const id = doc.id;
-        const reservationDate = booking.reservationDate || "";
-        const formattedReservationDate = reservationDate ? formatDate(reservationDate) : "N/A";
-        
-        // Determine completion date based on status
-        let completionDate = "PENDING";
-        
-        // Safely handle status conversion
-        const status = booking.status ? String(booking.status).toUpperCase() : "PENDING";
-
-        if (booking.completionDate && booking.completionDate !== "PENDING") {
-          completionDate = formatDateTime(booking.completionDate);
-        } else if (status === "COMPLETED") {
-          // If status is COMPLETED but no completion date, generate one
-          const now = new Date();
-          completionDate = generateCompletionDate();
-          // Update Firestore with the new completion date in a later step
-        }
-
-        // If status is COMPLETED and completion date is still PENDING, generate a new completion date
-        if (status === "COMPLETED" && completionDate === "PENDING") {
-          completionDate = generateCompletionDate();
-        }
-
-// In the useEffect for data fetching, replace the services mapping section with:
-const services = Array.isArray(booking.services)
-  ? booking.services.map((service: any) => {
-      // Map service status based on reservation status
-      let serviceStatus: MechanicStatus;
-      
-      if (service.status && isValidMechanicStatus(service.status.toUpperCase())) {
-        // If service has a valid status, use it
-        serviceStatus = service.status.toUpperCase() as MechanicStatus;
-      } else {
-        // If not, derive from reservation status
-        switch(status.toUpperCase()) {
-          case "PENDING": serviceStatus = "PENDING"; break;
-          case "CONFIRMED": serviceStatus = "CONFIRMED"; break;
-          case "REPAIRING": serviceStatus = "REPAIRING"; break;
-          case "COMPLETED": serviceStatus = "COMPLETED"; break;
-          case "CANCELLED": serviceStatus = "CANCELLED"; break;
-          default: serviceStatus = "PENDING";
-        }
+        booking.serviceDetails.forEach(service => addServiceToMap(service, "serviceDetails"));
       }
       
-      return {
-        ...service,
-        status: serviceStatus,
-      };
-    })
-  : [];
-        return {
-          id: id,
-          userId: booking.userId || user.uid,
-          reservationDate: formattedReservationDate,
-          carModel: booking.carModel ? `${booking.carModel}`.replace(/\s+/g, ' ') : "N/A",
-          completionDate: completionDate,
-          status: status,
-          services: services,
-          statusUpdatedAt: booking.statusUpdatedAt || null,
-          createdAt: booking.createdAt ? formatDateTime(booking.createdAt) : "N/A"
-        };
-      });
-
-      const uniqueReservations = reservationList.filter((reservation, index, self) =>
-        index === self.findIndex((r) => r.id === reservation.id)
-      );
-
-      console.log("Fetched reservations:", uniqueReservations);
-      setReservations(uniqueReservations);
-
-      // Update Firestore if any reservations need completion date
-     // In the same useEffect where you're setting reservations, around line 214:
-// Make sure this code is there and working:
-
-// Update Firestore if any reservations need completion date
-for (const reservation of uniqueReservations) {
-  if (reservation.status === "COMPLETED" && reservation.completionDate === "PENDING") {
-    try {
-      const bookingDocRef = doc(db, "bookings", reservation.id);
-      await updateDoc(bookingDocRef, {
-        completionDate: new Date().toISOString(),
-        status: "COMPLETED"
-      });
-    } catch (error) {
-      console.error("Error updating completion date:", error);
-    }
-  }
-
-        // Status change notification logic
-        const prevStatus = lastStatusUpdate[reservation.id];
-        if (prevStatus && prevStatus !== reservation.status) {
-          setShowStatusNotification({
-            message: `Your booking status has been updated to ${reservation.status}`,
-            type: reservation.status.toLowerCase()
+      // 2. Then check services array with objects
+      if (Array.isArray(booking.services)) {
+        // If services are objects with 'service' property
+        if (booking.services[0] && typeof booking.services[0] === 'object' && booking.services[0].service) {
+          booking.services.forEach(service => addServiceToMap(service, "services-object"));
+        }
+        // If services are just strings
+        else if (booking.services.length > 0) {
+          booking.services.forEach((serviceName: string) => {
+            if (typeof serviceName !== 'string') return;
+            
+            const normalizedName = normalizeServiceName(serviceName);
+            if (serviceMap.has(normalizedName)) return;
+            
+            serviceMap.set(normalizedName, {
+              mechanic: "TO BE ASSIGNED",
+              service: serviceName,
+              status: "CONFIRMED" as MechanicStatus,
+              created: booking.createdAt ? formatDateTime(booking.createdAt).split(',')[0] : "N/A",
+              createdTime: booking.createdAt ? formatDateTime(booking.createdAt).split(',')[1]?.trim() : "",
+              reservationDate: formattedReservationDate,
+              serviceId: `${normalizedName}-${Date.now()}`
+            });
           });
         }
-        setLastStatusUpdate(prev => ({
-          ...prev,
-          [reservation.id]: reservation.status
->>>>>>> 6f6182c8f87b9db0e7d13de91c82b7a612c34b2e
-        }));
-      } 
-      // Then check if there's a services array with objects (from the old structure)
-      else if (Array.isArray(booking.services) && booking.services.length > 0) {
-        // Check if the first item is an object with service property (service objects)
-        if (booking.services[0] && typeof booking.services[0] === 'object' && booking.services[0].service) {
-          services = booking.services.map((service: any) => ({
-            mechanic: service?.mechanic || "TO BE ASSIGNED",
-            service: service?.service || "Unknown Service",
-            status: service?.status || "Pending", 
-            created: service?.created || "N/A",
-            createdTime: service?.createdTime || "",
-            reservationDate: service?.reservationDate || formattedReservationDate,
-            serviceId: service?.serviceId || `legacy-${Math.random().toString(36).substring(2, 9)}`
-          }));
-        } 
-        // If services contains strings (service names), convert them to service objects
-        else {
-          services = booking.services.map((serviceName: string) => ({
-            mechanic: "TO BE ASSIGNED",
-            service: serviceName,
-            status: "Confirmed", 
-            created: booking.createdAt ? formatDateTime(booking.createdAt).split(',')[0] : "N/A",
-            createdTime: booking.createdAt ? formatDateTime(booking.createdAt).split(',')[1]?.trim() : "",
-            reservationDate: formattedReservationDate,
-            serviceId: `legacy-${Math.random().toString(36).substring(2, 9)}`
-          }));
-        }
       }
+      
+      // Convert the Map values to an array
+      const uniqueServices = Array.from(serviceMap.values());
       
       return {
         id: id,
@@ -370,17 +277,22 @@ for (const reservation of uniqueReservations) {
         carModel: booking.carModel ? `${booking.carModel}`.replace(/\s+/g, ' ') : "N/A",
         completionDate: completionDate,
         status: status,
-        services: services,
+        services: uniqueServices,
         statusUpdatedAt: booking.statusUpdatedAt || null,
         createdAt: booking.createdAt ? formatDateTime(booking.createdAt) : "N/A"
       };
     });
 
-<<<<<<< HEAD
-    // Rest of your code remains the same...
-=======
-    return () => unsubscribe();
-  }, []);
+    setReservations(reservationList);
+    setIsLoading(false);
+  }, (error) => {
+    console.error("Error fetching reservations:", error);
+    setIsLoading(false);
+  });
+
+  // Return the unsubscribe function
+  return () => unsubscribe();
+}, []);
 
 
 // Replace the existing useEffect for service status synchronization
@@ -516,7 +428,7 @@ useEffect(() => {
   };
 
   // Update handleAddServices to implement initial mechanic status logic
-  // Update handleAddServices function
+// Fix the handleAddServices function to avoid duplications
 const handleAddServices = async (selectedServices: string[]) => {
   if (!expandedRow) return;
   const user = auth.currentUser;
@@ -524,38 +436,76 @@ const handleAddServices = async (selectedServices: string[]) => {
 
   try {
     const reservation = reservations.find(res => res.id === expandedRow);
-    if (reservation) {
-      const now = new Date();
-      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
-      const createdDate = now.toLocaleDateString('en-CA', options);
-      const createdTime = now.toLocaleTimeString('en-US', {
-        timeZone: 'Asia/Manila',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      });
+    if (!reservation) return;
 
-      // Determine initial mechanic status based on reservation status
-      const initialMechanicStatus = getInitialMechanicStatus(reservation.status);
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
+    const createdDate = now.toLocaleDateString('en-CA', options);
+    const createdTime = now.toLocaleTimeString('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
 
-      const newServices = selectedServices.map((service) => ({
-        mechanic: "TO BE ASSIGNED",
-        service: service ? service.toUpperCase() : "CUSTOM SERVICE",
-        status: initialMechanicStatus,
-        created: createdDate,
-        createdTime: createdTime,
-        reservationDate: reservation.reservationDate,
-        serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
-      }));
+    // Normalize existing service names for comparison
+    const existingServiceNames = new Set(
+      reservation.services.map(service => 
+        service.service.trim().toUpperCase()
+      )
+    );
+    
+    // Filter out services that already exist (case-insensitive)
+    const newServiceNames = selectedServices.filter(service => 
+      !existingServiceNames.has(service.trim().toUpperCase())
+    );
 
-      const bookingDocRef = doc(db, "bookings", expandedRow);
-      
-      await updateDoc(bookingDocRef, {
-        services: arrayUnion(...newServices),
-        lastUpdated: now.toISOString()
-      });
+    if (newServiceNames.length === 0) {
+      alert("All selected services already exist for this reservation.");
+      return;
     }
+
+    // Determine initial mechanic status based on reservation status
+    const initialMechanicStatus = getInitialMechanicStatus(reservation.status);
+
+    // Create new service objects
+    const newServices = newServiceNames.map(service => ({
+      mechanic: "TO BE ASSIGNED",
+      service: service.trim(), // Store in original case
+      status: initialMechanicStatus,
+      created: createdDate,
+      createdTime: createdTime,
+      reservationDate: reservation.reservationDate,
+      serviceId: `${service.trim().toUpperCase()}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    }));
+
+    // Instead of using arrayUnion which can cause duplicates, get the current services
+    // and update the entire array
+    
+    // Combine existing and new services
+    const updatedServices = [...reservation.services, ...newServices];
+    
+    // Update Firestore with the complete services array
+    const bookingDocRef = doc(db, "bookings", expandedRow);
+    await updateDoc(bookingDocRef, {
+      services: updatedServices,
+      serviceDetails: null, // Clear any legacy serviceDetails to prevent future duplication
+      lastUpdated: now.toISOString()
+    });
+    
+    // Update local state immediately for better UX
+    setReservations(prevReservations => 
+      prevReservations.map(res => 
+        res.id === expandedRow 
+          ? { ...res, services: updatedServices } 
+          : res
+      )
+    );
+    
+    // Close the dialog
+    setShowAddService(false);
+    
   } catch (error) {
     console.error("Error adding services:", error);
     alert("There was an error adding services. Please try again.");
@@ -565,6 +515,72 @@ const handleAddServices = async (selectedServices: string[]) => {
 const isStatusChangeValid = (currentStatus: Status, newStatus: Status): boolean => {
   return validStatusTransitions[currentStatus].includes(newStatus);
 };
+
+// You can call this once when the component mounts to fix existing data
+const fixExistingDuplicateServices = async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    // Get all user's bookings
+    const bookingsQuery = query(
+      collection(db, "bookings"),
+      where("userId", "==", user.uid)
+    );
+    
+    const bookingsSnapshot = await getDocs(bookingsQuery);
+    
+    for (const bookingDoc of bookingsSnapshot.docs) {
+      const booking = bookingDoc.data();
+      let needsUpdate = false;
+      
+      // Skip if no services
+      if (!booking.services || !Array.isArray(booking.services) || booking.services.length === 0) {
+        continue;
+      }
+      
+      // Use a Map to deduplicate based on service name
+      const uniqueServices = new Map();
+      
+      // Process each service
+      booking.services.forEach(service => {
+        if (!service || !service.service) return;
+        
+        const normalizedName = service.service.trim().toUpperCase();
+        
+        // If this is a duplicate, don't add it
+        if (uniqueServices.has(normalizedName)) return;
+        
+        uniqueServices.set(normalizedName, {
+          ...service,
+          serviceId: service.serviceId || `${normalizedName}-${Date.now()}`
+        });
+      });
+      
+      // Check if we eliminated any duplicates
+      if (uniqueServices.size < booking.services.length) {
+        needsUpdate = true;
+        
+        // Update Firestore with deduplicated services
+        await updateDoc(doc(db, "bookings", bookingDoc.id), {
+          services: Array.from(uniqueServices.values()),
+          serviceDetails: null, // Clear any legacy serviceDetails
+          lastUpdated: new Date().toISOString()
+        });
+        
+        console.log(`Fixed duplicates in booking ${bookingDoc.id}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error fixing duplicate services:", error);
+  }
+};
+
+// Add this to your component
+useEffect(() => {
+  // Run once when component mounts
+  fixExistingDuplicateServices();
+}, []);
 
 const handleDeleteService = async () => {
   if (serviceToDelete) {
@@ -1051,4 +1067,3 @@ const getMechanicStatusStyle = (status?: string) => {
     default: return "bg-[#8B909A]/10 text-[#8B909A]";
   }
 };
->>>>>>> 6f6182c8f87b9db0e7d13de91c82b7a612c34b2e

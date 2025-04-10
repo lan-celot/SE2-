@@ -24,6 +24,7 @@ interface ConfirmationPageProps {
 }
 
 export function ConfirmationPage({ formData, onBookAgain, bookingId }: ConfirmationPageProps) {
+
   const router = useRouter();
   const [reservationId, setReservationId] = useState<string>("Loading...");
   const [isLoading, setIsLoading] = useState<boolean>(true);
