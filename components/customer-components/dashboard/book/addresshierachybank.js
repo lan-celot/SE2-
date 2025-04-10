@@ -104,6 +104,72 @@ export const locationHierarchy = {
         municipalities: ["Cabarroguis", "Diffun", "Maddela", "Nagtipunan", "Saguday"]
       }
     }
+  },
+  "Region III (Central Luzon)": {
+    provinces: ["Aurora", "Bataan", "Bulacan", "Nueva Ecija", "Pampanga", "Tarlac", "Zambales"],
+    locations: {
+      "Aurora": {
+        cities: [],
+        municipalities: [
+          "Baler", "Casiguran", "Dilasag", "Dinalungan", "Dingalan",
+          "Dipaculao", "Maria Aurora", "San Luis"
+        ]
+      },
+      "Bataan": {
+        cities: ["Balanga City"],
+        municipalities: [
+          "Abucay", "Bagac", "Dinalupihan", "Hermosa", "Limay",
+          "Mariveles", "Morong", "Orani", "Orion", "Pilar", "Samal"
+        ]
+      },
+      "Bulacan": {
+        cities: [
+          "Malolos City", "Meycauayan City", "San Jose del Monte City", "Baliwag City"
+        ],
+        municipalities: [
+          "Angat", "Balagtas", "Bocaue", "Bulacan", "Bustos", "Calumpit",
+          "Doña Remedios Trinidad", "Guiguinto", "Hagonoy", "Marilao", "Norzagaray",
+          "Obando", "Pandi", "Paombong", "Plaridel", "Pulilan", "San Ildefonso",
+          "San Miguel", "San Rafael", "Santa Maria"
+        ]
+      },
+      "Nueva Ecija": {
+        cities: [
+          "Cabanatuan City", "Gapan City", "Muñoz City", "Palayan City", "San Jose City"
+        ],
+        municipalities: [
+          "Aliaga", "Bongabon", "Cabiao", "Carranglan", "Cuyapo", "Gabaldon",
+          "General Mamerto Natividad", "General Tinio", "Guimba", "Jaen", "Laur",
+          "Licab", "Llanera", "Lupao", "Nampicuan", "Pantabangan", "Peñaranda",
+          "Quezon", "Rizal", "San Antonio", "San Isidro", "San Leonardo",
+          "Santa Rosa", "Santo Domingo", "Talavera", "Talugtug", "Zaragoza"
+        ]
+      },
+      "Pampanga": {
+        cities: ["Angeles City", "San Fernando City", "Mabalacat City"],
+        municipalities: [
+          "Apalit", "Arayat", "Bacolor", "Candaba", "Floridablanca", "Guagua",
+          "Lubao", "Macabebe", "Magalang", "Masantol", "Mexico", "Minalin",
+          "Porac", "San Luis", "San Simon", "Santa Ana", "Santa Rita", "Santo Tomas"
+        ]
+      },
+      "Tarlac": {
+        cities: ["Tarlac City"],
+        municipalities: [
+          "Anao", "Bamban", "Camiling", "Capas", "Concepcion", "Gerona",
+          "La Paz", "Mayantoc", "Moncada", "Paniqui", "Pura", "Ramos",
+          "San Clemente", "San Jose", "San Manuel", "Santa Ignacia", "Victoria"
+        ]
+      },
+      "Zambales": {
+        cities: ["Olongapo City"],
+        municipalities: [
+          "Botolan", "Cabangan", "Candelaria", "Castillejos", "Iba", "Masinloc",
+          "Palauig", "San Antonio", "San Felipe", "San Marcelino", "San Narciso",
+          "Santa Cruz", "Subic"
+        ]
+      }
+    }
   }
 };
 
@@ -243,6 +309,188 @@ export const zipCodeMapping = {
         cities: {},
         municipalities: {
           "Cabarroguis": "3401", "Diffun": "3402", "Maddela": "3403", "Nagtipunan": "3404", "Saguday": "3405"
+        }
+      }
+    }
+  },
+  "Region III (Central Luzon)": {
+    default: "2000",
+    provinces: {
+      "Aurora": {
+        default: "3200",
+        cities: {},
+        municipalities: {
+          "Baler": "3200",
+          "Casiguran": "3204",
+          "Dilasag": "3205",
+          "Dinalungan": "3206",
+          "Dingalan": "3207",
+          "Dipaculao": "3203",
+          "Maria Aurora": "3202",
+          "San Luis": "3201"
+        }
+      },
+      "Bataan": {
+        default: "2100",
+        cities: {
+          "Balanga City": "2100"
+        },
+        municipalities: {
+          "Abucay": "2114",
+          "Bagac": "2107",
+          "Dinalupihan": "2110",
+          "Hermosa": "2111",
+          "Limay": "2103",
+          "Mariveles": "2105",
+          "Morong": "2108",
+          "Orani": "2112",
+          "Orion": "2102",
+          "Pilar": "2101",
+          "Samal": "2113"
+        }
+      },
+      "Bulacan": {
+        default: "3000",
+        cities: {
+          "Malolos City": "3000",
+          "Meycauayan City": "3020",
+          "San Jose del Monte City": "3023",
+          "Baliwag City": "3006"
+        },
+        municipalities: {
+          "Angat": "3012",
+          "Balagtas": "3016",
+          "Bocaue": "3018",
+          "Bulacan": "3017",
+          "Bustos": "3007",
+          "Calumpit": "3003",
+          "Doña Remedios Trinidad": "3009",
+          "Guiguinto": "3015",
+          "Hagonoy": "3002",
+          "Marilao": "3019",
+          "Norzagaray": "3013",
+          "Obando": "3021",
+          "Pandi": "3014",
+          "Paombong": "3001",
+          "Plaridel": "3004",
+          "Pulilan": "3005",
+          "San Ildefonso": "3010",
+          "San Miguel": "3011",
+          "San Rafael": "3008",
+          "Santa Maria": "3022"
+        }
+      },
+      "Nueva Ecija": {
+        default: "3100",
+        cities: {
+          "Cabanatuan City": "3100",
+          "Gapan City": "3105",
+          "Muñoz City": "3119",
+          "Palayan City": "3132",
+          "San Jose City": "3121"
+        },
+        municipalities: {
+          "Aliaga": "3111",
+          "Bongabon": "3128",
+          "Cabiao": "3107",
+          "Carranglan": "3123",
+          "Cuyapo": "3117",
+          "Gabaldon": "3131",
+          "General Mamerto Natividad": "3125",
+          "General Tinio": "3104",
+          "Guimba": "3115",
+          "Jaen": "3109",
+          "Laur": "3129",
+          "Licab": "3112",
+          "Llanera": "3126",
+          "Lupao": "3122",
+          "Nampicuan": "3116",
+          "Pantabangan": "3124",
+          "Peñaranda": "3103",
+          "Quezon": "3113",
+          "Rizal": "3127",
+          "San Antonio": "3108",
+          "San Isidro": "3106",
+          "San Leonardo": "3102",
+          "Santa Rosa": "3101",
+          "Santo Domingo": "3133",
+          "Talavera": "3114",
+          "Talugtug": "3118",
+          "Zaragoza": "3110"
+        }
+      },
+      "Pampanga": {
+        default: "2000",
+        cities: {
+          "Angeles City": "2009",
+          "San Fernando City": "2000",
+          "Mabalacat City": "2010"
+        },
+        municipalities: {
+          "Apalit": "2016",
+          "Arayat": "2012",
+          "Bacolor": "2001",
+          "Candaba": "2013",
+          "Floridablanca": "2006",
+          "Guagua": "2003",
+          "Lubao": "2005",
+          "Macabebe": "2018",
+          "Magalang": "2011",
+          "Masantol": "2017",
+          "Mexico": "2021",
+          "Minalin": "2019",
+          "Porac": "2008",
+          "San Luis": "2014",
+          "San Simon": "2015",
+          "Santa Ana": "2022",
+          "Santa Rita": "2002",
+          "Santo Tomas": "2020"
+        }
+      },
+      "Tarlac": {
+        default: "2300",
+        cities: {
+          "Tarlac City": "2300"
+        },
+        municipalities: {
+          "Anao": "2310",
+          "Bamban": "2317",
+          "Camiling": "2306",
+          "Capas": "2315",
+          "Concepcion": "2316",
+          "Gerona": "2302",
+          "La Paz": "2314",
+          "Mayantoc": "2304",
+          "Moncada": "2314",
+          "Paniqui": "2307",
+          "Pura": "2312",
+          "Ramos": "2311",
+          "San Clemente": "2301",
+          "San Jose": "2305",
+          "San Manuel": "2309",
+          "Santa Ignacia": "2303",
+          "Victoria": "2313"
+        }
+      },
+      "Zambales": {
+        default: "2200",
+        cities: {
+          "Olongapo City": "2200"
+        },
+        municipalities: {
+          "Botolan": "2202",
+          "Cabangan": "2203",
+          "Candelaria": "2212",
+          "Castillejos": "2208",
+          "Iba": "2201",
+          "Masinloc": "2211",
+          "Palauig": "2210",
+          "San Antonio": "2206",
+          "San Felipe": "2204",
+          "San Marcelino": "2207",
+          "San Narciso": "2205",
+          "Santa Cruz": "2213",
+          "Subic": "2209"
         }
       }
     }

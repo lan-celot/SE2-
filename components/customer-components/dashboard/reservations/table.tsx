@@ -1,3 +1,26 @@
+<<<<<<< HEAD
+// This is the updated part of your useEffect in the ReservationsTable component
+// that needs to be modified to handle both service data structures
+
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user) {
+    console.log("User is not authenticated");
+    setIsLoading(false);
+    return;
+  }
+
+  console.log("User is authenticated, fetching reservations...");
+  setIsLoading(true);
+  const bookingsCollectionRef = collection(db, "bookings");
+  const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
+
+  const unsubscribe = onSnapshot(q, async (snapshot) => {
+    if (snapshot.empty) {
+      console.log("No reservations found");
+      setReservations([]);
+=======
+//customer 
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -10,15 +33,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/c
 import { db, auth } from "@/lib/firebase";
 import { collection, query, onSnapshot, where, doc, updateDoc, arrayUnion } from "firebase/firestore";
 
+// Update the Service interface (around line 15)
 interface Service {
   mechanic: string;
   service: string;
-  status: string;
+  status: MechanicStatus; // Changed from string to MechanicStatus
   created?: string;
   createdTime?: string;
   reservationDate?: string;
   serviceId?: string;
 }
+
+
+
+// Add this type definition after the Service interface
+type MechanicStatus = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
+
+type Status = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
 
 interface Reservation {
   id: string;
@@ -31,7 +62,6 @@ interface Reservation {
   statusUpdatedAt?: string;
   createdAt?: string;
 }
-
 export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -42,236 +72,23 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const [showStatusNotification, setShowStatusNotification] = useState<{ message: string; type: string } | null>(null);
   const [lastStatusUpdate, setLastStatusUpdate] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [showCompleteConfirmation, setShowCompleteConfirmation] = useState<string | null>(null);
 
-  // Helper function to generate completion date when status is completed
-  const generateCompletionDate = () => {
-    const now = new Date();
-    return now.toLocaleString('en-US', {
-      timeZone: 'Asia/Manila',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
+  // Add this useEffect after your other useEffects:
+useEffect(() => {
+  const handleFilterStatus = (event: CustomEvent) => {
+    setStatusFilter(event.detail);
   };
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      console.log("User is not authenticated");
-      setIsLoading(false);
-      return;
-    }
-
-    console.log("User is authenticated, fetching reservations...");
-    setIsLoading(true);
-    const bookingsCollectionRef = collection(db, "bookings");
-    const q = query(bookingsCollectionRef, where("userId", "==", user.uid));
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.empty) {
-        console.log("No reservations found");
-        setReservations([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const reservationList: Reservation[] = snapshot.docs.map((doc) => {
-        const booking = doc.data();
-        const id = doc.id;
-        const reservationDate = booking.reservationDate || "";
-        const formattedReservationDate = reservationDate ? formatDate(reservationDate) : "N/A";
-        
-        // Determine completion date based on status
-        let completionDate = booking.completionDate && booking.completionDate !== "Pending"
-          ? formatDateTime(booking.completionDate)
-          : "Pending";
-
-        // Safely handle status conversion
-        const status = booking.status ? String(booking.status).toUpperCase() : "PENDING";
-
-        // If status is COMPLETED and completion date is still Pending, generate a new completion date
-        if (status === "COMPLETED" && completionDate === "Pending") {
-          completionDate = generateCompletionDate();
-        }
-
-        // Safely handle services array
-        const services = Array.isArray(booking.services)
-          ? booking.services.map((service: any) => ({
-              mechanic: service?.mechanic || "TO BE ASSIGNED",
-              service: service?.service || "Unknown Service",
-              status: service?.status || "Pending",
-              created: service?.created || "N/A",
-              reservationDate: service?.reservationDate || formattedReservationDate,
-              serviceId: service?.serviceId || `legacy-${Math.random().toString(36).substring(2, 9)}`
-            }))
-          : [];
-
-        return {
-          id: id,
-          userId: booking.userId || user.uid,
-          reservationDate: formattedReservationDate,
-          carModel: booking.carModel ? `${booking.carModel}`.replace(/\s+/g, ' ') : "N/A",
-          completionDate: completionDate,
-          status: status,
-          services: services,
-          statusUpdatedAt: booking.statusUpdatedAt || null,
-          createdAt: booking.createdAt ? formatDateTime(booking.createdAt) : "N/A"
-        };
-      });
-
-      const uniqueReservations = reservationList.filter((reservation, index, self) =>
-        index === self.findIndex((r) => r.id === reservation.id)
-      );
-
-      console.log("Fetched reservations:", uniqueReservations);
-      setReservations(uniqueReservations);
-
-      // Update Firestore if any reservations need completion date
-      for (const reservation of uniqueReservations) {
-        if (reservation.status === "COMPLETED" && reservation.completionDate === "Pending") {
-          try {
-            const bookingDocRef = doc(db, "bookings", reservation.id);
-            await updateDoc(bookingDocRef, {
-              completionDate: new Date().toISOString(),
-              status: "COMPLETED"
-            });
-          } catch (error) {
-            console.error("Error updating completion date:", error);
-          }
-        }
-
-        // Status change notification logic
-        const prevStatus = lastStatusUpdate[reservation.id];
-        if (prevStatus && prevStatus !== reservation.status) {
-          setShowStatusNotification({
-            message: `Your booking status has been updated to ${reservation.status}`,
-            type: reservation.status.toLowerCase()
-          });
-        }
-        setLastStatusUpdate(prev => ({
-          ...prev,
-          [reservation.id]: reservation.status
-        }));
-      }
-
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching reservations:", error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    // Add event listener for status filtering
-    const handleStatusFilter = (event: CustomEvent) => {
-      setStatusFilter(event.detail);
-    };
-
-    // Cast to any to work around TypeScript's event typing
-    window.addEventListener('filterStatus', handleStatusFilter as EventListener);
-
-    // Cleanup listener
-    return () => {
-      window.removeEventListener('filterStatus', handleStatusFilter as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (showStatusNotification) {
-      const timer = setTimeout(() => {
-        setShowStatusNotification(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [showStatusNotification]);
-
-  const handleAddService = (reservationId: string) => {
-    setExpandedRow(reservationId);
-    setShowAddService(true);
+  window.addEventListener('filterStatus', handleFilterStatus as EventListener);
+  
+  return () => {
+    window.removeEventListener('filterStatus', handleFilterStatus as EventListener);
   };
+}, []);
 
-  const handleAddServices = async (selectedServices: string[]) => {
-    if (!expandedRow) return;
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      const reservation = reservations.find(res => res.id === expandedRow);
-      if (reservation) {
-        const now = new Date();
-        const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
-        const createdDate = now.toLocaleDateString('en-CA', options);
-        const createdTime = now.toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Manila',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true
-        });
-
-        const newServices = selectedServices.map((service) => ({
-          mechanic: "TO BE ASSIGNED",
-          service: service ? service.toUpperCase() : "CUSTOM SERVICE",
-          status: "Confirmed",
-          created: createdDate,
-          createdTime: createdTime,
-          reservationDate: reservation.reservationDate,
-          serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
-        }));
-
-        const updateTimestamp = now.toISOString();
-        const bookingDocRef = doc(db, "bookings", expandedRow);
-        await updateDoc(bookingDocRef, {
-          services: arrayUnion(...newServices),
-          lastUpdated: updateTimestamp
-        });
-      }
-    } catch (error) {
-      console.error("Error adding services:", error);
-      alert("There was an error adding services. Please try again.");
-    }
-  };
-
-  const handleDeleteService = async () => {
-    if (!serviceToDelete) return;
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      const reservation = reservations.find(res => res.id === serviceToDelete.reservationId);
-      if (reservation) {
-        const updatedServices = [...(Array.isArray(reservation.services) ? reservation.services : [])];
-        updatedServices.splice(serviceToDelete.serviceIndex, 1);
-
-        const bookingDocRef = doc(db, "bookings", serviceToDelete.reservationId);
-        await updateDoc(bookingDocRef, {
-          services: updatedServices,
-          lastUpdated: new Date().toISOString()
-        });
-      }
-
-      setServiceToDelete(null);
-      setShowDeleteDialog(false);
-    } catch (error) {
-      console.error("Error deleting service:", error);
-      alert("There was an error deleting the service. Please try again.");
-    }
-  };
-
-  const canAddServices = (status: string) => {
-    // Safely handle undefined status
-    if (!status) return true;
-    const lowerStatus = status.toLowerCase();
-    return lowerStatus !== "repairing" && lowerStatus !== "completed" && lowerStatus !== "cancelled";
-  };
-
-  const filteredAndSortedReservations = reservations
+// Now update your filteredAndSortedReservations function to use this filter, around line 463:
+const filteredAndSortedReservations = reservations
   .filter((reservation) => {
     const matchesSearch = searchQuery
       ? ["id", "carModel", "reservationDate", "completionDate", "status"].some((key) => {
@@ -297,24 +114,628 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
     return a.reservationDate.localeCompare(b.reservationDate);
   });
 
-  // You'll want to add this function to handle status updates
-  const handleStatusUpdate = async (reservationId: string, newStatus: string) => {
-    try {
-      const bookingDocRef = doc(db, "bookings", reservationId);
-      const updateData: any = { status: newStatus.toUpperCase() };
+   // Helper function to determine initial mechanic status based on reservation status
+// Replace the existing getInitialMechanicStatus function with this improved version
+const getInitialMechanicStatus = (reservationStatus: string): MechanicStatus => {
+  switch (reservationStatus.toUpperCase()) {
+    case "PENDING": return "PENDING";
+    case "CONFIRMED": return "CONFIRMED";
+    case "REPAIRING": return "REPAIRING"; // Changed from PENDING to REPAIRING
+    case "COMPLETED": return "COMPLETED";
+    case "CANCELLED": return "CANCELLED";
+    default: return "PENDING";
+  }
+};
+  function isValidStatus(status: string): status is typeof status {
+    return ["PENDING", "CONFIRMED", "REPAIRING", "COMPLETED", "CANCELLED"].includes(status as typeof status);
+  }
+  
+  function isValidMechanicStatus(status: string): status is MechanicStatus {
+    return ["PENDING", "CONFIRMED", "REPAIRING", "COMPLETED", "CANCELLED"].includes(status as MechanicStatus);
+  }
 
-      // If status is changed to COMPLETED, add completion date
-      if (newStatus.toUpperCase() === "COMPLETED") {
-        updateData.completionDate = new Date().toISOString();
+
+// Valid status transitions
+const validStatusTransitions: Record<Status, Status[]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["REPAIRING", "CANCELLED"],
+  REPAIRING: ["COMPLETED", "CANCELLED"],
+  COMPLETED: [],
+  CANCELLED: [],
+}
+
+// Valid mechanic status transitions based on reservation status
+// Replace the validMechanicStatusTransitions object with this clearer version
+const validMechanicStatusTransitions: Record<Status, MechanicStatus[]> = {
+  PENDING: ["PENDING"], // When reservation is PENDING, services should be PENDING
+  CONFIRMED: ["CONFIRMED"], // When reservation is CONFIRMED, services should be CONFIRMED
+  REPAIRING: ["PENDING", "REPAIRING", "COMPLETED", "CANCELLED"], // During REPAIRING, all statuses are allowed
+  COMPLETED: ["COMPLETED"], // When reservation is COMPLETED, all services should be COMPLETED
+  CANCELLED: ["CANCELLED"] // When reservation is CANCELLED, all services should be CANCELLED
+};  // Helper function to validate mechanic status changes
+   // Similarly update isValidMechanicStatusChange function
+const isValidMechanicStatusChange = (
+  reservationStatus: string, 
+  currentMechanicStatus: MechanicStatus, 
+  newMechanicStatus: MechanicStatus
+): boolean => {
+  // Normalize the reservation status
+  const normalizedStatus = reservationStatus.toUpperCase() as Status;
+  
+  // Check if the new status is allowed for the current reservation status
+  return validMechanicStatusTransitions[normalizedStatus].includes(newMechanicStatus);
+};
+   // Helper function to check if all services are completed
+   const areAllServicesCompleted = (services: Service[]): boolean => {
+    return services.every(service => 
+      service.status === "COMPLETED" || service.status === "CANCELLED"
+    );
+  };
+
+  // Helper function to generate completion date when status is completed
+  const generateCompletionDate = () => {
+    const now = new Date();
+    return now.toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      console.log("User is not authenticated");
+>>>>>>> 6f6182c8f87b9db0e7d13de91c82b7a612c34b2e
+      setIsLoading(false);
+      return;
+    }
+
+    const reservationList: Reservation[] = snapshot.docs.map((doc) => {
+      const booking = doc.data();
+      const id = doc.id;
+      const reservationDate = booking.reservationDate || "";
+      const formattedReservationDate = reservationDate ? formatDate(reservationDate) : "N/A";
+      
+      // Determine completion date based on status
+      let completionDate = booking.completionDate && booking.completionDate !== "Pending"
+        ? formatDateTime(booking.completionDate)
+        : "Pending";
+
+      // Safely handle status conversion
+      const status = booking.status ? String(booking.status).toUpperCase() : "PENDING";
+
+      // If status is COMPLETED and completion date is still Pending, generate a new completion date
+      if (status === "COMPLETED" && completionDate === "Pending") {
+        completionDate = generateCompletionDate();
       }
 
+<<<<<<< HEAD
+      // Handle services array, checking for both individual services and the services array
+      let services: Service[] = [];
+      
+      // First check if there's a serviceDetails array in the booking (from the new structure)
+      if (Array.isArray(booking.serviceDetails)) {
+        services = booking.serviceDetails.map((service: any) => ({
+          mechanic: service?.mechanic || "TO BE ASSIGNED",
+          service: service?.service || "Unknown Service",
+          status: service?.status || "Pending", 
+          created: service?.created || "N/A",
+          createdTime: service?.createdTime || "",
+          reservationDate: service?.reservationDate || formattedReservationDate,
+          serviceId: service?.serviceId || `legacy-${Math.random().toString(36).substring(2, 9)}`
+=======
+      const reservationList: Reservation[] = snapshot.docs.map((doc) => {
+        const booking = doc.data();
+        const id = doc.id;
+        const reservationDate = booking.reservationDate || "";
+        const formattedReservationDate = reservationDate ? formatDate(reservationDate) : "N/A";
+        
+        // Determine completion date based on status
+        let completionDate = "PENDING";
+        
+        // Safely handle status conversion
+        const status = booking.status ? String(booking.status).toUpperCase() : "PENDING";
+
+        if (booking.completionDate && booking.completionDate !== "PENDING") {
+          completionDate = formatDateTime(booking.completionDate);
+        } else if (status === "COMPLETED") {
+          // If status is COMPLETED but no completion date, generate one
+          const now = new Date();
+          completionDate = generateCompletionDate();
+          // Update Firestore with the new completion date in a later step
+        }
+
+        // If status is COMPLETED and completion date is still PENDING, generate a new completion date
+        if (status === "COMPLETED" && completionDate === "PENDING") {
+          completionDate = generateCompletionDate();
+        }
+
+// In the useEffect for data fetching, replace the services mapping section with:
+const services = Array.isArray(booking.services)
+  ? booking.services.map((service: any) => {
+      // Map service status based on reservation status
+      let serviceStatus: MechanicStatus;
+      
+      if (service.status && isValidMechanicStatus(service.status.toUpperCase())) {
+        // If service has a valid status, use it
+        serviceStatus = service.status.toUpperCase() as MechanicStatus;
+      } else {
+        // If not, derive from reservation status
+        switch(status.toUpperCase()) {
+          case "PENDING": serviceStatus = "PENDING"; break;
+          case "CONFIRMED": serviceStatus = "CONFIRMED"; break;
+          case "REPAIRING": serviceStatus = "REPAIRING"; break;
+          case "COMPLETED": serviceStatus = "COMPLETED"; break;
+          case "CANCELLED": serviceStatus = "CANCELLED"; break;
+          default: serviceStatus = "PENDING";
+        }
+      }
+      
+      return {
+        ...service,
+        status: serviceStatus,
+      };
+    })
+  : [];
+        return {
+          id: id,
+          userId: booking.userId || user.uid,
+          reservationDate: formattedReservationDate,
+          carModel: booking.carModel ? `${booking.carModel}`.replace(/\s+/g, ' ') : "N/A",
+          completionDate: completionDate,
+          status: status,
+          services: services,
+          statusUpdatedAt: booking.statusUpdatedAt || null,
+          createdAt: booking.createdAt ? formatDateTime(booking.createdAt) : "N/A"
+        };
+      });
+
+      const uniqueReservations = reservationList.filter((reservation, index, self) =>
+        index === self.findIndex((r) => r.id === reservation.id)
+      );
+
+      console.log("Fetched reservations:", uniqueReservations);
+      setReservations(uniqueReservations);
+
+      // Update Firestore if any reservations need completion date
+     // In the same useEffect where you're setting reservations, around line 214:
+// Make sure this code is there and working:
+
+// Update Firestore if any reservations need completion date
+for (const reservation of uniqueReservations) {
+  if (reservation.status === "COMPLETED" && reservation.completionDate === "PENDING") {
+    try {
+      const bookingDocRef = doc(db, "bookings", reservation.id);
+      await updateDoc(bookingDocRef, {
+        completionDate: new Date().toISOString(),
+        status: "COMPLETED"
+      });
+    } catch (error) {
+      console.error("Error updating completion date:", error);
+    }
+  }
+
+        // Status change notification logic
+        const prevStatus = lastStatusUpdate[reservation.id];
+        if (prevStatus && prevStatus !== reservation.status) {
+          setShowStatusNotification({
+            message: `Your booking status has been updated to ${reservation.status}`,
+            type: reservation.status.toLowerCase()
+          });
+        }
+        setLastStatusUpdate(prev => ({
+          ...prev,
+          [reservation.id]: reservation.status
+>>>>>>> 6f6182c8f87b9db0e7d13de91c82b7a612c34b2e
+        }));
+      } 
+      // Then check if there's a services array with objects (from the old structure)
+      else if (Array.isArray(booking.services) && booking.services.length > 0) {
+        // Check if the first item is an object with service property (service objects)
+        if (booking.services[0] && typeof booking.services[0] === 'object' && booking.services[0].service) {
+          services = booking.services.map((service: any) => ({
+            mechanic: service?.mechanic || "TO BE ASSIGNED",
+            service: service?.service || "Unknown Service",
+            status: service?.status || "Pending", 
+            created: service?.created || "N/A",
+            createdTime: service?.createdTime || "",
+            reservationDate: service?.reservationDate || formattedReservationDate,
+            serviceId: service?.serviceId || `legacy-${Math.random().toString(36).substring(2, 9)}`
+          }));
+        } 
+        // If services contains strings (service names), convert them to service objects
+        else {
+          services = booking.services.map((serviceName: string) => ({
+            mechanic: "TO BE ASSIGNED",
+            service: serviceName,
+            status: "Confirmed", 
+            created: booking.createdAt ? formatDateTime(booking.createdAt).split(',')[0] : "N/A",
+            createdTime: booking.createdAt ? formatDateTime(booking.createdAt).split(',')[1]?.trim() : "",
+            reservationDate: formattedReservationDate,
+            serviceId: `legacy-${Math.random().toString(36).substring(2, 9)}`
+          }));
+        }
+      }
+      
+      return {
+        id: id,
+        userId: booking.userId || user.uid,
+        reservationDate: formattedReservationDate,
+        carModel: booking.carModel ? `${booking.carModel}`.replace(/\s+/g, ' ') : "N/A",
+        completionDate: completionDate,
+        status: status,
+        services: services,
+        statusUpdatedAt: booking.statusUpdatedAt || null,
+        createdAt: booking.createdAt ? formatDateTime(booking.createdAt) : "N/A"
+      };
+    });
+
+<<<<<<< HEAD
+    // Rest of your code remains the same...
+=======
+    return () => unsubscribe();
+  }, []);
+
+
+// Replace the existing useEffect for service status synchronization
+useEffect(() => {
+  // Skip if no reservations
+  if (!reservations.length) return;
+  
+  const updatedReservations = reservations.map(reservation => {
+    // Skip if there are no services
+    if (!reservation.services || !reservation.services.length) return reservation;
+    
+    // Determine how services should reflect reservation status
+    const updatedServices = reservation.services.map(service => {
+      let newStatus: MechanicStatus;
+      
+      // Map mechanic status based on reservation status
+      switch (reservation.status.toUpperCase()) {
+        case "PENDING":
+          newStatus = "PENDING";
+          break;
+        case "CONFIRMED":
+          newStatus = "CONFIRMED";
+          break;
+        case "REPAIRING":
+          // If service is in PENDING or CONFIRMED state and reservation is REPAIRING,
+          // update to REPAIRING. Otherwise, keep current status.
+          if (service.status === "PENDING" || service.status === "CONFIRMED") {
+            newStatus = "REPAIRING";
+          } else {
+            newStatus = service.status;
+          }
+          break;
+        case "COMPLETED":
+          newStatus = "COMPLETED";
+          break;
+        case "CANCELLED":
+          newStatus = "CANCELLED";
+          break;
+        default:
+          newStatus = service.status;
+      }
+      
+      return { ...service, status: newStatus };
+    });
+    
+    // Check for auto-completion condition
+    const isReadyToComplete = 
+      reservation.status === "REPAIRING" && 
+      updatedServices.length > 0 && 
+      updatedServices.every(service => 
+        service.status === "COMPLETED" || service.status === "CANCELLED"
+      ) && 
+      updatedServices.some(service => service.status === "COMPLETED");
+    
+    if (isReadyToComplete && showCompleteConfirmation !== reservation.id) {
+      setShowCompleteConfirmation(reservation.id);
+    }
+    
+    return { ...reservation, services: updatedServices };
+  });
+  
+  // Only update if there are actual changes
+  const hasChanges = JSON.stringify(updatedReservations) !== JSON.stringify(reservations);
+  if (hasChanges) {
+    setReservations(updatedReservations);
+  }
+}, [reservations, showCompleteConfirmation]);
+
+
+  useEffect(() => {
+    if (showStatusNotification) {
+      const timer = setTimeout(() => {
+        setShowStatusNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showStatusNotification]);
+
+
+
+  // Confirmation dialog for completing reservation
+  const handleCompleteReservation = async (confirm: boolean) => {
+    if (!showCompleteConfirmation) return;
+
+    try {
+      if (confirm) {
+        const bookingDocRef = doc(db, "bookings", showCompleteConfirmation);
+        await updateDoc(bookingDocRef, {
+          status: "COMPLETED",
+          completionDate: new Date().toISOString()
+        });
+      }
+      
+      setShowCompleteConfirmation(null);
+    } catch (error) {
+      console.error("Error completing reservation:", error);
+      alert("There was an error completing the reservation. Please try again.");
+    }
+  };
+
+  // Render complete confirmation dialog
+  const renderCompleteConfirmationDialog = () => {
+    return (
+      <Dialog open={!!showCompleteConfirmation} onOpenChange={() => handleCompleteReservation(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Mark Booking as Complete?</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => handleCompleteReservation(false)}
+              className="bg-[#FFE5E5] hover:bg-[#EA5455]/30 text-[#EA5455] hover:text-[#EA5455]"
+            >
+              No, keep open
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleCompleteReservation(true)}
+              className="bg-[#E6FFF3] hover:bg-[#28C76F]/30 text-[#28C76F] hover:text-[#28C76F]"
+            >
+              Yes, complete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const handleAddService = (reservationId: string) => {
+    setExpandedRow(reservationId);
+    setShowAddService(true);
+  };
+
+  // Update handleAddServices to implement initial mechanic status logic
+  // Update handleAddServices function
+const handleAddServices = async (selectedServices: string[]) => {
+  if (!expandedRow) return;
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const reservation = reservations.find(res => res.id === expandedRow);
+    if (reservation) {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila' };
+      const createdDate = now.toLocaleDateString('en-CA', options);
+      const createdTime = now.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+
+      // Determine initial mechanic status based on reservation status
+      const initialMechanicStatus = getInitialMechanicStatus(reservation.status);
+
+      const newServices = selectedServices.map((service) => ({
+        mechanic: "TO BE ASSIGNED",
+        service: service ? service.toUpperCase() : "CUSTOM SERVICE",
+        status: initialMechanicStatus,
+        created: createdDate,
+        createdTime: createdTime,
+        reservationDate: reservation.reservationDate,
+        serviceId: `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+      }));
+
+      const bookingDocRef = doc(db, "bookings", expandedRow);
+      
+      await updateDoc(bookingDocRef, {
+        services: arrayUnion(...newServices),
+        lastUpdated: now.toISOString()
+      });
+    }
+  } catch (error) {
+    console.error("Error adding services:", error);
+    alert("There was an error adding services. Please try again.");
+  }
+};
+
+const isStatusChangeValid = (currentStatus: Status, newStatus: Status): boolean => {
+  return validStatusTransitions[currentStatus].includes(newStatus);
+};
+
+const handleDeleteService = async () => {
+  if (serviceToDelete) {
+    const reservation = reservations.find(res => res.id === serviceToDelete.reservationId);
+    
+    if (!reservation) return;
+
+    // Prevent deletion for completed or cancelled reservations
+    if (reservation.status === "COMPLETED" || reservation.status === "CANCELLED") {
+      alert("Cannot delete services from a completed or cancelled reservation.");
+      return;
+    }
+
+    try {
+      const updatedServices = reservation.services.filter(
+        (_, index) => index !== serviceToDelete.serviceIndex
+      );
+
+      const bookingDocRef = doc(db, "bookings", reservation.id);
+      
+      await updateDoc(bookingDocRef, { services: updatedServices });
+
+      // Update local state
+      setReservations(prevReservations => 
+        prevReservations.map(res => 
+          res.id === reservation.id ? { ...res, services: updatedServices } : res
+        )
+      );
+
+      // Reset delete state
+      setServiceToDelete(null);
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error("Error deleting service:", error);
+      alert("There was an error deleting the service. Please try again.");
+    }
+  }
+};
+
+  const canAddServices = (status: string) => {
+    // Safely handle undefined status
+    if (!status) return true;
+    const lowerStatus = status.toLowerCase();
+    return lowerStatus !== "repairing" && lowerStatus !== "completed" && lowerStatus !== "cancelled";
+  };
+
+
+
+  const handleStatusUpdate = async (reservationId: string, newStatus: Status) => {
+    try {
+      const reservation = reservations.find(res => res.id === reservationId);
+      if (!reservation) return;
+  
+      // Validate status change
+      const currentStatus = reservation.status as Status;
+      if (!isValidStatus(currentStatus) || !validStatusTransitions[currentStatus].includes(newStatus)) {
+        console.error("Invalid status transition");
+        return;
+      }
+  
+      const bookingDocRef = doc(db, "bookings", reservationId);
+      const updateData: any = { status: newStatus.toUpperCase() };
+  
+      // Update service statuses based on new reservation status
+      const updatedServices = reservation.services.map(service => ({
+        ...service,
+        status: (() => {
+          switch(newStatus) {
+            case "PENDING": return "PENDING";
+            case "CONFIRMED": return "CONFIRMED";
+            case "REPAIRING": return "PENDING";
+            case "COMPLETED": return "COMPLETED";
+            case "CANCELLED": return "CANCELLED";
+            default: return service.status;
+          }
+        })()
+      }));
+  
+      updateData.services = updatedServices;
+  
+      // If status is changed to COMPLETED, add completion date
+      if (newStatus === "COMPLETED") {
+        updateData.completionDate = new Date().toISOString();
+      }
+  
       await updateDoc(bookingDocRef, updateData);
+  
+      // Update local state
+      setReservations(prevReservations => 
+        prevReservations.map(res => 
+          res.id === reservationId 
+            ? { 
+                ...res, 
+                status: newStatus, 
+                services: updatedServices,
+                ...(newStatus === "COMPLETED" ? { completionDate: new Date().toISOString() } : {}) 
+              } 
+            : res
+        )
+      );
+  
     } catch (error) {
       console.error("Error updating status:", error);
       alert("There was an error updating the status. Please try again.");
     }
   };
+const handleMechanicStatusChange = async (reservationId: string, serviceIndex: number, newStatus: MechanicStatus) => {
+  try {
+    const reservation = reservations.find(res => res.id === reservationId);
+    
+    if (!reservation || !reservation.userId || !reservation.services) {
+      throw new Error("Reservation or service not found");
+    }
+    
+    // Validate status change based on current reservation status
+    if (!isValidStatus(reservation.status)) {
+      console.error("Invalid reservation status");
+      return;
+    }
+    const allowedStatuses = validMechanicStatusTransitions[reservation.status as Status];
+    if (!allowedStatuses.includes(newStatus)) {
+      console.error("Invalid mechanic status transition");
+      return;
+    }
 
+    const updatedServices = [...reservation.services];
+    updatedServices[serviceIndex] = {
+      ...updatedServices[serviceIndex],
+      status: newStatus
+    };
+    
+    const bookingDocRef = doc(db, "bookings", reservationId);
+    
+    await updateDoc(bookingDocRef, { services: updatedServices });
+
+    // Update local state
+    setReservations(prevReservations => 
+      prevReservations.map(res => 
+        res.id === reservationId ? { ...res, services: updatedServices } : res
+      )
+    );
+
+    // Check if all services are completed when reservation is REPAIRING
+    if (
+      reservation.status === "REPAIRING" && 
+      updatedServices.every(service => 
+        service.status === "COMPLETED" || service.status === "CANCELLED"
+      ) && 
+      updatedServices.some(service => service.status === "COMPLETED")
+    ) {
+      // Automatically complete the reservation
+      await updateDoc(bookingDocRef, { 
+        status: "COMPLETED",
+        completionDate: new Date().toISOString()
+      });
+
+      // Update local state to reflect completion
+      setReservations(prevReservations => 
+        prevReservations.map(res => 
+          res.id === reservationId 
+            ? { ...res, status: "COMPLETED", completionDate: new Date().toISOString() } 
+            : res
+        )
+      );
+    }
+
+  } catch (error) {
+    console.error("Error updating mechanic status:", error);
+    alert("There was an error updating the service status. Please try again.");
+  }
+};
   const formatDate = (dateStr: string) => {
     try {
       if (!dateStr) return "N/A";
@@ -339,7 +760,7 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
   const formatDateTime = (dateStr: string) => {
     try {
       if (!dateStr) return "N/A";
-      if (dateStr === "Pending") return dateStr;
+      if (dateStr === "PENDING") return dateStr;
 
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
@@ -448,21 +869,24 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                           <Table>
                             <thead>
                               <tr>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  CREATED
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  RESERVATION DATE
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  SERVICE
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  MECHANIC
-                                </TableHead>
-                                <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
-                                  ACTION
-                                </TableHead>
+                              <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+      CREATED
+    </TableHead>
+    <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+      RESERVATION DATE
+    </TableHead>
+    <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+      SERVICE
+    </TableHead>
+    <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+      MECHANIC
+    </TableHead>
+    <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+      MECHANIC STATUS
+    </TableHead>
+    <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
+      ACTION
+    </TableHead>
                                 <TableHead className="px-6 py-3 text-center text-xs font-medium text-[#8B909A] uppercase tracking-wider">
                                   {canAddServices(reservation.status) ? (
                                     <Button
@@ -484,23 +908,32 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
                               </tr>
                             </thead>
                             <TableBody>
-                              {(Array.isArray(reservation.services) && reservation.services.length > 0) ? (
-                                reservation.services.map((service, index) => (
-                                  <TableRow key={`${reservation.id}-service-${service.serviceId || index}`}>
-                                    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                      {service.created || "N/A"}
-                                      {service.createdTime && <span className="ml-1">{service.createdTime}</span>}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                      {formatDate(service.reservationDate || reservation.reservationDate)}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                      {service.service || "N/A"}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
-                                      {service.mechanic || "TO BE ASSIGNED"}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 flex justify-center">
+{(Array.isArray(reservation.services) && reservation.services.length > 0) ? (
+  reservation.services.map((service, index) => (
+    <TableRow key={`${reservation.id}-service-${service.serviceId || index}`}>
+      <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+        {service.created || "N/A"}
+        {service.createdTime && <span className="ml-1">{service.createdTime}</span>}
+      </TableCell>
+      <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+        {formatDate(service.reservationDate || reservation.reservationDate)}
+      </TableCell>
+      <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+        {service.service || "N/A"}
+      </TableCell>
+      <TableCell className="px-6 py-4 text-sm text-[#1A365D] text-center">
+        {service.mechanic || "TO BE ASSIGNED"}
+      </TableCell>
+ {/* Replace the TableCell for mechanic status with this improved version */}
+<TableCell className="px-6 py-4 text-center">
+  <span className={cn(
+    "inline-flex rounded-lg px-3 py-1 text-sm font-medium",
+    getMechanicStatusStyle(service.status)
+  )}>
+    {service.status ? service.status.toUpperCase() : "PENDING"}
+  </span>
+</TableCell>
+      <TableCell className="px-6 py-4 flex justify-center">
                                       <div className="inline-flex items-center justify-center gap-2">
                                         {canAddServices(reservation.status) ? (
                                           <Button
@@ -586,6 +1019,8 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
             : []
         }
       />
+
+{renderCompleteConfirmationDialog()}
     </div>
   );
 }
@@ -593,12 +1028,27 @@ export function ReservationsTable({ searchQuery }: { searchQuery: string }) {
 const getStatusStyle = (status?: string) => {
   if (!status) return "bg-gray-200 text-gray-600";
 
-  switch (status.toLowerCase()) {
-    case "pending": return "bg-[#FF9F43]/10 text-[#FF9F43]"; // New style for PENDING status
-    case "confirmed": return "bg-[#63B3ED]/10 text-[#63B3ED]";
-    case "repairing": return "bg-[#EFBF14]/10 text-[#EFBF14]";
-    case "completed": return "bg-[#28C76F]/10 text-[#28C76F]";
-    case "cancelled": return "bg-[#EA5455]/10 text-[#EA5455]";
+  switch (status.toUpperCase()) {
+    case "PENDING": return "bg-[#FF9F43]/10 text-[#FF9F43]";
+    case "CONFIRMED": return "bg-[#63B3ED]/10 text-[#63B3ED]";
+    case "REPAIRING": return "bg-[#EFBF14]/10 text-[#EFBF14]";
+    case "COMPLETED": return "bg-[#28C76F]/10 text-[#28C76F]";
+    case "CANCELLED": return "bg-[#EA5455]/10 text-[#EA5455]";
     default: return "bg-[#8B909A]/10 text-[#8B909A]";
   }
 };
+
+// Add this function below the getStatusStyle function (around line 400)
+const getMechanicStatusStyle = (status?: string) => {
+  if (!status) return "bg-gray-200 text-gray-600";
+
+  switch (status.toUpperCase()) {
+    case "PENDING": return "bg-[#FF9F43]/10 text-[#FF9F43]";
+    case "CONFIRMED": return "bg-[#63B3ED]/10 text-[#63B3ED]";
+    case "REPAIRING": return "bg-[#EFBF14]/10 text-[#EFBF14]";
+    case "COMPLETED": return "bg-[#28C76F]/10 text-[#28C76F]";
+    case "CANCELLED": return "bg-[#EA5455]/10 text-[#EA5455]";
+    default: return "bg-[#8B909A]/10 text-[#8B909A]";
+  }
+};
+>>>>>>> 6f6182c8f87b9db0e7d13de91c82b7a612c34b2e
