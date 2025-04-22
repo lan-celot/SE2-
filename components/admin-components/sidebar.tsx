@@ -12,6 +12,8 @@ import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogTitle } from "@/components/admin-components/dialog"
 import { Button } from "@/components/admin-components/button"
 import Cookies from "js-cookie"
+// Import the logUserLogout function
+import { logUserLogout } from "@/lib/log-utils"
 
 export function Sidebar() {
   const router = useRouter()
@@ -45,8 +47,18 @@ export function Sidebar() {
       // Delay the actual logout by 2 seconds
       setTimeout(async () => {
         try {
-          // Get current user email before signing out
-          const userEmail = auth.currentUser?.email || "Unknown user"
+          // Get current user information BEFORE signing out
+          const currentUser = auth.currentUser
+          const userEmail = currentUser?.email || "Unknown user"
+          // Assuming userFirstName is stored in cookies or state upon login
+          // You might need to adjust how you get the firstName based on your app's state management
+          const userFirstName = Cookies.get("userFirstName") || "Unknown User" // Get firstName from cookie
+          const userId = currentUser?.uid // Get userId
+
+          // Log the logout activity
+          await logUserLogout(userFirstName, userEmail, userId)
+          console.log(`Logout activity logged for ${userEmail}`)
+
 
           // Sign out from Firebase
           await signOut(auth)
@@ -55,7 +67,7 @@ export function Sidebar() {
           Cookies.remove("isAuthenticated")
           Cookies.remove("userRole")
           Cookies.remove("userId")
-          Cookies.remove("userFirstName")
+          Cookies.remove("userFirstName") // Clear the firstName cookie as well
 
           // Show success toast
           toast({
@@ -96,7 +108,8 @@ export function Sidebar() {
             textAlign: "center",
           }}
         >
-          {notification?.message || ""}
+          {notification?.message || ""
+          }
         </div>
       </div>
 
@@ -195,4 +208,3 @@ function NavLink({ href, icon: Icon, label }: { href: string; icon: React.Elemen
     </Link>
   )
 }
-
