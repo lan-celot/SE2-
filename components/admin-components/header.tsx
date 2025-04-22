@@ -43,7 +43,7 @@ export function DashboardHeader({ title }: HeaderProps) {
   }
 
   // Ensure client ID isn't empty
-  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || ""
+  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || "owvp6sijxsgcijmqlu69gzfgcs"
 
   return (
     <header className="bg-[#EBF8FF] pt-1">
