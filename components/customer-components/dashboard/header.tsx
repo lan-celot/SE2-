@@ -70,7 +70,6 @@ export function DashboardHeader({ title }: HeaderProps) {
 
         try {
           const userDocSnap = await getDoc(userDocRef);
-
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data() as UserData;
             setUser(userData);
@@ -119,13 +118,11 @@ export function DashboardHeader({ title }: HeaderProps) {
         }
       }
     };
-
     // Add typed event listener for the profile photo updates
     window.addEventListener(
       "profilePhotoUpdated",
       handleProfilePhotoUpdate as EventListener
     );
-
     return () => {
       unsubscribe();
       window.removeEventListener(
@@ -134,6 +131,7 @@ export function DashboardHeader({ title }: HeaderProps) {
       );
     };
   }, []);
+
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -149,16 +147,16 @@ export function DashboardHeader({ title }: HeaderProps) {
       .toUpperCase();
   };
 
-  // Get the Firebase auth UID for notifications - this is what changed
-  // We're using the authUid from the user's data if available, otherwise falling back to the Firebase auth UID
-  // This ensures we match the authUid field in your Firestore structure
-  const userId = user.authUid || firebaseUser?.uid || ""; 
-  
-  console.log("Customer dashboard notification using userId:", userId);
-  
-  // Use environment variable with fallback
-  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || "owvp6sijxsgcijmqlu69gzfgcs";
+  // Get the Firebase auth UID for notifications
+  const userId = user.authUid || firebaseUser?.uid || "";
 
+  // Use environment variable - Removed the hardcoded fallback
+  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || ""; // Use empty string fallback like admin
+
+  console.log("Customer dashboard notification using userId:", userId);
+  console.log("Customer dashboard notification clientId:", clientId);
+
+  // Show loading state only if loading AND no cached photo exists
   if (isLoading && !lastPhotoURL) {
     return (
       <header className="bg-[#EBF8FF]">
@@ -166,6 +164,9 @@ export function DashboardHeader({ title }: HeaderProps) {
           <div className="h-8 w-48 bg-gray-200 rounded"></div>
           <div className="flex items-center gap-4">
             <div className="h-8 w-24 bg-gray-200 rounded"></div>
+            {/* Placeholder for notification bell */}
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+            {/* Placeholder for profile icon */}
             <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
           </div>
         </div>
@@ -182,7 +183,7 @@ export function DashboardHeader({ title }: HeaderProps) {
               Welcome back,{" "}
               <span className="text-[#2a69ac]">{userFirstName || "User"}</span>
             </>
-          )}
+           )}
         </h1>
 
         <div className="flex items-center gap-4">
@@ -191,7 +192,8 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative">
-            {userId ? (
+            {/* Conditionally render based on BOTH userId AND clientId being present */}
+            {userId && clientId ? (
               <NotificationAPIProvider
                 userId={userId}
                 clientId={clientId}
@@ -199,6 +201,7 @@ export function DashboardHeader({ title }: HeaderProps) {
                 <NotificationPopup />
               </NotificationAPIProvider>
             ) : (
+              // Consistent placeholder Bell icon
               <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
                 <Bell className="h-4 w-4 text-gray-400" />
               </div>
