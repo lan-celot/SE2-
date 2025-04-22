@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import Cookies from "js-cookie"
-import { NotificationAPIProvider, NotificationPopup } from "@notificationapi/react"
+import { NotificationAPIProvider, NotificationPopup } from "@notificationapi/react" // Keep this import
+import { Bell } from "lucide-react"
 
 interface HeaderProps {
   title?: string
@@ -13,6 +14,7 @@ interface HeaderProps {
 export function DashboardHeader({ title }: HeaderProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [userFirstName, setUserFirstName] = useState<string | null>(null)
+  const [isClient, setIsClient] = useState(false); // State to track if we are on the client
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,6 +31,11 @@ export function DashboardHeader({ title }: HeaderProps) {
     }
   }, [])
 
+  // This useEffect runs only on the client side after initial render
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "2-digit",
@@ -41,9 +48,11 @@ export function DashboardHeader({ title }: HeaderProps) {
     return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date).toUpperCase()
   }
 
-  // Ensure client ID isn't empty
+  // Ensure client ID isn't empty - Relies on Netlify env var
   const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || ""
-  
+
+  console.log("Admin dashboard notification clientId:", clientId);
+
   return (
     <header className="bg-[#EBF8FF] pt-1">
       <div className="flex justify-between items-center px-6 py-2">
@@ -61,19 +70,21 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative">
-            {clientId ? (
+            {/* Conditionally render based on clientId being present AND if we are on the client */}
+            {clientId && isClient ? (
               <NotificationAPIProvider userId="admin1" clientId={clientId}>
                 <NotificationPopup />
               </NotificationAPIProvider>
             ) : (
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                <span className="text-xs text-gray-500">?</span>
+              // Consistent placeholder Bell icon (will render on server and client initially)
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                <Bell className="h-4 w-4 text-gray-400" />
               </div>
             )}
           </div>
 
           <div className="h-8 w-8 rounded-full overflow-hidden">
-            <Link href="/employees/e00001">
+            <Link href="/employees/EMP_001">
               <Image
                 src="https://i.pravatar.cc/32?u=marcial"
                 alt="Marcial Tamondong"
