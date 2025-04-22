@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import Cookies from "js-cookie"
 import { NotificationAPIProvider, NotificationPopup } from "@notificationapi/react"
+import { Bell } from "lucide-react"
 
 interface HeaderProps {
   title?: string
@@ -43,7 +44,7 @@ export function DashboardHeader({ title }: HeaderProps) {
 
   // Ensure client ID isn't empty
   const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || ""
-  
+
   return (
     <header className="bg-[#EBF8FF] pt-1">
       <div className="flex justify-between items-center px-6 py-2">
@@ -66,8 +67,8 @@ export function DashboardHeader({ title }: HeaderProps) {
                 <NotificationPopup />
               </NotificationAPIProvider>
             ) : (
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                <span className="text-xs text-gray-500">?</span>
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                <Bell className="h-4 w-4 text-gray-400" /> {/* Use the Bell icon here */}
               </div>
             )}
           </div>
