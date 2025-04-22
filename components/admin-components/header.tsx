@@ -42,8 +42,10 @@ export function DashboardHeader({ title }: HeaderProps) {
     return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date).toUpperCase()
   }
 
-  // Ensure client ID isn't empty
-  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || "owvp6sijxsgcijmqlu69gzfgcs"
+  // Ensure client ID isn't empty - Relies on Netlify env var
+  const clientId = process.env.NEXT_PUBLIC_NOTIFICATION_CLIENT_ID || ""
+
+  console.log("Admin dashboard notification clientId:", clientId);
 
   return (
     <header className="bg-[#EBF8FF] pt-1">
@@ -62,19 +64,21 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative">
+            {/* Conditionally render based on clientId being present */}
             {clientId ? (
               <NotificationAPIProvider userId="admin1" clientId={clientId}>
                 <NotificationPopup />
               </NotificationAPIProvider>
             ) : (
+              // Consistent placeholder Bell icon
               <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
-                <Bell className="h-4 w-4 text-gray-400" /> {/* Use the Bell icon here */}
+                <Bell className="h-4 w-4 text-gray-400" />
               </div>
             )}
           </div>
 
           <div className="h-8 w-8 rounded-full overflow-hidden">
-            <Link href="/employees/e00001">
+            <Link href="/employees/emp_001">
               <Image
                 src="https://i.pravatar.cc/32?u=marcial"
                 alt="Marcial Tamondong"
