@@ -14,6 +14,7 @@ import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc, T
 import { getAuth, sendPasswordResetEmail } from "firebase/auth"
 import Cookies from "js-cookie"
 import { Checkbox } from "@/components/admin-components/checkbox"
+import { logUserLogin } from "@/lib/log-utils"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -37,10 +38,10 @@ export default function LoginPage() {
   const router = useRouter()
 
   // Constants for cooldown times
-  const RESET_TIMEOUT = 3 * 60 * 1000; // 3 minutes in milliseconds
-  const INITIAL_COOLDOWN = 5 * 60 * 1000; // 5 minutes in milliseconds
-  const LONG_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
-  const MAX_ATTEMPTS = 3; // Max attempts before cooldown
+  const RESET_TIMEOUT = 3 * 60 * 1000 // 3 minutes in milliseconds
+  const INITIAL_COOLDOWN = 5 * 60 * 1000 // 5 minutes in milliseconds
+  const LONG_COOLDOWN = 3 * 60 * 60 * 1000 // 3 hours in milliseconds
+  const MAX_ATTEMPTS = 3 // Max attempts before cooldown
 
   // Clear notification after 5 seconds
   useEffect(() => {
@@ -51,78 +52,80 @@ export default function LoginPage() {
       return () => clearTimeout(timer)
     }
   }, [notification])
-  
+
   // Load cooldown data from localStorage on mount
   useEffect(() => {
-    const storedCooldownEnd = localStorage.getItem('resetCooldownEnd')
-    const storedAttempts = localStorage.getItem('resetAttempts')
-    const storedTimeRemaining = localStorage.getItem('resetTimeRemaining')
-    const storedLinkSent = localStorage.getItem('resetLinkSent')
-    
-    if (storedCooldownEnd) {
-      const cooldownEndTime = parseInt(storedCooldownEnd)
-      // Only set the cooldown if it hasn't expired yet
-      if (cooldownEndTime > Date.now()) {
-        setResetCooldownEnd(cooldownEndTime)
-      } else {
-        // If cooldown has expired, remove it from localStorage
-        localStorage.removeItem('resetCooldownEnd')
-      }
-    }
-    
-    if (storedAttempts) {
-      setResetAttempts(parseInt(storedAttempts))
-    }
+    const storedCooldownEnd = localStorage.getItem("resetCooldownEnd")
+    const storedAttempts = localStorage.getItem("resetAttempts")
+    const storedTimeRemaining = localStorage.getItem("resetTimeRemaining")
+    const storedLinkSent = localStorage.getItem("resetLinkSent")
 
-    if (storedTimeRemaining) {
-      const expiryTime = parseInt(storedTimeRemaining)
-      if (expiryTime > Date.now()) {
-        setResetTimeRemaining(expiryTime)
-        setResetLinkSent(storedLinkSent === 'true')
-      } else {
-        localStorage.removeItem('resetTimeRemaining')
-        localStorage.removeItem('resetLinkSent')
+    if (typeof window !== "undefined") {
+      if (storedCooldownEnd) {
+        const cooldownEndTime = Number.parseInt(storedCooldownEnd)
+        // Only set the cooldown if it hasn't expired yet
+        if (cooldownEndTime > Date.now()) {
+          setResetCooldownEnd(cooldownEndTime)
+        } else {
+          // If cooldown has expired, remove it from localStorage
+          localStorage.removeItem("resetCooldownEnd")
+        }
+      }
+
+      if (storedAttempts) {
+        setResetAttempts(Number.parseInt(storedAttempts))
+      }
+
+      if (storedTimeRemaining) {
+        const expiryTime = Number.parseInt(storedTimeRemaining)
+        if (expiryTime > Date.now()) {
+          setResetTimeRemaining(expiryTime)
+          setResetLinkSent(storedLinkSent === "true")
+        } else {
+          localStorage.removeItem("resetTimeRemaining")
+          localStorage.removeItem("resetLinkSent")
+        }
       }
     }
   }, [])
 
   // Timer effect for countdown
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
+    let interval: NodeJS.Timeout | null = null
+
     if (resetTimeRemaining && resetLinkSent) {
       // Set up interval to update the timer every second
       interval = setInterval(() => {
-        const now = Date.now();
-        
+        const now = Date.now()
+
         // Check if timer has expired
         if (resetTimeRemaining <= now) {
           // Timer expired, clean up
-          setResetTimeRemaining(null);
-          setResetLinkSent(false);
-          localStorage.removeItem('resetTimeRemaining');
-          localStorage.removeItem('resetLinkSent');
-          
-          if (interval) clearInterval(interval);
+          setResetTimeRemaining(null)
+          setResetLinkSent(false)
+          localStorage.removeItem("resetTimeRemaining")
+          localStorage.removeItem("resetLinkSent")
+
+          if (interval) clearInterval(interval)
         } else {
           // Timer still active, increment tick to force re-render
-          setTimerTick(prev => prev + 1);
+          setTimerTick((prev) => prev + 1)
         }
-      }, 1000);
+      }, 1000)
     }
-    
+
     // Cleanup interval on unmount or when dependencies change
     return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [resetTimeRemaining, resetLinkSent]);
+      if (interval) clearInterval(interval)
+    }
+  }, [resetTimeRemaining, resetLinkSent])
 
   // Helper function to format time
   const formatTimeRemaining = (milliseconds: number): string => {
     const seconds = Math.floor((milliseconds / 1000) % 60)
     const minutes = Math.floor((milliseconds / (1000 * 60)) % 60)
     const hours = Math.floor(milliseconds / (1000 * 60 * 60))
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m ${seconds}s`
     } else if (minutes > 0) {
@@ -220,6 +223,9 @@ export default function LoginPage() {
           Cookies.set("userId", uid, expiration)
           Cookies.set("userFirstName", firstName, expiration)
 
+          // Log user login
+          await logUserLogin(firstName, userEmail, uid)
+
           // Show success notification
           setNotification({
             type: "success",
@@ -249,6 +255,9 @@ export default function LoginPage() {
             Cookies.set("userRole", "admin", expiration)
             Cookies.set("userId", uid, expiration)
             Cookies.set("userFirstName", "Admin", expiration)
+
+            // Log user login
+            await logUserLogin("Admin", userEmail, uid)
 
             // Show success notification
             setNotification({
@@ -316,89 +325,97 @@ export default function LoginPage() {
     try {
       const auth = getAuth(getApp())
       const db = getFirestore(getApp())
-      
+
       // 1. Check if the email exists in our system
       const accountsRef = collection(db, "accounts")
       const emailQuery = query(accountsRef, where("email", "==", resetEmail))
       const emailSnapshot = await getDocs(emailQuery)
-      
+
       if (emailSnapshot.empty) {
         // Email not found in our system
         throw new Error("user-not-found")
       }
-      
+
       // 2. Send password reset email
       await sendPasswordResetEmail(auth, resetEmail)
-      
+
       // 3. Store the reset attempt in Firestore with a timestamp
       const resetAttemptsRef = doc(db, "passwordResetAttempts", resetEmail)
-      await setDoc(resetAttemptsRef, {
-        email: resetEmail,
-        timestamp: Timestamp.now(),
-        expiresAt: Timestamp.fromMillis(Date.now() + RESET_TIMEOUT)
-      }, { merge: true })
-      
+      await setDoc(
+        resetAttemptsRef,
+        {
+          email: resetEmail,
+          timestamp: Timestamp.now(),
+          expiresAt: Timestamp.fromMillis(Date.now() + RESET_TIMEOUT),
+        },
+        { merge: true },
+      )
+
       // 4. Show success message with timeout information
       setNotification({
         type: "success",
         message: `Password reset email sent. You have 3 minutes to complete the password reset.`,
       })
-      
+
       // Set timer state to show countdown
       const expiryTime = Date.now() + RESET_TIMEOUT
       setResetTimeRemaining(expiryTime)
       setResetLinkSent(true)
-      
+
       // Store in localStorage
-      localStorage.setItem('resetTimeRemaining', expiryTime.toString())
-      localStorage.setItem('resetLinkSent', 'true')
-      
+      localStorage.setItem("resetTimeRemaining", expiryTime.toString())
+      localStorage.setItem("resetLinkSent", "true")
+
       // 5. Set up a timeout to check if the user has reset their password
       setTimeout(async () => {
         try {
           // Get the reset attempt document
           const resetDoc = await getDoc(resetAttemptsRef)
-          
+
           if (resetDoc.exists()) {
             const resetData = resetDoc.data()
-            
+
             // If the reset was not completed (there would be a 'completed' field if it was)
             if (!resetData.completed) {
               // Increment the failed attempts
               const newAttempts = resetAttempts + 1
               setResetAttempts(newAttempts)
-              localStorage.setItem('resetAttempts', newAttempts.toString())
-              
+              localStorage.setItem("resetAttempts", newAttempts.toString())
+
               // Clear the reset timer state
               setResetTimeRemaining(null)
               setResetLinkSent(false)
-              localStorage.removeItem('resetTimeRemaining')
-              localStorage.removeItem('resetLinkSent')
-              
+              localStorage.removeItem("resetTimeRemaining")
+              localStorage.removeItem("resetLinkSent")
+
               // Set cooldown if necessary
               if (newAttempts >= MAX_ATTEMPTS) {
                 const cooldownTime = newAttempts === MAX_ATTEMPTS ? INITIAL_COOLDOWN : LONG_COOLDOWN
                 const cooldownEndTime = Date.now() + cooldownTime
                 setResetCooldownEnd(cooldownEndTime)
-                localStorage.setItem('resetCooldownEnd', cooldownEndTime.toString())
-                
+                localStorage.setItem("resetCooldownEnd", cooldownEndTime.toString())
+
                 // Notify the user about the cooldown if they're still on the page
                 setNotification({
                   type: "error",
-                  message: `Password reset timed out. Too many failed attempts. Try again in ${formatTimeRemaining(cooldownTime)}.`
+                  message: `Password reset timed out. Too many failed attempts. Try again in ${formatTimeRemaining(cooldownTime)}.`,
                 })
               } else {
                 // Just notify about the timeout if they're still on the page
                 setNotification({
                   type: "error",
-                  message: `Password reset timed out. You have ${MAX_ATTEMPTS - newAttempts} attempt(s) remaining.`
+                  message: `Password reset timed out. You have ${MAX_ATTEMPTS - newAttempts} attempt(s) remaining.`,
                 })
               }
-              
+
               // Update the reset document to show it expired
-              await setDoc(resetAttemptsRef, {
-                expired: true
-              }, { merge: true })
+              await setDoc(
+                resetAttemptsRef,
+                {
+                  expired: true,
+                },
+                { merge: true },
+              )
             }
           }
         } catch (error) {
@@ -407,7 +424,7 @@ export default function LoginPage() {
       }, RESET_TIMEOUT)
     } catch (error) {
       console.error("Error sending password reset email:", error)
-      
+
       // More specific error message for user
       let errorMessage = "An error occurred while sending the password reset email."
       if (error instanceof Error) {
@@ -418,7 +435,7 @@ export default function LoginPage() {
           errorMessage = "Please enter a valid email address."
         }
       }
-      
+
       setNotification({
         type: "error",
         message: errorMessage,
@@ -459,7 +476,7 @@ export default function LoginPage() {
             <span className="text-[#2A69AC]">Return </span>
             <span className="text-[#1A365D]">to the Pit!</span>
           </h1>
-          
+
           {!showResetForm ? (
             <form onSubmit={handleLogin} className="space-y-6 bg-white p-8 rounded-2xl shadow-lg w-full">
               <Input
@@ -492,7 +509,11 @@ export default function LoginPage() {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(!!checked)} />
+                  <Checkbox
+                    id="remember"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(!!checked)}
+                  />
                   <label
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -527,7 +548,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handlePasswordReset} className="space-y-6 bg-white p-8 rounded-2xl shadow-lg w-full">
               <h2 className="text-2xl font-semibold text-[#1A365D] text-center">Reset Your Password</h2>
-              
+
               {resetLinkSent && resetTimeRemaining ? (
                 <>
                   <div className="bg-[#E6FFF3] border border-[#28C76F] text-[#28C76F] p-4 rounded-lg">
@@ -539,8 +560,8 @@ export default function LoginPage() {
                         <span className="hidden">{timerTick}</span>
                       </div>
                       <p className="mt-2 text-sm text-center">
-                        Please check your email and click the reset link. 
-                        You have the time shown above to complete the password reset.
+                        Please check your email and click the reset link. You have the time shown above to complete the
+                        password reset.
                       </p>
                     </div>
                   </div>
@@ -551,16 +572,14 @@ export default function LoginPage() {
               ) : (
                 <>
                   <p className="text-sm text-gray-600 text-center">
-                    Enter your email address and we'll send you a link to reset your password.
-                    You will have 3 minutes to complete the password reset process.
+                    Enter your email address and we'll send you a link to reset your password. You will have 3 minutes
+                    to complete the password reset process.
                   </p>
-                  
+
                   {resetCooldownEnd && Date.now() < resetCooldownEnd ? (
                     <div className="bg-[#FFEBCC] border border-[#F99D25] text-[#F99D25] p-4 rounded-lg text-sm">
                       <p className="font-medium">Too many failed attempts</p>
-                      <p className="mt-1">
-                        Please try again in {formatTimeRemaining(resetCooldownEnd - Date.now())}
-                      </p>
+                      <p className="mt-1">Please try again in {formatTimeRemaining(resetCooldownEnd - Date.now())}</p>
                       <p className="mt-2 text-xs">
                         For security reasons, we limit the number of failed password reset attempts.
                       </p>
@@ -580,11 +599,11 @@ export default function LoginPage() {
               )}
 
               <div className="flex space-x-4">
-                <Button 
-                  type="button" 
-                  className="h-12 flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800" 
+                <Button
+                  type="button"
+                  className="h-12 flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800"
                   onClick={() => {
-                    setShowResetForm(false);
+                    setShowResetForm(false)
                     if (resetLinkSent) {
                       // If we go back to login while a reset is in progress, keep the timer running
                       // but don't show success notification again
@@ -595,21 +614,24 @@ export default function LoginPage() {
                   Back to Login
                 </Button>
                 {!resetLinkSent && (
-                  <Button 
-                    type="submit" 
-                    className="h-12 flex-1 bg-[#2A69AC] hover:bg-[#1A365D]" 
+                  <Button
+                    type="submit"
+                    className="h-12 flex-1 bg-[#2A69AC] hover:bg-[#1A365D]"
                     disabled={isResetLoading || (!!resetCooldownEnd && Date.now() < resetCooldownEnd)}
                   >
                     {isResetLoading ? "Sending..." : "Send Reset Link"}
                   </Button>
                 )}
               </div>
-              
-              {resetAttempts > 0 && resetAttempts < MAX_ATTEMPTS && !(resetCooldownEnd && Date.now() < resetCooldownEnd) && !resetLinkSent && (
-                <div className="text-xs text-gray-500 text-center">
-                  You have {MAX_ATTEMPTS - resetAttempts} attempt(s) remaining before temporary lockout.
-                </div>
-              )}
+
+              {resetAttempts > 0 &&
+                resetAttempts < MAX_ATTEMPTS &&
+                !(resetCooldownEnd && Date.now() < resetCooldownEnd) &&
+                !resetLinkSent && (
+                  <div className="text-xs text-gray-500 text-center">
+                    You have {MAX_ATTEMPTS - resetAttempts} attempt(s) remaining before temporary lockout.
+                  </div>
+                )}
             </form>
           )}
         </div>

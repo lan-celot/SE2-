@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import Cookies from "js-cookie"
-import { NotificationAPIProvider, NotificationPopup } from "@notificationapi/react"
+import { NotificationAPIProvider, NotificationPopup } from "@notificationapi/react" // Keep this import
 import { Bell } from "lucide-react"
 
 interface HeaderProps {
@@ -14,6 +14,7 @@ interface HeaderProps {
 export function DashboardHeader({ title }: HeaderProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [userFirstName, setUserFirstName] = useState<string | null>(null)
+  const [isClient, setIsClient] = useState(false); // State to track if we are on the client
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,6 +30,11 @@ export function DashboardHeader({ title }: HeaderProps) {
       setUserFirstName(firstName)
     }
   }, [])
+
+  // This useEffect runs only on the client side after initial render
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -64,13 +70,13 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="relative">
-            {/* Conditionally render based on clientId being present */}
-            {clientId ? (
+            {/* Conditionally render based on clientId being present AND if we are on the client */}
+            {clientId && isClient ? (
               <NotificationAPIProvider userId="admin1" clientId={clientId}>
                 <NotificationPopup />
               </NotificationAPIProvider>
             ) : (
-              // Consistent placeholder Bell icon
+              // Consistent placeholder Bell icon (will render on server and client initially)
               <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
                 <Bell className="h-4 w-4 text-gray-400" />
               </div>
@@ -78,7 +84,7 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <div className="h-8 w-8 rounded-full overflow-hidden">
-            <Link href="/employees/emp_001">
+            <Link href="/employees/EMP_001">
               <Image
                 src="https://i.pravatar.cc/32?u=marcial"
                 alt="Marcial Tamondong"

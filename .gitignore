@@ -3,6 +3,10 @@
 # dependencies
 /node_modules
 
+# ignore scripts
+remove-comments.js
+find-localStorage.js
+
 # next.js
 /.next/
 /out/
@@ -25,3 +29,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+replace-imports.ts

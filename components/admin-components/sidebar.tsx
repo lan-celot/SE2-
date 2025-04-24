@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogTitle } from "@/components/admin-components/dialog"
 import { Button } from "@/components/admin-components/button"
 import Cookies from "js-cookie"
+import { logUserLogout } from "@/lib/log-utils"
 
 export function Sidebar() {
   const router = useRouter()
@@ -42,40 +43,57 @@ export function Sidebar() {
         message: "Logging you out...",
       })
 
-      // Delay the actual logout by 2 seconds
-      setTimeout(async () => {
-        try {
-          // Get current user email before signing out
-          const userEmail = auth.currentUser?.email || "Unknown user"
+      // Get current user information BEFORE signing out
+      const currentUser = auth.currentUser
+      const userEmail = currentUser?.email || "Unknown user"
+      const userFirstName = Cookies.get("userFirstName") || "Unknown User"
+      const userId = currentUser?.uid
 
-          // Sign out from Firebase
-          await signOut(auth)
+      try {
+        // Log the logout activity
+        await logUserLogout(userFirstName, userEmail, userId)
+        console.log(`Logout activity logged for ${userEmail}`)
 
-          // Clear all authentication cookies
-          Cookies.remove("isAuthenticated")
-          Cookies.remove("userRole")
-          Cookies.remove("userId")
-          Cookies.remove("userFirstName")
+        // Sign out from Firebase
+        await signOut(auth)
 
+        // Clear all authentication cookies
+        Cookies.remove("isAuthenticated")
+        Cookies.remove("userRole")
+        Cookies.remove("userId")
+        Cookies.remove("userFirstName")
+        
+        // Add these to ensure all auth-related cookies are cleared
+        Cookies.remove("authToken")
+        Cookies.remove("userEmail")
+        Cookies.remove("refreshToken")
+        
+        // Force clear any localStorage items that might be causing persistence
+        localStorage.removeItem("firebase:authUser")
+        localStorage.removeItem("firebase:token")
+        localStorage.removeItem("firebase:session")
+        
+        // Important: Add a small delay before redirect to ensure cookies are cleared
+        setTimeout(() => {
           // Show success toast
           toast({
             title: "Logged Out",
             description: "You have been successfully logged out.",
             variant: "default",
           })
-
-          // Redirect to the home page
-          router.push("/")
-        } catch (error) {
-          // Handle any logout errors
-          console.error("Logout error:", error)
-          toast({
-            title: "Logout Error",
-            description: "An error occurred while logging out.",
-            variant: "destructive",
-          })
-        }
-      }, 2000)
+          
+          // Use replace instead of push to prevent history issues
+          router.replace("/admin/login")
+        }, 500)
+        
+      } catch (error) {
+        console.error("Logout error:", error)
+        toast({
+          title: "Logout Error",
+          description: "An error occurred while logging out.",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       console.error("Error in logout process:", error)
     }
@@ -195,4 +213,3 @@ function NavLink({ href, icon: Icon, label }: { href: string; icon: React.Elemen
     </Link>
   )
 }
-
