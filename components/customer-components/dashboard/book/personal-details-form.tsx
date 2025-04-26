@@ -1,6 +1,5 @@
 "use client"
 
-
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,13 +21,11 @@ import useLocalStorage from "@/hooks/useLocalStorage"
 // Import from addresshierachybank.js
 import { philippineRegions, locationHierarchy, zipCodeMapping } from "@/components/customer-components/dashboard/book/addresshierachybank"
 
-
 // Type definitions
 type City = string | null
 type Municipality = string | null
 type Province = string
 type Region = string
-
 
 // Define types for location hierarchy
 type LocationData = {
@@ -36,61 +33,51 @@ type LocationData = {
   municipalities: string[];
 }
 
-
 type ProvinceLocations = {
   [province: string]: LocationData;
 }
-
 
 type RegionData = {
   provinces: string[];
   locations: ProvinceLocations;
 }
 
-
 // Define types for zip code mapping
 type CityMunicipalityZipCodes = {
   [location: string]: string;
 }
 
-
 type ProvinceZipCodes = {
-  default: string;
-  cities: CityMunicipalityZipCodes;
-  municipalities: CityMunicipalityZipCodes;
+  default?: string; // Made optional to fix type error
+  cities?: CityMunicipalityZipCodes;
+  municipalities?: CityMunicipalityZipCodes;
 }
 
-
 type RegionZipCodes = {
-  default: string;
+  default?: string; // Made optional to fix type error
   provinces: {
     [province: string]: ProvinceZipCodes;
   };
 }
-
 
 // Create type-safe interfaces for our locationHierarchy and zipCodeMapping data
 interface LocationHierarchyType {
   [region: string]: RegionData;
 }
 
-
 interface ZipCodeMappingType {
   [region: string]: RegionZipCodes;
 }
 
-
-// Type assertions to make TypeScript happy
-const typedLocationHierarchy = locationHierarchy as LocationHierarchyType;
-const typedZipCodeMapping = zipCodeMapping as ZipCodeMappingType;
-
+// Type assertions with unknown intermediate step to fix TypeScript error
+const typedLocationHierarchy = locationHierarchy as unknown as LocationHierarchyType;
+const typedZipCodeMapping = zipCodeMapping as unknown as ZipCodeMappingType;
 
 // Default form data
 const defaultFormData = {
   firstName: "", lastName: "", gender: "", email: "", phoneNumber: "", dateOfBirth: "",
   region: "", province: "", city: null as City, municipality: null as Municipality, streetAddress: "", zipCode: ""
 }
-
 
 // Form schema with validation
 const formSchema = z
@@ -122,12 +109,10 @@ const formSchema = z
     return true;
   }, { message: "Either a city or municipality must be selected", path: ["city"] });
 
-
 interface PersonalDetailsFormProps {
   initialData: any;
   onSubmit: (data: any) => void;
 }
-
 
 export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFormProps) {
   const auth = getAuth();
@@ -141,10 +126,8 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
   // Flag to control form data saving
   const [shouldSaveFormData, setShouldSaveFormData] = useState(false);
 
-
   // Define read-only fields that are populated from Firebase
   const readOnlyFields = useMemo(() => ['firstName', 'lastName', 'email', 'dateOfBirth', 'gender'], []);
-
 
   // Merge initial data with defaults
   const mergedInitialData = initialData ? { ...defaultFormData, ...initialData } : defaultFormData;
@@ -152,13 +135,11 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
   // Ensure we initialize with local storage if available
   const [formData, setFormData] = useLocalStorage<typeof defaultFormData>("personalDetailsForm", mergedInitialData);
 
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: formData,
     mode: "onChange"
   });
-
 
   // Set component as mounted after first render
   useEffect(() => {
@@ -192,40 +173,42 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, []);
 
-
   // Watch form values
   const currentRegion = form.watch("region");
   const currentProvince = form.watch("province");
   const currentCity = form.watch("city");
   const currentMunicipality = form.watch("municipality");
 
-
-  // Helper function to safely get zip code
+  // Helper function to safely get zip code with improved error handling
   const getZipCode = useCallback((region: string, province: string, city?: string | null, municipality?: string | null): string => {
-    // Check if region exists in zipCodeMapping
-    if (!(region in typedZipCodeMapping)) return "";
-   
-    const regionData = typedZipCodeMapping[region];
-   
-    // Check if province exists in the region
-    if (!(province in regionData.provinces)) return regionData.default;
-   
-    const provinceData = regionData.provinces[province];
-   
-    // If city is provided and exists in province data
-    if (city && city in provinceData.cities) {
-      return provinceData.cities[city];
+    try {
+      // Check if region exists in zipCodeMapping
+      if (!(region in typedZipCodeMapping)) return "";
+     
+      const regionData = typedZipCodeMapping[region];
+     
+      // Check if province exists in the region
+      if (!(province in regionData.provinces)) return regionData.default || "";
+     
+      const provinceData = regionData.provinces[province];
+     
+      // If city is provided and exists in province data
+      if (city && provinceData.cities && city in provinceData.cities) {
+        return provinceData.cities[city];
+      }
+     
+      // If municipality is provided and exists in province data
+      if (municipality && provinceData.municipalities && municipality in provinceData.municipalities) {
+        return provinceData.municipalities[municipality];
+      }
+     
+      // Return province default or region default as fallback
+      return provinceData.default || regionData.default || "";
+    } catch (error) {
+      console.error("Error getting zip code:", error);
+      return "";
     }
-   
-    // If municipality is provided and exists in province data
-    if (municipality && municipality in provinceData.municipalities) {
-      return provinceData.municipalities[municipality];
-    }
-   
-    // Return province default or region default as fallback
-    return provinceData.default || regionData.default;
   }, []);
-
 
   // Update provinces when region changes
   const updateProvinces = useCallback((region: string) => {
@@ -236,7 +219,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       setAvailableProvinces([]);
     }
   }, []);
-
 
   // Update cities and municipalities when province changes
   const updateLocations = useCallback((region: string, province: string) => {
@@ -256,13 +238,11 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, []);
 
-
   // Initialize provinces when region is set
   useEffect(() => {
     if (!isMounted) return;
     if (currentRegion) updateProvinces(currentRegion);
   }, [currentRegion, updateProvinces, isMounted]);
-
 
   // Reset dependent fields when region changes
   useEffect(() => {
@@ -277,7 +257,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       setAvailableMunicipalities([]);
     }
   }, [currentRegion, form, formData?.region, formDataLoaded, isMounted]);
-
 
   // Update locations when province changes
   useEffect(() => {
@@ -297,7 +276,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [currentRegion, currentProvince, updateLocations, form, formData?.province, formDataLoaded, getZipCode, isMounted]);
 
-
   // Handle city selection
   useEffect(() => {
     if (!isMounted || !formDataLoaded) return;
@@ -311,7 +289,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       if (zipCode) form.setValue("zipCode", zipCode);
     }
   }, [currentCity, currentProvince, currentRegion, form, formDataLoaded, getZipCode, isMounted]);
-
 
   // Handle municipality selection
   useEffect(() => {
@@ -327,7 +304,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [currentMunicipality, currentProvince, currentRegion, form, formDataLoaded, getZipCode, isMounted]);
 
-
   // Set default province zip code if neither city nor municipality is selected
   useEffect(() => {
     if (!isMounted || !formDataLoaded) return;
@@ -337,7 +313,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       form.setValue("zipCode", defaultZipCode);
     }
   }, [currentCity, currentMunicipality, currentProvince, currentRegion, form, formDataLoaded, getZipCode, isMounted]);
-
 
   // Handle saving form data to localStorage - optimized approach with a single useEffect
   useEffect(() => {
@@ -378,7 +353,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [shouldSaveFormData, setFormData, form, isMounted, formDataLoaded, userProfileData, readOnlyFields]);
 
-
   // Before unloading the page, save form data to ensure it persists
   useEffect(() => {
     if (!isMounted) return;
@@ -403,7 +377,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [form, isMounted, userProfileData, readOnlyFields]);
-
 
   // Fetch user data on component mount
   useEffect(() => {
@@ -475,15 +448,13 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
         }
       };
 
-
       fetchUserData();
     } else if (!formDataLoaded) {
       setFormDataLoaded(true);
     }
   }, [user, form, setFormData, formDataLoaded, updateProvinces, updateLocations, getZipCode, isMounted]);
 
-
-  // NEW: Re-apply Firebase data whenever the form is rendered or the component is re-mounted
+  // Re-apply Firebase data whenever the form is rendered or the component is re-mounted
   useEffect(() => {
     if (!isMounted || !userProfileData) return;
    
@@ -510,7 +481,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     }
   }, [isMounted, userProfileData, form, readOnlyFields, setFormData]);
 
-
   // Form submission handler - memoized for performance
   const handleSubmit = useCallback((data: z.infer<typeof formSchema>) => {
     // Ensure we preserve the original read-only fields from Firebase
@@ -533,7 +503,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     onSubmit(submissionData);
   }, [onSubmit, setFormData, userProfileData, readOnlyFields]);
 
-
   // Reset form handler - only clear non-read-only fields
   const handleReset = useCallback(() => {
     if (!isMounted) return;
@@ -554,7 +523,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     setAvailableMunicipalities([]);
   }, [form, setFormData, readOnlyFields, isMounted, userProfileData]);
 
-
   // Prepare field props factory for optimization
   const getFieldProps = useCallback((fieldName: string) => {
     const isReadOnly = readOnlyFields.includes(fieldName);
@@ -565,23 +533,10 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
     };
   }, [readOnlyFields]);
 
-
-  // Get consistent styling for select fields
-  const getSelectFieldProps = useCallback((fieldName: string) => {
-    const isReadOnly = readOnlyFields.includes(fieldName);
-    return {
-      disabled: isReadOnly,
-      className: `bg-white/50 ${isReadOnly ? 'cursor-not-allowed opacity-80 border-blue-300 border-2' : ''}`,
-      title: isReadOnly ? "This field is auto-filled from your profile" : ""
-    };
-  }, [readOnlyFields]);
-
-
   // Don't render the full form until client-side hydration is complete
   if (!isMounted) {
     return <div className="flex items-center justify-center p-8">Loading form...</div>;
   }
-
 
   return (
     <Form {...form}>
@@ -619,7 +574,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             )}
           />
         </div>
-
 
         {/* Row 2: Gender and Birthdate */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -663,7 +617,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             )}
           />
         </div>
-
 
         {/* Row 3: Email and Phone Number */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -720,7 +673,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             )}
           />
         </div>
-
 
         {/* Row 4: Region, Province, and ZIP Code */}
         <div className="grid md:grid-cols-3 gap-4">
@@ -795,7 +747,6 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
             )}
           />
         </div>
-
 
         {/* Row 5: City and Municipality */}
         <div className="grid md:grid-cols-2 gap-4">

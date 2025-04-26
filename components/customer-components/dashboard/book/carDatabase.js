@@ -1,3 +1,4 @@
+
 // cars-database.js
 // This file contains the car database structure to be imported into the car-details-form component
 
@@ -628,10 +629,11 @@ Opel: [
 
 //BRITAIN
 Lotus: [
-  { model: "Evora", years: [2009, null] },
-  { model: "Elise", years: [1996, null] },
-  { model: "Exige", years: [2000, null] }
+  { model: "Evora", years: [2009, 2021] },
+  { model: "Elise", years: [1996, 2021] },
+  { model: "Exige", years: [2000, 2021] }
 ],
+
 Jaguar: [
   { model: "E-Pace", years: [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024] },
   { model: "F-Pace", years: [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024] },
@@ -1102,12 +1104,12 @@ Peugeot: [
 ],
 Bugatti: [
   // Current Models
-  { model: "Chiron", years: [2016, null] },
-  { model: "Chiron Super Sport", years: [2021, null] },
-  { model: "Chiron Pur Sport", years: [2020, null] },
-  { model: "Chiron Super Sport 300+", years: [2019, null] },
-  { model: "W16 Mistral", years: [2024, null] },
-  { model: "Bolide", years: [2020, null] },
+  { model: "Chiron", years: [2016, 2024] },
+  { model: "Chiron Super Sport", years: [2021, 2024] },
+  { model: "Chiron Pur Sport", years: [2020, 2024] },
+  { model: "Chiron Super Sport 300+", years: [2019, 2022] },
+  { model: "W16 Mistral", years: [2024, 2024] },
+  { model: "Bolide", years: [2020, 2024] },
 
   // Notable Past Models
   { model: "Veyron 16.4", years: [2005, 2015] },
@@ -1117,6 +1119,7 @@ Bugatti: [
   { model: "Type 35", years: [1924, 1930] },
   { model: "Type 41 'Royale'", years: [1927, 1933] }
 ],
+
 
 //SWITZERLAND
 Volvo: [
@@ -1139,10 +1142,10 @@ Volvo: [
 
 //ITALY 
 Lamborghini: [
-  { model: "Revuelto", years: [2023, null] },
-  { model: "Huracán", years: [2014, null] }, // Includes variants like Huracán EVO and STO
-  { model: "Urus", years: [2018, null] },
-  { model: "Temerario", years: [2025, null] }, // Upcoming hybrid supercar
+  { model: "Revuelto", years: [2023, 2024] },
+  { model: "Huracán", years: [2014, 2024] }, // Includes variants like Huracán EVO and STO
+  { model: "Urus", years: [2018, 2024] },
+  { model: "Temerario", years: [2025, 2025] }, // Upcoming hybrid supercar
   { model: "Aventador", years: [2011, 2022] },
   { model: "Gallardo", years: [2003, 2013] },
   { model: "Murciélago", years: [2001, 2010] },
@@ -1151,15 +1154,16 @@ Lamborghini: [
   { model: "Miura", years: [1966, 1973] },
   { model: "350 GT", years: [1964, 1966] }
 ],
+
 //FERRARI
 Ferrari: [
-  { model: "SF90 Stradale", years: [2019, null] },
-  { model: "Roma", years: [2020, null] },
-  { model: "296 GTB", years: [2021, null] },
-  { model: "Daytona SP3", years: [2022, null] },
-  { model: "Purosangue", years: [2023, null] },
-  { model: "12Cilindri", years: [2024, null] },
-  { model: "F80", years: [2024, null] },
+  { model: "SF90 Stradale", years: [2019, 2024] },
+  { model: "Roma", years: [2020, 2024] },
+  { model: "296 GTB", years: [2021, 2024] },
+  { model: "Daytona SP3", years: [2022, 2024] },
+  { model: "Purosangue", years: [2023, 2024] },
+  { model: "12Cilindri", years: [2024, 2024] },
+  { model: "F80", years: [2024, 2024] },
   { model: "458 Italia", years: [2009, 2015] },
   { model: "California", years: [2008, 2014] },
   { model: "FF", years: [2011, 2016] },
@@ -1192,6 +1196,7 @@ Ferrari: [
   { model: "330 Series", years: [1963, 1968] },
   { model: "365 GT 2+2", years: [1967, 1971] }
 ],
+
 Fiat: [
   { model: "124 Spider", years: [1966, 1967, 1968, 1969, 1970, 1971, 1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985] },
   { model: "124 Spider (Modern)", years: [2016, 2017, 2018, 2019, 2020] },
