@@ -514,7 +514,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                     <Checkbox
                       id={service}
                       checked={(field.value || []).includes(service)}
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={(checked: any) => {
                         const currentValue = field.value || []
                         const updatedValue = checked
                           ? [...currentValue, service]
