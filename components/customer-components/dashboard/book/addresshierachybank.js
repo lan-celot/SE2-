@@ -475,7 +475,7 @@ export const zipCodeMapping = {
       "Zambales": {
         default: "2200",
         cities: {
-          "Olongapo City": "2200"
+          "Olongapo City": ""
         },
         municipalities: {
           "Botolan": "2202",
