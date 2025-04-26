@@ -13,27 +13,9 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { getCarBrands, getModelsByBrand, getYearsByModel } from "@/components/customer-components/dashboard/book/carDatabase"
 import { AddCarDialog } from "@/components/customer-components/dashboard/book/addcardialog"
 
-const formSchema = z.object({
-  carBrand: z.string().min(1, "Car brand is required"),
-  carModel: z.string().min(1, "Car model is required"),
-  yearModel: z.string().min(1, "Year model is required"),
-  plateNumber: z.string()
-    .min(1, "Plate number is required")
-    .max(8, "Plate number must not exceed 8 characters") // Set a maximum length of 8 characters
-    .regex(/^([A-Za-z]{3}\d{3,4}|[A-Za-z]{2}\d{4,5}|[A-Za-z]{1}\d{4,5}|[A-Za-z]{3}\d{3}[A-Za-z]{1})$/,
-      "Enter a valid Philippine plate number (e.g., ABC1234, AB1234, A1234, ABC123A)"),
-  transmission: z.string().min(1, "Transmission is required"),
-  fuelType: z.string().min(1, "Fuel type is required"),
-  odometer: z.string().min(1, "Odometer reading is required"),
-  services: z.array(z.string()).refine(services => services.length > 0, {
-    message: "At least one service must be selected",
-    path: ["services"]
-  }).optional().or(z.array(z.string())),
-  specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
-  needHelp: z.boolean().optional(),
-  helpDescription: z.string().optional().refine(() => true),
-});
-
+import { useToast } from "@/hooks/use-toast" // Import your toast component
+// Import the createClient function from Supabase
+import { createClient } from '@supabase/supabase-js';
 
 // Constants
 const transmissionTypes = ["Automatic", "Manual", "CVT", "Semi-automatic", "Dual-clutch"]
@@ -129,18 +111,25 @@ interface CarDetailsFormProps {
   onBack: () => void
 }
 
-type FormData = z.infer<typeof formSchema>
+type FormData = z.infer<typeof formSchema> & {
+  uploadedFiles?: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    fileType: string;
+  }>;
+};
 
 export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetailsFormProps) {
   const [carBrands, setCarBrands] = useState<string[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [activeTab, setActiveTab] = useState<"details" | "services">("details")
-  
+
   // Tab completion tracking
   const [detailsTabComplete, setDetailsTabComplete] = useState(false)
   const [servicesTabComplete, setServicesTabComplete] = useState(false)
-  
+
   // States for searchable dropdowns
   const [brandSearchText, setBrandSearchText] = useState("")
   const [modelSearchText, setModelSearchText] = useState("")
@@ -157,6 +146,11 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // State for showing add car dialog
   const [showAddCarDialog, setShowAddCarDialog] = useState(false)
   const [addCarType, setAddCarType] = useState<"brand" | "model" | "year">("brand")
+
+  // Move these state variables inside the component
+  const [isUploading, setIsUploading] = useState(false)
+  const [fileErrors, setFileErrors] = useState<string[]>([])
+  const { toast } = useToast() // Use your toast hook
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -221,12 +215,12 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   useEffect(() => {
     setDetailsTabComplete(
       Boolean(
-        selectedBrand && 
-        selectedModel && 
-        form.getValues("yearModel") && 
-        plateNumber && 
-        transmission && 
-        fuelType && 
+        selectedBrand &&
+        selectedModel &&
+        form.getValues("yearModel") &&
+        plateNumber &&
+        transmission &&
+        fuelType &&
         odometer
       )
     )
@@ -235,14 +229,14 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // Check if services tab is complete
   useEffect(() => {
     setServicesTabComplete(
-      needHelp 
+      needHelp
         ? Boolean(helpDescription && helpDescription.trim() !== '')
         : selectedServices.length > 0
     )
   }, [needHelp, helpDescription, selectedServices])
 
   // Get available models based on selected brand
-  const availableModels = useMemo(() => 
+  const availableModels = useMemo(() =>
     selectedBrand ? getModelsByBrand(selectedBrand) : []
   , [selectedBrand])
 
@@ -333,14 +327,14 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   }, [selectedServices])
 
   // Get all selected categories
-  const selectedCategories = useMemo(() => 
+  const selectedCategories = useMemo(() =>
     serviceCategories.filter((category) =>
       category.services.some((service) => selectedServices.includes(service))
     )
   , [selectedServices])
 
   // Total selected services count
-  const totalSelectedServices = useMemo(() => 
+  const totalSelectedServices = useMemo(() =>
     selectedServices.length
   , [selectedServices])
 
@@ -348,9 +342,123 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files)
-      setSelectedFiles(prevFiles => [...prevFiles, ...filesArray])
+      const errors: string[] = []
+      const validFiles: File[] = []
+
+      // Validation constraints
+      const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+      const maxSize = 5 * 1024 * 1024 // 5MB
+
+      filesArray.forEach(file => {
+        // Validate file type
+        if (!validTypes.includes(file.type)) {
+          errors.push(`${file.name}: Please select a valid image file (JPEG, PNG, GIF, or WEBP)`)
+          return
+        }
+
+        // Validate file size
+        if (file.size > maxSize) {
+          errors.push(`${file.name}: File size should be less than 5MB`)
+          return
+        }
+
+        validFiles.push(file)
+      })
+
+      // Set errors if any
+      if (errors.length > 0) {
+        setFileErrors(errors)
+        // Show first error as toast
+        toast({
+          title: "File Error",
+          description: errors[0],
+          variant: "destructive"
+        })
+      } else {
+        setFileErrors([])
+      }
+
+      // Add valid files to state
+      if (validFiles.length > 0) {
+        setSelectedFiles(prevFiles => [...prevFiles, ...validFiles])
+      }
     }
-  }, [])
+  }, [toast])
+
+  // Add this function after the handleFileChange function
+  const uploadFiles = useCallback(async () => {
+    if (selectedFiles.length === 0) return []
+
+    setIsUploading(true)
+    const uploadResults = []
+    const errors = []
+
+    // Initialize Supabase client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase URL and Key must be provided')
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    try {
+      for (const file of selectedFiles) {
+        // Generate a unique file name
+        const fileExt = file.name.split(".").pop()
+        const fileName = `car_image_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`
+        const filePath = `car-images/${fileName}`
+
+        // Upload to Supabase storage
+        const { data, error } = await supabase.storage
+          .from("car-uploads")
+          .upload(filePath, file, {
+            upsert: true,
+            cacheControl: "3600",
+          })
+
+        if (error) {
+          errors.push(`Error uploading ${file.name}: ${error.message}`)
+          continue
+        }
+
+        // Get the public URL
+        const publicUrlResult = supabase.storage
+          .from("car-uploads")
+          .getPublicUrl(filePath)
+
+        const publicUrl = publicUrlResult.data.publicUrl
+        uploadResults.push({
+          fileName: file.name,
+          fileUrl: publicUrl,
+          fileSize: file.size,
+          fileType: file.type
+        })
+      }
+
+      if (errors.length > 0) {
+        // Show error toast
+        toast({
+          title: "Some uploads failed",
+          description: errors[0],
+          variant: "destructive"
+        })
+      }
+
+      return uploadResults
+    } catch (error) {
+      console.error("Error uploading files:", error)
+      toast({
+        title: "Upload Error",
+        description: `Failed to upload files: ${(error as Error).message || "Unknown error"}`,
+        variant: "destructive"
+      })
+      return []
+    } finally {
+      setIsUploading(false)
+    }
+  }, [selectedFiles, toast])
 
   // Remove a file from selected files
   const removeFile = useCallback((index: number) => {
@@ -438,17 +546,25 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const handleAddCarSuccess = useCallback(() => {
     // Since we can't directly update the car database, we'll just notify the user
     // In a real implementation, we would refresh the data from the database
-    
+
     // Close the dialog
     setShowAddCarDialog(false)
-    
+
     // Show a message or take appropriate action
     alert("Car data added successfully! Please refresh to see updated data.")
-    
+
   }, [addCarType, selectedBrand, selectedModel])
 
   // Custom form submission handler
-  const handleSubmit = useCallback((data: FormData) => {
+  const handleSubmit = useCallback(async (data: FormData) => {
+    // If files need to be uploaded, do it first
+    let fileUploadResults: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[] = []
+
+    if (selectedFiles.length > 0) {
+      // Set loading state if needed
+      fileUploadResults = await uploadFiles()
+    }
+
     // If needHelp is checked, we don't require services
     if (needHelp) {
       // Make sure helpDescription is filled
@@ -459,7 +575,12 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
         })
         return
       }
-      onSubmit(data)
+
+      // Include uploaded files in the submission
+      onSubmit({
+        ...data,
+        uploadedFiles: fileUploadResults
+      })
     } else {
       // Otherwise check if services are selected
       if (!data.services || data.services.length === 0) {
@@ -469,9 +590,14 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
         })
         return
       }
-      onSubmit(data)
+
+      // Include uploaded files in the submission
+      onSubmit({
+        ...data,
+        uploadedFiles: fileUploadResults
+      })
     }
-  }, [form, needHelp, onSubmit])
+  }, [form, needHelp, onSubmit, selectedFiles, uploadFiles])
 
   // Render a service category - memoized component
   const renderServiceCategory = useCallback((category: (typeof serviceCategories)[0]) => (
@@ -541,11 +667,11 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Tab Navigation */}
         <div className="flex border-b">
-          <div 
+          <div
             className={`w-1/2 py-2 text-center cursor-pointer border-r ${
-              activeTab === "details" 
-                ? detailsTabComplete 
-                  ? "bg-blue-100 font-medium text-blue-800" 
+              activeTab === "details"
+                ? detailsTabComplete
+                  ? "bg-blue-100 font-medium text-blue-800"
                   : "bg-blue-50 font-medium text-blue-800"
                 : "bg-white"
             }`}
@@ -553,11 +679,11 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
           >
             Vehicle Details {detailsTabComplete && "✓"}
           </div>
-          <div 
+          <div
             className={`w-1/2 py-2 text-center cursor-pointer ${
-              activeTab === "services" 
-                ? servicesTabComplete 
-                  ? "bg-blue-100 font-medium text-blue-800" 
+              activeTab === "services"
+                ? servicesTabComplete
+                  ? "bg-blue-100 font-medium text-blue-800"
                   : "bg-blue-50 font-medium text-blue-800"
                 : "bg-white"
             }`}
@@ -592,7 +718,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           onChange={handleBrandSearchChange}
                           onFocus={() => setShowBrandDropdown(true)}
                         />
-                        <div 
+                        <div
                           className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
                           onClick={toggleBrandDropdown}
                         >
@@ -600,7 +726,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         </div>
                         {showBrandDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredBrands.length > 0 
+                            {filteredBrands.length > 0
                               ? filteredBrands.map((brand) => (
                                   <div
                                     key={brand}
@@ -614,9 +740,9 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                               : (
                                 <div className="p-3 space-y-2">
                                   <div className="text-gray-500">Car brand not found</div>
-                                  <Button 
-                                    type="button" 
-                                    size="sm" 
+                                  <Button
+                                    type="button"
+                                    size="sm"
                                     className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
                                     onClick={() => handleAddNew("brand")}
                                   >
@@ -653,7 +779,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           }}
                           disabled={!selectedBrand}
                         />
-                        <div 
+                        <div
                           className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
                           onClick={toggleModelDropdown}
                         >
@@ -661,7 +787,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         </div>
                         {showModelDropdown && selectedBrand && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredModels.length > 0 
+                            {filteredModels.length > 0
                               ? filteredModels.map((model: string) => (
                                   <div
                                     key={model}
@@ -675,9 +801,9 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                               : (
                                 <div className="p-3 space-y-2">
                                   <div className="text-gray-500">Car model not found</div>
-                                  <Button 
-                                    type="button" 
-                                    size="sm" 
+                                  <Button
+                                    type="button"
+                                    size="sm"
                                     className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
                                     onClick={() => handleAddNew("model")}
                                   >
@@ -716,7 +842,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           }}
                           disabled={!selectedModel}
                         />
-                        <div 
+                        <div
                           className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
                           onClick={toggleYearDropdown}
                         >
@@ -724,7 +850,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         </div>
                         {showYearDropdown && selectedModel && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredYears.length > 0 
+                            {filteredYears.length > 0
                               ? filteredYears.map((year: number) => (
                                   <div
                                     key={year}
@@ -738,9 +864,9 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                               : (
                                 <div className="p-3 space-y-2">
                                   <div className="text-gray-500">Year model not found</div>
-                                  <Button 
-                                    type="button" 
-                                    size="sm" 
+                                  <Button
+                                    type="button"
+                                    size="sm"
                                     className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
                                     onClick={() => handleAddNew("year")}
                                   >
@@ -925,7 +1051,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   </div>
                 </div>
               )}
-  
+
               {/* "I'm Not Sure" Option */}
               <FormField
                 control={form.control}
@@ -946,7 +1072,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   </FormItem>
                 )}
               />
-  
+
               {/* Help Description and File Upload */}
               {needHelp && (
                 <div className="p-4 border rounded-md bg-white mt-4">
@@ -967,62 +1093,75 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                       </FormItem>
                     )}
                   />
-  
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">Upload photos of your car or issue (optional)</p>
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="file" 
-                        id="car-photo" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleFileChange} 
-                        multiple 
-                      />
-                      <label
-                        htmlFor="car-photo"
-                        className="px-3 py-2 border border-blue-800 text-blue-800 rounded-md cursor-pointer text-sm hover:bg-blue-50"
-                      >
-                        Choose Files
-                      </label>
-                      <span className="text-sm text-gray-500">
-                        {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : "No files chosen"}
-                      </span>
-                    </div>
-                    
-                    {/* Display selected files */}
-                    {selectedFiles.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-sm font-medium mb-2">Selected Files:</p>
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                          {selectedFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between bg-gray-50 rounded p-2">
-                              <div className="flex items-center space-x-2 overflow-hidden">
-                                <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-800">
-                                  📷
-                                </div>
-                                <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-                                <span className="text-xs text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeFile(index)}
-                                className="text-red-500 hover:text-red-700 text-sm"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+
+                  {/* Replace or modify the existing file upload section */}
+<div className="space-y-2">
+  <p className="text-sm text-gray-600">Upload photos of your car or issue (optional)</p>
+  <div className="flex items-center gap-2">
+    <input
+      type="file"
+      id="car-photo"
+      accept="image/jpeg,image/png,image/gif,image/webp"
+      className="hidden"
+      onChange={handleFileChange}
+      multiple
+      disabled={isUploading}
+    />
+    <label
+      htmlFor="car-photo"
+      className={`px-3 py-2 border border-blue-800 text-blue-800 rounded-md cursor-pointer text-sm hover:bg-blue-50 ${
+        isUploading ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+    >
+      {isUploading ? 'Uploading...' : 'Choose Files'}
+    </label>
+    <span className="text-sm text-gray-500">
+      {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : "No files chosen"}
+    </span>
+  </div>
+
+  {/* Display file errors if any */}
+  {fileErrors.length > 0 && (
+    <div className="mt-2">
+      {fileErrors.map((error, index) => (
+        <p key={index} className="text-sm text-red-500">{error}</p>
+      ))}
+    </div>
+  )}
+
+  {/* Display selected files */}
+  {selectedFiles.length > 0 && (
+    <div className="mt-3">
+      <p className="text-sm font-medium mb-2">Selected Files:</p>
+      <div className="space-y-2 max-h-40 overflow-y-auto">
+        {selectedFiles.map((file, index) => (
+          <div key={index} className="flex items-center justify-between bg-gray-50 rounded p-2">
+            <div className="flex items-center space-x-2 overflow-hidden">
+              <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-800">
+                📷
+              </div>
+              <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+              <span className="text-xs text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeFile(index)}
+              className="text-red-500 hover:text-red-700 text-sm"
+              disabled={isUploading}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
                 </div>
               )}
             </>
           )}
 
-  
           {/* Form Controls */}
           <div className="flex justify-between pt-4">
             <Button type="button" variant="outline" onClick={onBack} className="border-blue-800 text-blue-800">
@@ -1034,5 +1173,27 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
           </div>
         </form>
       </Form>
-    )
-  }
+  )
+}
+
+// Define the form schema outside the component
+const formSchema = z.object({
+  carBrand: z.string().min(1, "Car brand is required"),
+  carModel: z.string().min(1, "Car model is required"),
+  yearModel: z.string().min(1, "Year model is required"),
+  plateNumber: z.string()
+    .min(1, "Plate number is required")
+    .max(8, "Plate number must not exceed 8 characters") // Set a maximum length of 8 characters
+    .regex(/^([A-Za-z]{3}\d{3,4}|[A-Za-z]{2}\d{4,5}|[A-Za-z]{1}\d{4,5}|[A-Za-z]{3}\d{3}[A-Za-z]{1})$/,
+      "Enter a valid Philippine plate number (e.g., ABC1234, AB1234, A1234, ABC123A)"),
+  transmission: z.string().min(1, "Transmission is required"),
+  fuelType: z.string().min(1, "Fuel type is required"),
+  odometer: z.string().min(1, "Odometer reading is required"),
+  services: z.array(z.string()).refine(services => services.length > 0, {
+    message: "At least one service must be selected",
+    path: ["services"]
+  }).optional().or(z.array(z.string())),
+  specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
+  needHelp: z.boolean().optional(),
+  helpDescription: z.string().optional().refine(() => true),
+});
