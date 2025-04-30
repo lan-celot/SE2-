@@ -3,9 +3,33 @@
 
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/customer-components/ui/button"
-import { useEffect, useState } from "react"
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useState } from "react"
 import { db, auth } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore"
+
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Function to fetch public URLs of uploaded files
+const fetchUploadedFiles = async (filePaths: string[]) => {
+  try {
+    const publicUrls = await Promise.all(
+      filePaths.map(async (filePath) => {
+        const { data } = supabase.storage.from('car-uploads').getPublicUrl(filePath);
+        return data.publicUrl;
+      })
+    );
+    return publicUrls;
+  } catch (error) {
+    console.error('Error fetching uploaded files:', error);
+    return [];
+  }
+};
+
 
 // Updated to match Firestore document structure
 interface BookingData {
@@ -290,6 +314,28 @@ export function ConfirmationPage({ formData, onBookAgain, bookingId }: Confirmat
             )}
           </div>
         </div>
+
+        {formData.uploadedFiles && formData.uploadedFiles.length > 0 && (
+  <div className="space-y-2 mt-4">
+    <h3 className="text-lg font-medium mb-2">Uploaded Files</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {formData.uploadedFiles.map((file: { fileUrl: string | undefined; fileName: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; fileSize: number; }, index: Key | null | undefined) => (
+        <div key={index} className="border rounded-md p-4 bg-gray-50">
+          <img
+            src={file.fileUrl}
+            alt={String(file.fileName)}
+            className="w-full h-48 object-cover rounded-md mb-2"
+          />
+          <p className="text-sm text-gray-700">{file.fileName}</p>
+          <p className="text-xs text-gray-500">
+            {(file.fileSize / 1024).toFixed(2)} KB
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
 
         {formData.specificIssues && (
           <div className="space-y-2">

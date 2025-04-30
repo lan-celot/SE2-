@@ -53,7 +53,7 @@ import { Badge } from "@/components/admin-components/badge";
 import { useResponsiveRows } from "@/hooks/use-responsive-rows";
 import { formatDateTime } from "@/lib/date-utils";
 import { getActiveEmployees, type Employee } from "@/lib/employee-utils";
-
+import { createClient } from '@supabase/supabase-js';
 
 type Status = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
 type MechanicStatus = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED"
@@ -75,7 +75,13 @@ interface Service {
   status: MechanicStatus // Updated to use MechanicStatus type
 }
 
+interface UploadedFile {
+  fileUrl: string;
+  fileName: string;
+}
+
 interface Reservation {
+  uploadedFiles: UploadedFile[];
   id: string;
   lastName: string;
   firstName: string;
@@ -110,6 +116,11 @@ interface CarDetails {
   reservationDate: string;
   customerName: string;
 }
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 const statusStyles: Record<
   Status | MechanicStatus,
@@ -331,6 +342,7 @@ export default function ReservationsPage() {
             generalServices: Array.isArray(bookingData.generalServices)
               ? bookingData.generalServices
               : [],
+            uploadedFiles: []
           } satisfies Reservation;
         });
 
@@ -1568,7 +1580,7 @@ const handleAddServices = async (selectedServices: any[]) => {
   );
 
   // Function to show car details dialog
-  const showCarDetails = (reservation: Reservation) => {
+  const showCarDetails = async (reservation: Reservation) => {
     setSelectedCarDetails({
       carModel: reservation.carModel || "",
       yearModel: reservation.yearModel || "",
@@ -1578,14 +1590,40 @@ const handleAddServices = async (selectedServices: any[]) => {
       specificIssues: reservation.specificIssues || "",
       generalServices: reservation.generalServices || [],
       reservationDate: reservation.reservationDate || "",
-      customerName:
-        `${reservation.firstName} ${reservation.lastName}`.trim() ||
-        reservation.customerName ||
-        "",
+      customerName: `${reservation.firstName} ${reservation.lastName}`.trim() || reservation.customerName || "",
     });
+  
+    // Fetch the image URL from Supabase storage
+    if (reservation.uploadedFiles && reservation.uploadedFiles.length > 0) {
+      const filePath = reservation.uploadedFiles[0].fileUrl; // Assuming the first file is the image
+      const { data, error } = await supabase.storage.from('car-uploads').createSignedUrl(filePath, 60);
+  
+      if (error) {
+        console.error('Error fetching image URL:', error);
+      } else {
+        setSelectedCarDetails(prevDetails => {
+          if (!prevDetails) return null;
+          return {
+            ...prevDetails,
+            imageUrl: data.signedUrl,
+            // Ensure all required properties are present
+            carModel: prevDetails.carModel,
+            yearModel: prevDetails.yearModel,
+            transmission: prevDetails.transmission,
+            fuelType: prevDetails.fuelType,
+            odometer: prevDetails.odometer,
+            specificIssues: prevDetails.specificIssues,
+            generalServices: prevDetails.generalServices,
+            reservationDate: prevDetails.reservationDate,
+            customerName: prevDetails.customerName
+          };
+        });
+      }
+    }
+  
     setShowCarDetailsDialog(true);
   };
-
+  
   if (isLoading) {
     return (
       <div className="flex min-h-screen bg-[#EBF8FF]">
@@ -2569,115 +2607,74 @@ const handleAddServices = async (selectedServices: any[]) => {
         confirmButtonText="Assign Mechanic"
       />
 
-      {/* Car Details Dialog */}
-      <Dialog
-        open={showCarDetailsDialog}
-        onOpenChange={setShowCarDetailsDialog}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl">
-              Vehicle Details
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="text-sm font-medium text-gray-500">Name:</div>
-                <div className="text-sm text-[#1A365D]">
-                  {selectedCarDetails?.customerName || "—"}
-                </div>
-
-                <div className="text-sm font-medium text-gray-500">Car:</div>
-                <div className="text-sm text-[#1A365D]">
-                  {selectedCarDetails?.carModel || "—"}
-                </div>
-
-                <div className="text-sm font-medium text-gray-500">
-                  Year Model:
-                </div>
-                <div className="text-sm text-[#1A365D]">
-                  {selectedCarDetails?.yearModel || "—"}
-                </div>
-
-                <div className="text-sm font-medium text-gray-500">
-                  Transmission:
-                </div>
-                <div className="text-sm text-[#1A365D]">
-                  {selectedCarDetails?.transmission || "—"}
-                </div>
-
-                <div className="text-sm font-medium text-gray-500">
-                  Fuel Type:
-                </div>
-                <div className="text-sm text-[#1A365D]">
-                  {selectedCarDetails?.fuelType || "—"}
-                </div>
-
-                <div className="text-sm font-medium text-gray-500">
-                  Odometer:
-                </div>
-                <div className="text-sm text-[#1A365D]">
-                  {selectedCarDetails?.odometer || "—"}
-                </div>
-
-                <div className="text-sm font-medium text-gray-500">
-                  Reservation Date:
-                </div>
-                <div className="text-sm text-[#1A365D]">
-                  {formatDateTime(selectedCarDetails?.reservationDate || "")}
-                </div>
-              </div>
-
-              {selectedCarDetails?.generalServices &&
-                selectedCarDetails.generalServices.length > 0 && (
-                  <div className="mt-4">
-                    <div className="text-sm font-medium text-gray-500 mb-2">
-                      General Services:
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCarDetails.generalServices.map(
-                        (service, index) => (
-                          <Badge
-                            key={index}
-                            className="bg-[#EBF8FF] text-[#2A69AC] hover:bg-[#EBF8FF]"
-                          >
-                            {service}
-                          </Badge>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              <div className="mt-4">
-                <div className="text-sm font-medium text-gray-500 mb-2">
-                  Specific Issues:
-                </div>
-                <p
-                  className={`whitespace-pre-wrap ${
-                    selectedCarDetails?.specificIssues
-                      ? "text-[#1A365D]"
-                      : "text-gray-500 opacity-75"
-                  }`}
-                >
-                  {selectedCarDetails?.specificIssues
-                    ? selectedCarDetails.specificIssues
-                    : "The customer did not specify any issues with their vehicle."}
-                </p>
-              </div>
+<Dialog open={showCarDetailsDialog} onOpenChange={setShowCarDetailsDialog}>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle className="text-center text-xl">Vehicle Details</DialogTitle>
+    </DialogHeader>
+    <div className="py-4 max-h-[60vh] overflow-y-auto">
+      <div className="space-y-4">
+        {selectedCarDetails?.imageUrl && (
+          <div className="flex justify-center mb-4">
+            <img src={selectedCarDetails.imageUrl} alt="Car" className="max-w-full h-auto rounded-lg" />
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="text-sm font-medium text-gray-500">Name:</div>
+          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.customerName || "—"}</div>
+          <div className="text-sm font-medium text-gray-500">Car:</div>
+          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.carModel || "—"}</div>
+          <div className="text-sm font-medium text-gray-500">Year Model:</div>
+          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.yearModel || "—"}</div>
+          <div className="text-sm font-medium text-gray-500">Transmission:</div>
+          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.transmission || "—"}</div>
+          <div className="text-sm font-medium text-gray-500">Fuel Type:</div>
+          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.fuelType || "—"}</div>
+          <div className="text-sm font-medium text-gray-500">Odometer:</div>
+          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.odometer || "—"}</div>
+          <div className="text-sm font-medium text-gray-500">Reservation Date:</div>
+          <div className="text-sm text-[#1A365D]">{formatDateTime(selectedCarDetails?.reservationDate || "")}</div>
+        </div>
+        {selectedCarDetails?.generalServices && selectedCarDetails.generalServices.length > 0 && (
+          <div className="mt-4">
+            <div className="text-sm font-medium text-gray-500 mb-2">General Services:</div>
+            <div className="flex flex-wrap gap-2">
+              {selectedCarDetails.generalServices.map((service, index) => (
+                <Badge key={index} className="bg-[#EBF8FF] text-[#2A69AC] hover:bg-[#EBF8FF]">
+                  {service}
+                </Badge>
+              ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              onClick={() => setShowCarDetailsDialog(false)}
-              className="w-full bg-[#2A69AC] hover:bg-[#1A365D] text-white"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+        <div className="mt-4">
+          <div className="text-sm font-medium text-gray-500 mb-2">Specific Issues:</div>
+          <p className={`whitespace-pre-wrap ${selectedCarDetails?.specificIssues ? "text-[#1A365D]" : "text-gray-500 opacity-75"}`}>
+            {selectedCarDetails?.specificIssues ? selectedCarDetails.specificIssues : "The customer did not specify any issues with their vehicle."}
+          </p>
+        </div>
+      </div>
+    </div>
+    <DialogFooter>
+      <Button onClick={() => setShowCarDetailsDialog(false)} className="w-full bg-[#2A69AC] hover:bg-[#1A365D] text-white">
+        Close
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </div>
   );
+}
+
+interface CarDetails {
+  carModel: string;
+  yearModel: string;
+  transmission: string;
+  fuelType: string;
+  odometer: string;
+  specificIssues: string;
+  generalServices: string[];
+  reservationDate: string;
+  customerName: string;
+  imageUrl?: string; // Add this line
 }

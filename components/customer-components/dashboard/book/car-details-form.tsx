@@ -556,48 +556,49 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   }, [addCarType, selectedBrand, selectedModel])
 
   // Custom form submission handler
-  const handleSubmit = useCallback(async (data: FormData) => {
-    // If files need to be uploaded, do it first
-    let fileUploadResults: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[] = []
-
-    if (selectedFiles.length > 0) {
-      // Set loading state if needed
-      fileUploadResults = await uploadFiles()
-    }
-
-    // If needHelp is checked, we don't require services
-    if (needHelp) {
-      // Make sure helpDescription is filled
-      if (!data.helpDescription || data.helpDescription.trim() === '') {
-        form.setError('helpDescription', {
-          type: 'manual',
-          message: 'Please describe your car issue'
-        })
-        return
+   // Custom form submission handler
+    const handleSubmit = useCallback(async (data: FormData) => {
+      // If files need to be uploaded, do it first
+      let fileUploadResults: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[] = []
+  
+      if (selectedFiles.length > 0) {
+        // Set loading state if needed
+        fileUploadResults = await uploadFiles()
       }
-
-      // Include uploaded files in the submission
-      onSubmit({
-        ...data,
-        uploadedFiles: fileUploadResults
-      })
-    } else {
-      // Otherwise check if services are selected
-      if (!data.services || data.services.length === 0) {
-        form.setError('services', {
-          type: 'manual',
-          message: 'At least one service must be selected'
+  
+      // If needHelp is checked, we don't require services
+      if (needHelp) {
+        // Make sure helpDescription is filled
+        if (!data.helpDescription || data.helpDescription.trim() === '') {
+          form.setError('helpDescription', {
+            type: 'manual',
+            message: 'Please describe your car issue'
+          })
+          return
+        }
+  
+        // Include uploaded files in the submission
+        onSubmit({
+          ...data,
+          uploadedFiles: fileUploadResults
         })
-        return
+      } else {
+        // Otherwise check if services are selected
+        if (!data.services || data.services.length === 0) {
+          form.setError('services', {
+            type: 'manual',
+            message: 'At least one service must be selected'
+          })
+          return
+        }
+  
+        // Include uploaded files in the submission
+        onSubmit({
+          ...data,
+          uploadedFiles: fileUploadResults
+        })
       }
-
-      // Include uploaded files in the submission
-      onSubmit({
-        ...data,
-        uploadedFiles: fileUploadResults
-      })
-    }
-  }, [form, needHelp, onSubmit, selectedFiles, uploadFiles])
+    }, [form, needHelp, onSubmit, selectedFiles, uploadFiles])
 
   // Render a service category - memoized component
   const renderServiceCategory = useCallback((category: (typeof serviceCategories)[0]) => (
