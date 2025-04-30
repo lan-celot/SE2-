@@ -247,8 +247,9 @@ export default function ReservationsPage() {
   >("reservationDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showStatusConfirmDialog, setShowStatusConfirmDialog] = useState(false);
-  const [showStatusPasswordDialog, setShowStatusPasswordDialog] =
-    useState(false);
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [enteredPin, setEnteredPin] = useState("");       // what the admin types
+  const [adminPin, setAdminPin] = useState("");           // loaded from Firestore
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     reservationId: string | "bulk";
     userId: string;
@@ -296,6 +297,20 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    import("firebase/auth").then(({ getAuth }) => {
+      const auth = getAuth();
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      const ref = doc(db, "accounts", uid);
+      getDoc(ref).then(snap => {
+        if (snap.exists() && snap.data().pin) {
+          setAdminPin(snap.data().pin as string);
+        }
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -1034,7 +1049,7 @@ const formatDateOnly = (dateStr: string) => {
   const confirmStatusChange = () => {
     setShowStatusConfirmDialog(false);
     if (pendingStatusChange) {
-      setShowStatusPasswordDialog(true);
+      setShowPinDialog(true);
     }
   };
 
@@ -2384,15 +2399,50 @@ const handleAddServices = async (selectedServices: any[]) => {
 </Dialog>
 
 {/* Mechanic Status Password Verification Dialog */}
-<PasswordVerificationDialog
-  open={showMechanicStatusPasswordDialog}
-  onOpenChange={setShowMechanicStatusPasswordDialog}
-  title="Verify Authorization"
-  description="Verifying your password confirms this change of mechanic status."
-  onVerified={handleMechanicStatusVerified}
-  cancelButtonText="Cancel"
-  confirmButtonText="Update Status"
-/>
+<Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
+    </DialogHeader>
+    <Input
+      type="password"
+      maxLength={4}
+      value={enteredPin}
+      onChange={(e) => setEnteredPin(e.target.value)}
+      placeholder="••••"
+      className="text-center tracking-wide"
+    />
+    <DialogFooter className="space-x-2">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowPinDialog(false);
+          setEnteredPin("");
+        }}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          if (enteredPin === adminPin) {
+            handleStatusVerified();
+            setShowPinDialog(false);
+            setEnteredPin("");
+          } else {
+            toast({
+              title: "Invalid PIN",
+              description: "The PIN you entered is incorrect.",
+              variant: "destructive",
+            });
+            setEnteredPin("");
+          }
+        }}
+      >
+        Confirm
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
 {/* Complete Reservation Dialog */}
 <Dialog open={showCompleteReservationDialog} onOpenChange={setShowCompleteReservationDialog}>
@@ -2511,15 +2561,50 @@ const handleAddServices = async (selectedServices: any[]) => {
       </Dialog>
 
       {/* Delete Service Password Verification Dialog */}
-      <PasswordVerificationDialog
-        open={showDeletePasswordDialog}
-        onOpenChange={setShowDeletePasswordDialog}
-        title="Verify Authorization"
-        description="Verifying your password confirms the deletion of this service."
-        onVerified={handleDeleteService}
-        cancelButtonText="Cancel"
-        confirmButtonText="Delete"
-      />
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
+    </DialogHeader>
+    <Input
+      type="password"
+      maxLength={4}
+      value={enteredPin}
+      onChange={(e) => setEnteredPin(e.target.value)}
+      placeholder="••••"
+      className="text-center tracking-wide"
+    />
+    <DialogFooter className="space-x-2">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowPinDialog(false);
+          setEnteredPin("");
+        }}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          if (enteredPin === adminPin) {
+            handleStatusVerified();
+            setShowPinDialog(false);
+            setEnteredPin("");
+          } else {
+            toast({
+              title: "Invalid PIN",
+              description: "The PIN you entered is incorrect.",
+              variant: "destructive",
+            });
+            setEnteredPin("");
+          }
+        }}
+      >
+        Confirm
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
       {/* Status Confirmation Dialog */}
       <Dialog
@@ -2572,15 +2657,50 @@ const handleAddServices = async (selectedServices: any[]) => {
       </Dialog>
 
       {/* Status Password Verification Dialog */}
-      <PasswordVerificationDialog
-        open={showStatusPasswordDialog}
-        onOpenChange={setShowStatusPasswordDialog}
-        title="Verify Authorization"
-        description="Verifying your password confirms this change of status."
-        onVerified={handleStatusVerified}
-        cancelButtonText="Cancel"
-        confirmButtonText="Update Status"
-      />
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
+    </DialogHeader>
+    <Input
+      type="password"
+      maxLength={4}
+      value={enteredPin}
+      onChange={(e) => setEnteredPin(e.target.value)}
+      placeholder="••••"
+      className="text-center tracking-wide"
+    />
+    <DialogFooter className="space-x-2">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowPinDialog(false);
+          setEnteredPin("");
+        }}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          if (enteredPin === adminPin) {
+            handleStatusVerified();
+            setShowPinDialog(false);
+            setEnteredPin("");
+          } else {
+            toast({
+              title: "Invalid PIN",
+              description: "The PIN you entered is incorrect.",
+              variant: "destructive",
+            });
+            setEnteredPin("");
+          }
+        }}
+      >
+        Confirm
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
       {/* Add Service Dialog */}
       <AddServiceDialog
@@ -2597,15 +2717,50 @@ const handleAddServices = async (selectedServices: any[]) => {
       />
 
       {/* Mechanic Password Verification Dialog */}
-      <PasswordVerificationDialog
-        open={showMechanicPasswordDialog}
-        onOpenChange={setShowMechanicPasswordDialog}
-        title="Verify Authorization"
-        description="Verifying your password confirms this mechanic assignment."
-        onVerified={handleMechanicVerified}
-        cancelButtonText="Cancel"
-        confirmButtonText="Assign Mechanic"
-      />
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
+    </DialogHeader>
+    <Input
+      type="password"
+      maxLength={4}
+      value={enteredPin}
+      onChange={(e) => setEnteredPin(e.target.value)}
+      placeholder="••••"
+      className="text-center tracking-wide"
+    />
+    <DialogFooter className="space-x-2">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowPinDialog(false);
+          setEnteredPin("");
+        }}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          if (enteredPin === adminPin) {
+            handleStatusVerified();
+            setShowPinDialog(false);
+            setEnteredPin("");
+          } else {
+            toast({
+              title: "Invalid PIN",
+              description: "The PIN you entered is incorrect.",
+              variant: "destructive",
+            });
+            setEnteredPin("");
+          }
+        }}
+      >
+        Confirm
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
 <Dialog open={showCarDetailsDialog} onOpenChange={setShowCarDetailsDialog}>
   <DialogContent className="sm:max-w-md">
