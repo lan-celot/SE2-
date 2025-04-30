@@ -1606,35 +1606,33 @@ const handleAddServices = async (selectedServices: any[]) => {
       generalServices: reservation.generalServices || [],
       reservationDate: reservation.reservationDate || "",
       customerName: `${reservation.firstName} ${reservation.lastName}`.trim() || reservation.customerName || "",
-    });
-  
-    // Fetch the image URL from Supabase storage
-    if (reservation.uploadedFiles && reservation.uploadedFiles.length > 0) {
-      const filePath = reservation.uploadedFiles[0].fileUrl; // Assuming the first file is the image
-      const { data, error } = await supabase.storage.from('car-uploads').createSignedUrl(filePath, 60);
-  
-      if (error) {
-        console.error('Error fetching image URL:', error);
-      } else {
-        setSelectedCarDetails(prevDetails => {
-          if (!prevDetails) return null;
-          return {
-            ...prevDetails,
-            imageUrl: data.signedUrl,
-            // Ensure all required properties are present
-            carModel: prevDetails.carModel,
-            yearModel: prevDetails.yearModel,
-            transmission: prevDetails.transmission,
-            fuelType: prevDetails.fuelType,
-            odometer: prevDetails.odometer,
-            specificIssues: prevDetails.specificIssues,
-            generalServices: prevDetails.generalServices,
-            reservationDate: prevDetails.reservationDate,
-            customerName: prevDetails.customerName
-          };
         });
-      }
-    }
+      
+         // ————— NEW: list whatever’s in the `car-images/` folder —————
+         try {
+            const { data: files, error: listError } = 
+             await supabase
+                .storage
+                .from("car-uploads")
+                .list("car-images");
+      
+            if (listError) {
+              console.error("Error listing car-images:", listError);
+            } else if (files && files.length > 0) {
+              // pick the first file, turn it into a public URL
+              const publicUrlResult = supabase
+                .storage
+                .from("car-uploads")
+                .getPublicUrl(`car-images/${files[0].name}`);
+      
+              setSelectedCarDetails(prev => ({
+                ...prev!,
+                imageUrl: publicUrlResult.data.publicUrl,
+              }));
+            }
+          } catch (err) {
+            console.error("Unexpected error fetching car image:", err);
+          }
   
     setShowCarDetailsDialog(true);
   };
