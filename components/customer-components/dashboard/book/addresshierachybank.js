@@ -1,5 +1,5 @@
-// @/components/customer-components/dashboard/book/addresshierachybank.js
 
+// @/components/customer-components/dashboard/book/addresshierachybank.js
 export const philippineRegions = [
   "Region I (Ilocos Region)",
   "Region II (Cagayan Valley)",
@@ -125,7 +125,7 @@ export const locationHierarchy = {
     "Bulacan": {
       cities: ["Malolos", "Meycauayan", "San Jose del Monte"],
       municipalities: [
-        "Angat", "Balagtas", "Baliwag", "Bocaue", "Bulakan", "Calumpit",
+        "Angat", "Balagtas", "Baliwag City", "Bocaue", "Bulakan", "Calumpit",
         "Doña Remedios Trinidad", "Guiguinto", "Hagonoy", "Marilao",
         "Norzagaray", "Obando", "Pandi", "Paombong", "Plaridel", "Pulilan",
         "San Ildefonso", "San Miguel", "San Rafael", "Santa Maria"
@@ -141,7 +141,7 @@ export const locationHierarchy = {
       ]
     },
     "Pampanga": {
-      cities: ["Angeles", "San Fernando", "Mabalacat"],
+      cities: ["Angeles City", "San Fernando", "Mabalacat"],
       municipalities: [
         "Apalit", "Arayat", "Bacolor", "Candaba", "Floridablanca", "Guagua",
         "Lubao", "Masantol", "Mexico", "Minalin", "Porac", "San Luis",
@@ -721,8 +721,6 @@ export const locationHierarchy = {
   }
 }
 };
-
-
 
 export const zipCodeMapping = {
   "Region I (Ilocos Region)": {
@@ -1984,7 +1982,6 @@ export const zipCodeMapping = {
   }
 }
 };
-
 
 
 
