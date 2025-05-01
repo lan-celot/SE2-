@@ -16,7 +16,9 @@ import { getActiveEmployees, type Employee } from "@/lib/employee-utils"
 interface Service {
   id: string
   label: string
+  services: string[]
 }
+
 
 interface Transaction {
   id: string
@@ -47,18 +49,91 @@ interface Transaction {
   createdAt: Date
 }
 
-const services: Service[] = [
-  { id: "PAINT_JOBS", label: "PAINT JOBS" },
-  { id: "BRAKE_SHOES_CLEAN", label: "BRAKE SHOES CLEAN" },
-  { id: "ENGINE_OVERHAUL", label: "ENGINE OVERHAUL" },
-  { id: "SUSPENSION_SYSTEMS", label: "SUSPENSION SYSTEMS" },
-  { id: "BRAKE_SHOES_REPLACE", label: "BRAKE SHOES REPLACE" },
-  { id: "BRAKE_CLEAN", label: "BRAKE CLEAN" },
-  { id: "ENGINE_TUNING", label: "ENGINE TUNING" },
-  { id: "AIR_CONDITIONING", label: "AIR CONDITIONING" },
-  { id: "BRAKE_REPLACE", label: "BRAKE REPLACE" },
-  { id: "OIL_CHANGE", label: "OIL CHANGE" },
+// ↓ NEW GENERAL SERVICE CATEGORIES ↓
+const services = [
+  {
+    id: "general",
+    label: "General Auto Repair & Maintenance",
+    services: [
+      "Engine diagnostics, tuning, and repairs",
+      "Oil change, fluid checks, and filter replacements",
+      "Battery inspection and replacement",
+      "Transmission service and repairs",
+      "Fuel system and cooling system maintenance",
+      "Oil Change with or w/o Filter",
+      "Air Filter Replacement",
+      "PMS (Preventive Maintenance Service)",
+      "Engine Timing Repair",
+    ],
+  },
+  {
+    id: "brake",
+    label: "Brake & Suspension Services",
+    services: [
+      "Brake inspection, cleaning, and replacement",
+      "Suspension system repairs and upgrades",
+      "Wheel alignment and balancing",
+      "BrakeMaster Repair",
+    ],
+  },
+  {
+    id: "body",
+    label: "Body & Exterior Services",
+    services: [
+      "Paint jobs, dent removal, and scratch repair",
+      "Window, headlight, and taillight restoration",
+      "Rust prevention and undercoating",
+    ],
+  },
+  {
+    id: "tires",
+    label: "Tires & Wheels",
+    services: ["Tire replacement", "Rim repair and refinishing"],
+  },
+  {
+    id: "electrical",
+    label: "Electrical & Diagnostic Services",
+    services: [
+      "Computerized engine diagnostics",
+      "Alternator, starter, and battery checks",
+      "Sensor calibration and replacement",
+    ],
+  },
+  {
+    id: "air",
+    label: "Air Conditioning Services",
+    services: [
+      "Freon Recharging",
+      "Compressor Repair",
+      "Aircon Fan Repair",
+      "Evaporator Replacement",
+      "Aircon Full Service",
+      "Compressor Assembly",
+    ],
+  },
+  {
+    id: "performance",
+    label: "Performance & Customization",
+    services: [
+      "Exhaust system and suspension upgrades",
+      "ECU tuning and performance modifications",
+    ],
+  },
+  {
+    id: "emergency",
+    label: "Emergency & Roadside Assistance",
+    services: [
+      "Towing services and roadside assistance",
+      "Lockout, jumpstart, and flat tire services",
+    ],
+  },
+  {
+    id: "insurance",
+    label: "Insurance & Inspection Services",
+    services: ["Vehicle inspection and repair estimates", "Emissions testing and compliance"],
+  },
 ]
+
 
 function AddServicePageContent() {
   const router = useRouter()
