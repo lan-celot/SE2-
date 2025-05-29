@@ -1,5 +1,10 @@
 // @/components/customer-components/dashboard/book/addresshierachybank.js
+
+// Sort regions alphabetically for consistent access
 export const philippineRegions = [
+  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
+  "Cordillera Administrative Region (CAR)",
+  "National Capital Region (NCR)",
   "Region I (Ilocos Region)",
   "Region II (Cagayan Valley)",
   "Region III (Central Luzon)",
@@ -11,13 +16,15 @@ export const philippineRegions = [
   "Region VIII (Eastern Visayas)",
   "Region IX (Zamboanga Peninsula)",
   "Region X (Northern Mindanao)",
-  "Region XI (Davao Region)", 
+  "Region XI (Davao Region)",
   "Region XII (SOCCSKSARGEN)",
-  "Region XIII (Caraga)",
-  "National Capital Region (NCR)",
-  "Cordillera Administrative Region (CAR)",
-  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)"
-].sort();
+  "Region XIII (Caraga)"
+];
+
+// Add default values for better error handling
+const DEFAULT_ZIP = "0000";
+const DEFAULT_REGION = "National Capital Region (NCR)";
+const DEFAULT_PROVINCE = "Metro Manila";
 
 export const locationHierarchy = {
   "Region I (Ilocos Region)": {
@@ -774,6 +781,37 @@ export const locationHierarchy = {
 }
 };
 
+// Add helper functions for common operations
+export const getProvincesByRegion = (region) => {
+  return locationHierarchy[region]?.provinces || [];
+};
+
+export const getCitiesByProvince = (region, province) => {
+  return locationHierarchy[region]?.locations[province]?.cities || [];
+};
+
+export const getMunicipalitiesByProvince = (region, province) => {
+  return locationHierarchy[region]?.locations[province]?.municipalities || [];
+};
+
+export const getZipCode = (region, province, location) => {
+  const provinceData = zipCodeMapping[region]?.provinces[province];
+  if (!provinceData) return DEFAULT_ZIP;
+
+  // Check cities first
+  if (provinceData.cities?.[location]) {
+    return provinceData.cities[location];
+  }
+
+  // Then check municipalities
+  if (provinceData.municipalities?.[location]) {
+    return provinceData.municipalities[location];
+  }
+
+  // Return province default if exists, otherwise return default zip
+  return provinceData.default || DEFAULT_ZIP;
+};
+
 export const zipCodeMapping = {
   "Region I (Ilocos Region)": {
     default: "",
@@ -958,10 +996,10 @@ export const zipCodeMapping = {
     "Bulacan": {
       default: "",
       cities: {
-        "Malolos City": "3000",
-        "Meycauayan City": "3020",
-        "San Jose del Monte City": "3023",
-        "Baliwag City": "3006"
+        "Malolos": "3000",
+        "Meycauayan": "3020",
+        "San Jose del Monte": "3023",
+        "Baliwag": "3006"
       },
       municipalities: {
         "Angat": "3012",
