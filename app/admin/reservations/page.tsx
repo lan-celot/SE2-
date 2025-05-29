@@ -37,6 +37,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -48,7 +49,6 @@ import {
   SelectValue,
 } from "@/components/admin-components/select";
 import Loading from "@/components/admin-components/loading";
-import { PasswordVerificationDialog } from "@/components/admin-components/password-verification-dialog";
 import { Badge } from "@/components/admin-components/badge";
 import { useResponsiveRows } from "@/hooks/use-responsive-rows";
 import { formatDateTime } from "@/lib/date-utils";
@@ -233,8 +233,6 @@ export default function ReservationsPage() {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [showMechanicDialog, setShowMechanicDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showDeletePasswordDialog, setShowDeletePasswordDialog] =
-    useState(false);
   const [showMechanicPasswordDialog, setShowMechanicPasswordDialog] =
     useState(false);
   const [selectedService, setSelectedService] =
@@ -247,9 +245,6 @@ export default function ReservationsPage() {
   >("reservationDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showStatusConfirmDialog, setShowStatusConfirmDialog] = useState(false);
-  const [showPinDialog, setShowPinDialog] = useState(false);
-  const [enteredPin, setEnteredPin] = useState("");       // what the admin types
-  const [adminPin, setAdminPin] = useState("");           // loaded from Firestore
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     reservationId: string | "bulk";
     userId: string;
@@ -274,7 +269,6 @@ export default function ReservationsPage() {
 
   // Add new states for mechanic status
   const [showMechanicStatusDialog, setShowMechanicStatusDialog] = useState(false)
-  const [showMechanicStatusPasswordDialog, setShowMechanicStatusPasswordDialog] = useState(false)
   const [pendingMechanicStatusChange, setPendingMechanicStatusChange] = useState<{
     reservationId: string
     serviceIndex: number
@@ -297,20 +291,6 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    import("firebase/auth").then(({ getAuth }) => {
-      const auth = getAuth();
-      const uid = auth.currentUser?.uid;
-      if (!uid) return;
-      const ref = doc(db, "accounts", uid);
-      getDoc(ref).then(snap => {
-        if (snap.exists() && snap.data().pin) {
-          setAdminPin(snap.data().pin as string);
-        }
-      });
-    });
   }, []);
 
   useEffect(() => {
@@ -890,9 +870,9 @@ const formatDateOnly = (dateStr: string) => {
         pendingMechanicStatusChange.newStatus
       )
     }
-    setShowMechanicStatusPasswordDialog(false)
+    setShowMechanicStatusDialog(false)
     setPendingMechanicStatusChange(null)
-  }
+  };
   
   // Helper function to check if all services in a reservation are completed or cancelled
   const areAllServicesCompletedOrCancelled = (reservation: Reservation): boolean => {
@@ -992,9 +972,13 @@ const formatDateOnly = (dateStr: string) => {
   const confirmMechanicStatusChange = () => {
     setShowMechanicStatusDialog(false)
     if (pendingMechanicStatusChange) {
-      setShowMechanicStatusPasswordDialog(true)
+      handleMechanicStatusChange(
+        pendingMechanicStatusChange.reservationId,
+        pendingMechanicStatusChange.serviceIndex,
+        pendingMechanicStatusChange.newStatus
+      )
     }
-  }
+  };
   
   const handleCompleteReservation = async () => {
     if (!pendingReservationToComplete) return
@@ -1048,12 +1032,6 @@ const formatDateOnly = (dateStr: string) => {
 
   const confirmStatusChange = () => {
     setShowStatusConfirmDialog(false);
-    if (pendingStatusChange) {
-      setShowPinDialog(true);
-    }
-  };
-
-  const handleStatusVerified = () => {
     if (pendingStatusChange) {
       if (pendingStatusChange.reservationId === "bulk") {
         // Handle bulk update
@@ -1236,56 +1214,13 @@ const formatDateOnly = (dateStr: string) => {
       }
   
       try {
-        // Determine new mechanic status based on reservation status
-        let newMechanicStatus: MechanicStatus = "PENDING";
-        
-        if (reservation.status === "CONFIRMED") {
-          newMechanicStatus = "CONFIRMED";
-        } else if (reservation.status === "REPAIRING") {
-          newMechanicStatus = "REPAIRING";
-        }
-  
-        // First update local state for immediate feedback
-        setReservationData((prevData) =>
-          prevData.map((res) => {
-            if (res.id === reservationId && res.services) {
-              const updatedServices = [...res.services];
-              updatedServices[selectedService.serviceIndex] = {
-                ...updatedServices[selectedService.serviceIndex],
-                mechanic: selectedMechanic,
-                // Update status based on reservation status when assigning mechanic
-                status: newMechanicStatus
-              };
-              return { ...res, services: updatedServices };
-            }
-            return res;
-          }),
+        // Update mechanic assignment directly
+        await updateMechanicAssignment(
+          reservationId,
+          selectedService.serviceIndex,
+          selectedMechanic,
+          userId
         );
-  
-        // Then update in Firestore
-        // Get the main booking data
-        const bookingRef = doc(db, "bookings", reservationId);
-        const userBookingRef = doc(db, `users/${userId}/bookings`, reservationId);
-  
-        // Get the main booking data
-        const bookingSnap = await getDoc(bookingRef);
-        if (!bookingSnap.exists()) {
-          throw new Error("Main booking document not found");
-        }
-  
-        const bookingData = bookingSnap.data();
-        const updatedServices = [...(bookingData.services || [])];
-        updatedServices[selectedService.serviceIndex] = {
-          ...updatedServices[selectedService.serviceIndex],
-          mechanic: selectedMechanic,
-          status: newMechanicStatus
-        };
-  
-        // Use setDoc with merge option to create or update both documents
-        await Promise.all([
-          setDoc(bookingRef, { services: updatedServices }, { merge: true }),
-          setDoc(userBookingRef, { services: updatedServices }, { merge: true }),
-        ]);
   
         toast({
           title: "Mechanic Assigned",
@@ -1608,7 +1543,7 @@ const handleAddServices = async (selectedServices: any[]) => {
       customerName: `${reservation.firstName} ${reservation.lastName}`.trim() || reservation.customerName || "",
         });
       
-         // ————— NEW: list whatever’s in the `car-images/` folder —————
+         // ————— NEW: list whatever's in the `car-images/` folder —————
          try {
             const { data: files, error: listError } = 
              await supabase
@@ -2396,52 +2331,6 @@ const handleAddServices = async (selectedServices: any[]) => {
   </DialogContent>
 </Dialog>
 
-{/* Mechanic Status Password Verification Dialog */}
-<Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
-    </DialogHeader>
-    <Input
-      type="password"
-      maxLength={4}
-      value={enteredPin}
-      onChange={(e) => setEnteredPin(e.target.value)}
-      placeholder="••••"
-      className="text-center tracking-wide"
-    />
-    <DialogFooter className="space-x-2">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowPinDialog(false);
-          setEnteredPin("");
-        }}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={() => {
-          if (enteredPin === adminPin) {
-            handleStatusVerified();
-            setShowPinDialog(false);
-            setEnteredPin("");
-          } else {
-            toast({
-              title: "Invalid PIN",
-              description: "The PIN you entered is incorrect.",
-              variant: "destructive",
-            });
-            setEnteredPin("");
-          }
-        }}
-      >
-        Confirm
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
 {/* Complete Reservation Dialog */}
 <Dialog open={showCompleteReservationDialog} onOpenChange={setShowCompleteReservationDialog}>
   <DialogContent className="sm:max-w-md">
@@ -2520,7 +2409,7 @@ const handleAddServices = async (selectedServices: any[]) => {
             <Button
               onClick={() => {
                 setShowMechanicDialog(false);
-                setShowMechanicPasswordDialog(true);
+                handleMechanicChange();
               }}
               className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
@@ -2548,7 +2437,7 @@ const handleAddServices = async (selectedServices: any[]) => {
             <Button
               onClick={() => {
                 setShowDeleteDialog(false);
-                setShowDeletePasswordDialog(true);
+                setShowMechanicPasswordDialog(true);
               }}
               className="px-6 py-2 rounded-lg bg-[#E6FFF3] text-[#28C76F] hover:bg-[#C8F7D6] border-0 transition-colors"
             >
@@ -2557,52 +2446,6 @@ const handleAddServices = async (selectedServices: any[]) => {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Service Password Verification Dialog */}
-      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
-    </DialogHeader>
-    <Input
-      type="password"
-      maxLength={4}
-      value={enteredPin}
-      onChange={(e) => setEnteredPin(e.target.value)}
-      placeholder="••••"
-      className="text-center tracking-wide"
-    />
-    <DialogFooter className="space-x-2">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowPinDialog(false);
-          setEnteredPin("");
-        }}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={() => {
-          if (enteredPin === adminPin) {
-            handleStatusVerified();
-            setShowPinDialog(false);
-            setEnteredPin("");
-          } else {
-            toast({
-              title: "Invalid PIN",
-              description: "The PIN you entered is incorrect.",
-              variant: "destructive",
-            });
-            setEnteredPin("");
-          }
-        }}
-      >
-        Confirm
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
 
       {/* Status Confirmation Dialog */}
       <Dialog
@@ -2654,52 +2497,6 @@ const handleAddServices = async (selectedServices: any[]) => {
         </DialogContent>
       </Dialog>
 
-      {/* Status Password Verification Dialog */}
-      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
-    </DialogHeader>
-    <Input
-      type="password"
-      maxLength={4}
-      value={enteredPin}
-      onChange={(e) => setEnteredPin(e.target.value)}
-      placeholder="••••"
-      className="text-center tracking-wide"
-    />
-    <DialogFooter className="space-x-2">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowPinDialog(false);
-          setEnteredPin("");
-        }}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={() => {
-          if (enteredPin === adminPin) {
-            handleStatusVerified();
-            setShowPinDialog(false);
-            setEnteredPin("");
-          } else {
-            toast({
-              title: "Invalid PIN",
-              description: "The PIN you entered is incorrect.",
-              variant: "destructive",
-            });
-            setEnteredPin("");
-          }
-        }}
-      >
-        Confirm
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
       {/* Add Service Dialog */}
       <AddServiceDialog
         open={showAddServiceDialog}
@@ -2714,107 +2511,61 @@ const handleAddServices = async (selectedServices: any[]) => {
         }
       />
 
-      {/* Mechanic Password Verification Dialog */}
-      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Enter 4-digit PIN to confirm</DialogTitle>
-    </DialogHeader>
-    <Input
-      type="password"
-      maxLength={4}
-      value={enteredPin}
-      onChange={(e) => setEnteredPin(e.target.value)}
-      placeholder="••••"
-      className="text-center tracking-wide"
-    />
-    <DialogFooter className="space-x-2">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowPinDialog(false);
-          setEnteredPin("");
-        }}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={() => {
-          if (enteredPin === adminPin) {
-            handleStatusVerified();
-            setShowPinDialog(false);
-            setEnteredPin("");
-          } else {
-            toast({
-              title: "Invalid PIN",
-              description: "The PIN you entered is incorrect.",
-              variant: "destructive",
-            });
-            setEnteredPin("");
-          }
-        }}
-      >
-        Confirm
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
-<Dialog open={showCarDetailsDialog} onOpenChange={setShowCarDetailsDialog}>
-  <DialogContent className="sm:max-w-md">
-    <DialogHeader>
-      <DialogTitle className="text-center text-xl">Vehicle Details</DialogTitle>
-    </DialogHeader>
-    <div className="py-4 max-h-[60vh] overflow-y-auto">
-      <div className="space-y-4">
-        {selectedCarDetails?.imageUrl && (
-          <div className="flex justify-center mb-4">
-            <img src={selectedCarDetails.imageUrl} alt="Car" className="max-w-full h-auto rounded-lg" />
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="text-sm font-medium text-gray-500">Name:</div>
-          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.customerName || "—"}</div>
-          <div className="text-sm font-medium text-gray-500">Car:</div>
-          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.carModel || "—"}</div>
-          <div className="text-sm font-medium text-gray-500">Year Model:</div>
-          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.yearModel || "—"}</div>
-          <div className="text-sm font-medium text-gray-500">Transmission:</div>
-          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.transmission || "—"}</div>
-          <div className="text-sm font-medium text-gray-500">Fuel Type:</div>
-          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.fuelType || "—"}</div>
-          <div className="text-sm font-medium text-gray-500">Odometer:</div>
-          <div className="text-sm text-[#1A365D]">{selectedCarDetails?.odometer || "—"}</div>
-          <div className="text-sm font-medium text-gray-500">Reservation Date:</div>
-          <div className="text-sm text-[#1A365D]">{formatDateTime(selectedCarDetails?.reservationDate || "")}</div>
-        </div>
-        {selectedCarDetails?.generalServices && selectedCarDetails.generalServices.length > 0 && (
-          <div className="mt-4">
-            <div className="text-sm font-medium text-gray-500 mb-2">General Services:</div>
-            <div className="flex flex-wrap gap-2">
-              {selectedCarDetails.generalServices.map((service, index) => (
-                <Badge key={index} className="bg-[#EBF8FF] text-[#2A69AC] hover:bg-[#EBF8FF]">
-                  {service}
-                </Badge>
-              ))}
+      <Dialog open={showCarDetailsDialog} onOpenChange={setShowCarDetailsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Vehicle Details</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-4">
+              {selectedCarDetails?.imageUrl && (
+                <div className="flex justify-center mb-4">
+                  <img src={selectedCarDetails.imageUrl} alt="Car" className="max-w-full h-auto rounded-lg" />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-sm font-medium text-gray-500">Name:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.customerName || "—"}</div>
+                <div className="text-sm font-medium text-gray-500">Car:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.carModel || "—"}</div>
+                <div className="text-sm font-medium text-gray-500">Year Model:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.yearModel || "—"}</div>
+                <div className="text-sm font-medium text-gray-500">Transmission:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.transmission || "—"}</div>
+                <div className="text-sm font-medium text-gray-500">Fuel Type:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.fuelType || "—"}</div>
+                <div className="text-sm font-medium text-gray-500">Odometer:</div>
+                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.odometer || "—"}</div>
+                <div className="text-sm font-medium text-gray-500">Reservation Date:</div>
+                <div className="text-sm text-[#1A365D]">{formatDateTime(selectedCarDetails?.reservationDate || "")}</div>
+              </div>
+              {selectedCarDetails?.generalServices && selectedCarDetails.generalServices.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-sm font-medium text-gray-500 mb-2">General Services:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCarDetails.generalServices.map((service, index) => (
+                      <Badge key={index} className="bg-[#EBF8FF] text-[#2A69AC] hover:bg-[#EBF8FF]">
+                        {service}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="mt-4">
+                <div className="text-sm font-medium text-gray-500 mb-2">Specific Issues:</div>
+                <p className={`whitespace-pre-wrap ${selectedCarDetails?.specificIssues ? "text-[#1A365D]" : "text-gray-500 opacity-75"}`}>
+                  {selectedCarDetails?.specificIssues ? selectedCarDetails.specificIssues : "The customer did not specify any issues with their vehicle."}
+                </p>
+              </div>
             </div>
           </div>
-        )}
-        <div className="mt-4">
-          <div className="text-sm font-medium text-gray-500 mb-2">Specific Issues:</div>
-          <p className={`whitespace-pre-wrap ${selectedCarDetails?.specificIssues ? "text-[#1A365D]" : "text-gray-500 opacity-75"}`}>
-            {selectedCarDetails?.specificIssues ? selectedCarDetails.specificIssues : "The customer did not specify any issues with their vehicle."}
-          </p>
-        </div>
-      </div>
-    </div>
-    <DialogFooter>
-      <Button onClick={() => setShowCarDetailsDialog(false)} className="w-full bg-[#2A69AC] hover:bg-[#1A365D] text-white">
-        Close
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+          <DialogFooter>
+            <Button onClick={() => setShowCarDetailsDialog(false)} className="w-full bg-[#2A69AC] hover:bg-[#1A365D] text-white">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
