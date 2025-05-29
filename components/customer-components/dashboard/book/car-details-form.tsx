@@ -1,25 +1,151 @@
 "use client"
 import { useForm } from "react-hook-form"
+import type React from "react"
+
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/customer-components/ui/button"
 import { Textarea } from "@/components/customer-components/ui/textarea"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/customer-components/ui/form"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/customer-components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/customer-components/ui/select"
 import { Checkbox } from "@/components/customer-components/ui/checkbox"
 import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 
 // Import car database
-import { getCarBrands, getModelsByBrand, getYearsByModel } from "@/components/customer-components/dashboard/book/carDatabase"
+import {
+  getCarBrands,
+  getModelsByBrand,
+  getYearsByModel,
+} from "@/components/customer-components/dashboard/book/carDatabase"
+
+import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@supabase/supabase-js"
+
+// Import the AddCarDialog component
 import { AddCarDialog } from "@/components/customer-components/dashboard/book/addcardialog"
 
-import { useToast } from "@/hooks/use-toast" // Import your toast component
-// Import the createClient function from Supabase
-import { createClient } from '@supabase/supabase-js';
+// Session storage keys
+const SESSION_BRANDS_KEY = "session_car_brands"
+const SESSION_MODELS_KEY = "session_car_models"
+const SESSION_YEARS_KEY = "session_car_years"
+const FORM_PROGRESS_KEY = "car_form_progress"
+
+// Session storage helper functions
+const getSessionData = (key: string) => {
+  if (typeof window === "undefined") return []
+  try {
+    const data = sessionStorage.getItem(key)
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
+const setSessionData = (key: string, data: any) => {
+  if (typeof window === "undefined") return
+  try {
+    sessionStorage.setItem(key, JSON.stringify(data))
+  } catch (error) {
+    console.error("Failed to save to session storage:", error)
+  }
+}
+
+// Form persistence helper functions
+const saveFormProgress = (data: any) => {
+  if (typeof window === "undefined") return
+  try {
+    sessionStorage.setItem(FORM_PROGRESS_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.error("Failed to save form progress:", error)
+  }
+}
+
+const getFormProgress = () => {
+  if (typeof window === "undefined") return null
+  try {
+    const data = sessionStorage.getItem(FORM_PROGRESS_KEY)
+    return data ? JSON.parse(data) : null
+  } catch {
+    return null
+  }
+}
+
+const clearFormProgress = () => {
+  if (typeof window === "undefined") return
+  try {
+    sessionStorage.removeItem(FORM_PROGRESS_KEY)
+  } catch (error) {
+    console.error("Failed to clear form progress:", error)
+  }
+}
+
+// Enhanced car database functions that include session data
+const getCarBrandsWithSession = () => {
+  const originalBrands = getCarBrands()
+  const sessionBrands = getSessionData(SESSION_BRANDS_KEY)
+  return [...originalBrands, ...sessionBrands].sort()
+}
+
+const getModelsByBrandWithSession = (brand: string) => {
+  const originalModels = getModelsByBrand(brand)
+  const sessionModels = getSessionData(SESSION_MODELS_KEY)
+  const brandSessionModels = sessionModels.filter((item: any) => item.brand === brand).map((item: any) => item.model)
+  return [...originalModels, ...brandSessionModels].sort()
+}
+
+const getYearsByModelWithSession = (brand: string, model: string) => {
+  const originalYears = getYearsByModel(brand, model)
+  const sessionYears = getSessionData(SESSION_YEARS_KEY)
+  const modelSessionYears = sessionYears
+    .filter((item: any) => item.brand === brand && item.model === model)
+    .map((item: any) => item.year)
+  return [...originalYears, ...modelSessionYears].sort((a: number, b: number) => b - a)
+}
+
+// Function to add new car data to session
+const addToSession = (type: "brand" | "model" | "year", data: any) => {
+  switch (type) {
+    case "brand":
+      const sessionBrands = getSessionData(SESSION_BRANDS_KEY)
+      if (!sessionBrands.includes(data.brandName)) {
+        setSessionData(SESSION_BRANDS_KEY, [...sessionBrands, data.brandName])
+      }
+      break
+    case "model":
+      const sessionModels = getSessionData(SESSION_MODELS_KEY)
+      const modelExists = sessionModels.some(
+        (item: any) => item.brand === data.brandName && item.model === data.modelName,
+      )
+      if (!modelExists) {
+        setSessionData(SESSION_MODELS_KEY, [...sessionModels, { brand: data.brandName, model: data.modelName }])
+      }
+      break
+    case "year":
+      const sessionYears = getSessionData(SESSION_YEARS_KEY)
+      const yearExists = sessionYears.some(
+        (item: any) => item.brand === data.brandName && item.model === data.modelName && item.year === data.yearStart,
+      )
+      if (!yearExists) {
+        setSessionData(SESSION_YEARS_KEY, [
+          ...sessionYears,
+          { brand: data.brandName, model: data.modelName, year: data.yearStart },
+        ])
+      }
+      break
+  }
+}
 
 // Constants
 const transmissionTypes = ["Automatic", "Manual", "CVT", "Semi-automatic", "Dual-clutch"]
 const fuelTypes = ["Gas", "Diesel", "Electric", "Hybrid", "LPG"]
+
+// Fixed odometer ranges
 const odometerRanges = ["0km - 50,000km", "50,000km - 150,000km", "150,000km - 250,000km", "250,000km+"]
 
 // Service categories with sub-services
@@ -113,18 +239,52 @@ interface CarDetailsFormProps {
 
 type FormData = z.infer<typeof formSchema> & {
   uploadedFiles?: Array<{
-    fileName: string;
-    fileUrl: string;
-    fileSize: number;
-    fileType: string;
-  }>;
-};
+    fileName: string
+    fileUrl: string
+    fileSize: number
+    fileType: string
+  }>
+}
+
+// Animated completion indicator component
+const CompletionIndicator = ({ isComplete }: { isComplete: boolean }) => (
+  <span className={`flex items-center transition-all duration-300 ${isComplete ? "text-green-600" : "text-red-600"}`}>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={`h-5 w-5 mr-1 transition-transform duration-300 ${
+        isComplete ? "scale-100 animate-[bounce_0.5s_ease-in-out]" : "scale-90"
+      }`}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+    >
+      {isComplete ? (
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+          clipRule="evenodd"
+        />
+      ) : (
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+          clipRule="evenodd"
+        />
+      )}
+    </svg>
+    {isComplete ? (
+      <span className="animate-[fadeIn_0.5s_ease-in-out]">Complete</span>
+    ) : (
+      <span>Incomplete</span>
+    )}
+  </span>
+)
 
 export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetailsFormProps) {
   const [carBrands, setCarBrands] = useState<string[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [activeTab, setActiveTab] = useState<"details" | "services">("details")
+  const [showErrors, setShowErrors] = useState(false)
 
   // Tab completion tracking
   const [detailsTabComplete, setDetailsTabComplete] = useState(false)
@@ -150,10 +310,12 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // Move these state variables inside the component
   const [isUploading, setIsUploading] = useState(false)
   const [fileErrors, setFileErrors] = useState<string[]>([])
-  const { toast } = useToast() // Use your toast hook
+  const { toast } = useToast()
+  const [needHelp, setNeedHelp] = useState(false)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    mode: "onChange", // Enable real-time validation but don't show errors initially
     defaultValues: {
       carBrand: initialData.carBrand || "",
       carModel: initialData.carModel || "",
@@ -164,8 +326,6 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
       odometer: initialData.odometer || "",
       services: initialData.services || [],
       specificIssues: initialData.specificIssues || "",
-      needHelp: initialData.needHelp || false,
-      helpDescription: initialData.helpDescription || "",
     },
   })
 
@@ -173,8 +333,6 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const selectedModel = form.watch("carModel")
   const specificIssues = form.watch("specificIssues")
   const selectedServices = form.watch("services") || []
-  const needHelp = form.watch("needHelp")
-  const helpDescription = form.watch("helpDescription")
   const plateNumber = form.watch("plateNumber")
   const transmission = form.watch("transmission")
   const fuelType = form.watch("fuelType")
@@ -183,15 +341,12 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // Handle clicks outside dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      // Handle brand dropdown
       if (brandDropdownRef.current && !brandDropdownRef.current.contains(event.target as Node)) {
         setShowBrandDropdown(false)
       }
-      // Handle model dropdown
       if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
         setShowModelDropdown(false)
       }
-      // Handle year dropdown
       if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target as Node)) {
         setShowYearDropdown(false)
       }
@@ -206,84 +361,78 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // Memoized values
   const characterCount = useMemo(() => specificIssues?.length || 0, [specificIssues])
 
-  // Load car brands once on component mount
+  // Load car brands once on component mount (including session data)
   useEffect(() => {
-    setCarBrands(getCarBrands())
+    setCarBrands(getCarBrandsWithSession())
   }, [])
 
-  // Check if details tab is complete
+  // Check if details tab is complete (all fields filled AND valid) - optimized
   useEffect(() => {
-    setDetailsTabComplete(
-      Boolean(
-        selectedBrand &&
-        selectedModel &&
-        form.getValues("yearModel") &&
-        plateNumber &&
-        transmission &&
-        fuelType &&
-        odometer
-      )
-    )
-  }, [selectedBrand, selectedModel, form, plateNumber, transmission, fuelType, odometer])
+    const errors = form.formState.errors
+    const values = form.getValues()
 
-  // Check if services tab is complete
+    // Check if all required fields have valid values
+    const hasAllRequiredFields = Boolean(
+      values.carBrand?.trim() &&
+      values.carModel?.trim() &&
+      values.yearModel?.trim() &&
+      values.plateNumber?.trim() &&
+      values.transmission?.trim() &&
+      values.fuelType?.trim() &&
+      values.odometer?.trim()
+    )
+
+    // Check if there are no validation errors
+    const hasNoValidationErrors = !Object.keys(errors).some(key => 
+      ['carBrand', 'carModel', 'yearModel', 'plateNumber', 'transmission', 'fuelType', 'odometer'].includes(key)
+    )
+
+    // Only set complete if all fields are filled AND valid
+    setDetailsTabComplete(hasAllRequiredFields && hasNoValidationErrors)
+  }, [form.formState.errors, form.watch()])
+
+  // Check if services tab is complete (at least one service selected AND valid) - optimized
   useEffect(() => {
-    setServicesTabComplete(
-      needHelp
-        ? Boolean(helpDescription && helpDescription.trim() !== '')
-        : selectedServices.length > 0
-    )
-  }, [needHelp, helpDescription, selectedServices])
+    const hasAtLeastOneService = selectedServices && selectedServices.length > 0
+    const hasNoServiceErrors = !form.formState.errors.services
 
-  // Get available models based on selected brand
-  const availableModels = useMemo(() =>
-    selectedBrand ? getModelsByBrand(selectedBrand) : []
-  , [selectedBrand])
+    setServicesTabComplete(hasAtLeastOneService && hasNoServiceErrors)
+  }, [selectedServices, form.formState.errors.services])
 
-  // Get available years based on selected model
+  // Get available models based on selected brand (including session data) - memoized
+  const availableModels = useMemo(
+    () => (selectedBrand ? getModelsByBrandWithSession(selectedBrand) : []),
+    [selectedBrand],
+  )
+
+  // Get available years based on selected model (including session data) - memoized
   const availableYears = useMemo(() => {
     if (!selectedBrand || !selectedModel) return []
-    return [...getYearsByModel(selectedBrand, selectedModel)].sort((a, b) => b - a)
+    return getYearsByModelWithSession(selectedBrand, selectedModel)
   }, [selectedBrand, selectedModel])
 
-  // Filter lists with max 5 items visible at once (scrollable)
+  // Filter lists with max 5 items visible at once (scrollable) - optimized
   const filteredBrands = useMemo(() => {
-    if (showBrandDropdown) {
-      if (brandSearchText.trim() === '') {
-        return carBrands // Show all brands but only 5 visible at once (rest are scrollable)
-      }
-      return carBrands
-        .filter(brand => brand.toLowerCase().includes(brandSearchText.toLowerCase()))
-    }
-    return []
+    if (!showBrandDropdown) return []
+    if (brandSearchText.trim() === "") return carBrands
+    return carBrands.filter((brand) => brand.toLowerCase().includes(brandSearchText.toLowerCase()))
   }, [carBrands, brandSearchText, showBrandDropdown])
 
   const filteredModels = useMemo(() => {
-    if (showModelDropdown) {
-      if (modelSearchText.trim() === '') {
-        return availableModels // Show all models but only 5 visible at once (rest are scrollable)
-      }
-      return availableModels
-        .filter((model: string) => model.toLowerCase().includes(modelSearchText.toLowerCase()))
-    }
-    return []
+    if (!showModelDropdown) return []
+    if (modelSearchText.trim() === "") return availableModels
+    return availableModels.filter((model: string) => model.toLowerCase().includes(modelSearchText.toLowerCase()))
   }, [availableModels, modelSearchText, showModelDropdown])
 
   const filteredYears = useMemo(() => {
-    if (showYearDropdown) {
-      if (yearSearchText.trim() === '') {
-        return availableYears // Show all years but only 5 visible at once (rest are scrollable)
-      }
-      return availableYears
-        .filter((year: number) => year.toString().includes(yearSearchText))
-    }
-    return []
+    if (!showYearDropdown) return []
+    if (yearSearchText.trim() === "") return availableYears
+    return availableYears.filter((year: number) => year.toString().includes(yearSearchText))
   }, [availableYears, yearSearchText, showYearDropdown])
 
   // Reset dependent fields when parent fields change
   useEffect(() => {
     if (selectedBrand) {
-      // Reset car model and year model when brand changes
       if (!availableModels.includes(form.getValues("carModel"))) {
         form.setValue("carModel", "", { shouldValidate: false })
         form.setValue("yearModel", "", { shouldValidate: false })
@@ -296,9 +445,8 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // Reset year model when car model changes
   useEffect(() => {
     if (selectedModel) {
-      // Reset year model when model changes
       const currentYear = form.getValues("yearModel")
-      if (currentYear && !availableYears.includes(parseInt(currentYear))) {
+      if (currentYear && !availableYears.includes(Number.parseInt(currentYear))) {
         form.setValue("yearModel", "", { shouldValidate: false })
         setYearSearchText("")
       }
@@ -314,78 +462,79 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
 
   // Function to toggle expanded category
   const toggleCategory = useCallback((categoryId: string) => {
-    if (!needHelp) {
-      setExpandedCategory(prevCategory => prevCategory === categoryId ? null : categoryId)
-    }
-  }, [needHelp])
+    setExpandedCategory((prevCategory) => (prevCategory === categoryId ? null : categoryId))
+  }, [])
 
   // Count selected services per category - memoized
-  const getSelectedServiceCount = useCallback((categoryId: string) => {
-    const category = serviceCategories.find((cat) => cat.id === categoryId)
-    if (!category) return 0
-    return category.services.filter((service) => selectedServices.includes(service)).length
-  }, [selectedServices])
+  const getSelectedServiceCount = useCallback(
+    (categoryId: string) => {
+      const category = serviceCategories.find((cat) => cat.id === categoryId)
+      if (!category) return 0
+      return category.services.filter((service) => selectedServices.includes(service)).length
+    },
+    [selectedServices],
+  )
 
-  // Get all selected categories
-  const selectedCategories = useMemo(() =>
-    serviceCategories.filter((category) =>
-      category.services.some((service) => selectedServices.includes(service))
-    )
-  , [selectedServices])
+  // Get all selected categories - memoized
+  const selectedCategories = useMemo(
+    () =>
+      serviceCategories.filter((category) => category.services.some((service) => selectedServices.includes(service))),
+    [selectedServices],
+  )
 
-  // Total selected services count
-  const totalSelectedServices = useMemo(() =>
-    selectedServices.length
-  , [selectedServices])
+  // Total selected services count - memoized
+  const totalSelectedServices = useMemo(() => selectedServices.length, [selectedServices])
 
   // Handle multiple file selection
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const filesArray = Array.from(e.target.files)
-      const errors: string[] = []
-      const validFiles: File[] = []
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const filesArray = Array.from(e.target.files)
+        const errors: string[] = []
+        const validFiles: File[] = []
 
-      // Validation constraints
-      const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
-      const maxSize = 5 * 1024 * 1024 // 5MB
+        // Validation constraints
+        const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+        const maxSize = 5 * 1024 * 1024 // 5MB
 
-      filesArray.forEach(file => {
-        // Validate file type
-        if (!validTypes.includes(file.type)) {
-          errors.push(`${file.name}: Please select a valid image file (JPEG, PNG, GIF, or WEBP)`)
-          return
-        }
+        filesArray.forEach((file) => {
+          // Validate file type
+          if (!validTypes.includes(file.type)) {
+            errors.push(`${file.name}: Please select a valid image file (JPEG, PNG, GIF, or WEBP)`)
+            return
+          }
 
-        // Validate file size
-        if (file.size > maxSize) {
-          errors.push(`${file.name}: File size should be less than 5MB`)
-          return
-        }
+          // Validate file size
+          if (file.size > maxSize) {
+            errors.push(`${file.name}: File size should be less than 5MB`)
+            return
+          }
 
-        validFiles.push(file)
-      })
-
-      // Set errors if any
-      if (errors.length > 0) {
-        setFileErrors(errors)
-        // Show first error as toast
-        toast({
-          title: "File Error",
-          description: errors[0],
-          variant: "destructive"
+          validFiles.push(file)
         })
-      } else {
-        setFileErrors([])
-      }
 
-      // Add valid files to state
-      if (validFiles.length > 0) {
-        setSelectedFiles(prevFiles => [...prevFiles, ...validFiles])
-      }
-    }
-  }, [toast])
+        // Set errors if any
+        if (errors.length > 0) {
+          setFileErrors(errors)
+          toast({
+            title: "File Error",
+            description: errors[0],
+            variant: "destructive",
+          })
+        } else {
+          setFileErrors([])
+        }
 
-  // Add this function after the handleFileChange function
+        // Add valid files to state
+        if (validFiles.length > 0) {
+          setSelectedFiles((prevFiles) => [...prevFiles, ...validFiles])
+        }
+      }
+    },
+    [toast],
+  )
+
+  // Upload files function
   const uploadFiles = useCallback(async () => {
     if (selectedFiles.length === 0) return []
 
@@ -393,56 +542,46 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     const uploadResults = []
     const errors = []
 
-    // Initialize Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase URL and Key must be provided')
+      throw new Error("Supabase URL and Key must be provided")
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     try {
       for (const file of selectedFiles) {
-        // Generate a unique file name
         const fileExt = file.name.split(".").pop()
         const fileName = `car_image_${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`
         const filePath = `car-images/${fileName}`
 
-        // Upload to Supabase storage
-        const { data, error } = await supabase.storage
-          .from("car-uploads")
-          .upload(filePath, file, {
-            upsert: true,
-            cacheControl: "3600",
-          })
+        const { data, error } = await supabase.storage.from("car-uploads").upload(filePath, file, {
+          upsert: true,
+          cacheControl: "3600",
+        })
 
         if (error) {
           errors.push(`Error uploading ${file.name}: ${error.message}`)
           continue
         }
 
-        // Get the public URL
-        const publicUrlResult = supabase.storage
-          .from("car-uploads")
-          .getPublicUrl(filePath)
-
+        const publicUrlResult = supabase.storage.from("car-uploads").getPublicUrl(filePath)
         const publicUrl = publicUrlResult.data.publicUrl
         uploadResults.push({
           fileName: file.name,
           fileUrl: publicUrl,
           fileSize: file.size,
-          fileType: file.type
+          fileType: file.type,
         })
       }
 
       if (errors.length > 0) {
-        // Show error toast
         toast({
           title: "Some uploads failed",
           description: errors[0],
-          variant: "destructive"
+          variant: "destructive",
         })
       }
 
@@ -452,7 +591,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
       toast({
         title: "Upload Error",
         description: `Failed to upload files: ${(error as Error).message || "Unknown error"}`,
-        variant: "destructive"
+        variant: "destructive",
       })
       return []
     } finally {
@@ -462,41 +601,48 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
 
   // Remove a file from selected files
   const removeFile = useCallback((index: number) => {
-    setSelectedFiles(prevFiles => prevFiles.filter((_, i) => i !== index))
+    setSelectedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index))
   }, [])
 
   // Handle brand selection
-  const handleBrandSelect = useCallback((brand: string) => {
-    form.setValue("carBrand", brand, { shouldValidate: true })
-    setBrandSearchText(brand)
-    // Reset car model and year model when brand changes
-    form.setValue("carModel", "", { shouldValidate: false })
-    form.setValue("yearModel", "", { shouldValidate: false })
-    setModelSearchText("")
-    setYearSearchText("")
-    setShowBrandDropdown(false)
-  }, [form])
+  const handleBrandSelect = useCallback(
+    (brand: string) => {
+      form.setValue("carBrand", brand, { shouldValidate: true })
+      setBrandSearchText(brand)
+      form.setValue("carModel", "", { shouldValidate: false })
+      form.setValue("yearModel", "", { shouldValidate: false })
+      setModelSearchText("")
+      setYearSearchText("")
+      setShowBrandDropdown(false)
+    },
+    [form],
+  )
 
   // Handle model selection
-  const handleModelSelect = useCallback((model: string) => {
-    form.setValue("carModel", model, { shouldValidate: true })
-    setModelSearchText(model)
-    // Reset year model when model changes
-    form.setValue("yearModel", "", { shouldValidate: false })
-    setYearSearchText("")
-    setShowModelDropdown(false)
-  }, [form])
+  const handleModelSelect = useCallback(
+    (model: string) => {
+      form.setValue("carModel", model, { shouldValidate: true })
+      setModelSearchText(model)
+      form.setValue("yearModel", "", { shouldValidate: false })
+      setYearSearchText("")
+      setShowModelDropdown(false)
+    },
+    [form],
+  )
 
   // Handle year selection
-  const handleYearSelect = useCallback((year: number) => {
-    form.setValue("yearModel", year.toString(), { shouldValidate: true })
-    setYearSearchText(year.toString())
-    setShowYearDropdown(false)
-  }, [form])
+  const handleYearSelect = useCallback(
+    (year: number) => {
+      form.setValue("yearModel", year.toString(), { shouldValidate: true })
+      setYearSearchText(year.toString())
+      setShowYearDropdown(false)
+    },
+    [form],
+  )
 
   // Toggle dropdowns with memoized callbacks
   const toggleBrandDropdown = useCallback(() => {
-    setShowBrandDropdown(prevState => !prevState)
+    setShowBrandDropdown((prevState) => !prevState)
     if (!showBrandDropdown) {
       setBrandSearchText("")
     }
@@ -504,7 +650,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
 
   const toggleModelDropdown = useCallback(() => {
     if (!selectedBrand) return
-    setShowModelDropdown(prevState => !prevState)
+    setShowModelDropdown((prevState) => !prevState)
     if (!showModelDropdown) {
       setModelSearchText("")
     }
@@ -512,7 +658,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
 
   const toggleYearDropdown = useCallback(() => {
     if (!selectedModel) return
-    setShowYearDropdown(prevState => !prevState)
+    setShowYearDropdown((prevState) => !prevState)
     if (!showYearDropdown) {
       setYearSearchText("")
     }
@@ -542,126 +688,227 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     setShowAddCarDialog(true)
   }, [])
 
-  // Handle success after adding new car data
-  const handleAddCarSuccess = useCallback(() => {
-    // Since we can't directly update the car database, we'll just notify the user
-    // In a real implementation, we would refresh the data from the database
+  // Handle success after adding new car data to session
+  const handleAddCarSuccess = useCallback(
+    (newCarData: any) => {
+      // Add to session storage
+      addToSession(addCarType, newCarData)
 
-    // Close the dialog
-    setShowAddCarDialog(false)
+      // Show success message
+      toast({
+        title: "Success",
+        description: `${addCarType === "brand" ? "Brand" : addCarType === "model" ? "Model" : "Year"} added for this session!`,
+        variant: "default",
+      })
 
-    // Show a message or take appropriate action
-    alert("Car data added successfully! Please refresh to see updated data.")
+      // Refresh the appropriate data and set form values
+      if (addCarType === "brand") {
+        // Refresh brands list and select the new brand
+        setCarBrands(getCarBrandsWithSession())
+        handleBrandSelect(newCarData.brandName)
+        // If model was also provided, select it
+        if (newCarData.modelName) {
+          setTimeout(() => {
+            handleModelSelect(newCarData.modelName)
+            // If year was also provided, select it
+            if (newCarData.yearStart) {
+              setTimeout(() => {
+                handleYearSelect(newCarData.yearStart)
+              }, 100)
+            }
+          }, 100)
+        }
+      } else if (addCarType === "model") {
+        // Select the new model
+        handleModelSelect(newCarData.modelName)
+        // If year was also provided, select it
+        if (newCarData.yearStart) {
+          setTimeout(() => {
+            handleYearSelect(newCarData.yearStart)
+          }, 100)
+        }
+      } else if (addCarType === "year") {
+        // Select the new year
+        handleYearSelect(newCarData.yearStart)
+      }
 
-  }, [addCarType, selectedBrand, selectedModel])
+      // Close the dialog
+      setShowAddCarDialog(false)
+    },
+    [addCarType, handleBrandSelect, handleModelSelect, handleYearSelect, toast],
+  )
+
+  // Load saved form progress on component mount
+  useEffect(() => {
+    const savedProgress = getFormProgress()
+    if (savedProgress && Object.keys(initialData).length === 0) {
+      // Only load saved progress if no initial data is provided
+      form.reset(savedProgress.formData)
+
+      // Restore search text states and sync with form values
+      if (savedProgress.formData.carBrand) {
+        setBrandSearchText(savedProgress.formData.carBrand)
+        form.setValue("carBrand", savedProgress.formData.carBrand)
+      }
+      if (savedProgress.formData.carModel) {
+        setModelSearchText(savedProgress.formData.carModel)
+        form.setValue("carModel", savedProgress.formData.carModel)
+      }
+      if (savedProgress.formData.yearModel) {
+        setYearSearchText(savedProgress.formData.yearModel)
+        form.setValue("yearModel", savedProgress.formData.yearModel)
+      }
+
+      setActiveTab(savedProgress.activeTab || "details")
+      setExpandedCategory(savedProgress.expandedCategory || null)
+    }
+  }, [form, initialData])
+
+  // Save form progress whenever form data changes - debounced for performance
+  useEffect(() => {
+    const subscription = form.watch((data) => {
+      const progressData = {
+        formData: {
+          ...data,
+          // Ensure search text values are included in form data
+          carBrand: brandSearchText || data.carBrand,
+          carModel: modelSearchText || data.carModel,
+          yearModel: yearSearchText || data.yearModel,
+        },
+        brandSearchText,
+        modelSearchText,
+        yearSearchText,
+        activeTab,
+        expandedCategory,
+      }
+      saveFormProgress(progressData)
+    })
+    return () => subscription.unsubscribe()
+  }, [form, brandSearchText, modelSearchText, yearSearchText, activeTab, expandedCategory])
 
   // Custom form submission handler
-   // Custom form submission handler
-    const handleSubmit = useCallback(async (data: FormData) => {
-      // If files need to be uploaded, do it first
+  const handleSubmit = useCallback(
+    async (data: FormData) => {
+      setShowErrors(true) // Show errors when user tries to submit
+
       let fileUploadResults: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[] = []
-  
+
       if (selectedFiles.length > 0) {
-        // Set loading state if needed
         fileUploadResults = await uploadFiles()
       }
-  
-      // If needHelp is checked, we don't require services
-      if (needHelp) {
-        // Make sure helpDescription is filled
-        if (!data.helpDescription || data.helpDescription.trim() === '') {
-          form.setError('helpDescription', {
-            type: 'manual',
-            message: 'Please describe your car issue'
-          })
-          return
-        }
-  
-        // Include uploaded files in the submission
-        onSubmit({
-          ...data,
-          uploadedFiles: fileUploadResults
+
+      if (!data.services || data.services.length < 1) {
+        form.setError("services", {
+          type: "manual",
+          message: "At least one service must be selected",
         })
-      } else {
-        // Otherwise check if services are selected
-        if (!data.services || data.services.length === 0) {
-          form.setError('services', {
-            type: 'manual',
-            message: 'At least one service must be selected'
-          })
-          return
-        }
-  
-        // Include uploaded files in the submission
-        onSubmit({
-          ...data,
-          uploadedFiles: fileUploadResults
-        })
+        return
       }
-    }, [form, needHelp, onSubmit, selectedFiles, uploadFiles])
+
+      // Clear form progress on successful submission
+      clearFormProgress()
+
+      onSubmit({
+        ...data,
+        uploadedFiles: fileUploadResults,
+      })
+    },
+    [form, onSubmit, selectedFiles, uploadFiles],
+  )
+
+  const handleBack = useCallback(() => {
+    // Save current progress before going back
+    const currentData = form.getValues()
+    const progressData = {
+      formData: {
+        ...currentData,
+        // Ensure search text values are saved
+        carBrand: brandSearchText || currentData.carBrand,
+        carModel: modelSearchText || currentData.carModel,
+        yearModel: yearSearchText || currentData.yearModel,
+      },
+      brandSearchText,
+      modelSearchText,
+      yearSearchText,
+      activeTab,
+      expandedCategory,
+    }
+    saveFormProgress(progressData)
+    onBack()
+  }, [form, brandSearchText, modelSearchText, yearSearchText, activeTab, expandedCategory, onBack])
+
+  const handlePlateNumberChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase().slice(0, 8)
+
+    // Show error immediately if invalid characters are typed
+    if (value && !/^[A-Z0-9]*$/.test(value)) {
+      setShowErrors(true)
+    }
+
+    return value
+  }, [])
 
   // Render a service category - memoized component
-  const renderServiceCategory = useCallback((category: (typeof serviceCategories)[0]) => (
-    <div
-      key={category.id}
-      className={`border rounded-md overflow-hidden mb-3 ${needHelp ? "opacity-50 pointer-events-none" : ""}`}
-    >
-      <div
-        className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
-        onClick={() => toggleCategory(category.id)}
-      >
-        <div className="flex items-center">
-          <span className="font-medium text-blue-800">{category.label}</span>
-          {getSelectedServiceCount(category.id) > 0 && (
-            <span className="ml-2 bg-blue-800 text-white text-xs px-2 py-1 rounded-full">
-              {getSelectedServiceCount(category.id)}
-            </span>
-          )}
-        </div>
-        <span
-          className="transition-transform duration-200"
-          style={{
-            transform: expandedCategory === category.id ? "rotate(90deg)" : "rotate(0deg)",
-          }}
+  const renderServiceCategory = useCallback(
+    (category: (typeof serviceCategories)[0]) => (
+      <div key={category.id} className="border rounded-md overflow-hidden mb-3">
+        <div
+          className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
+          onClick={() => toggleCategory(category.id)}
         >
-          ❯
-        </span>
-      </div>
-
-      {expandedCategory === category.id && (
-        <div className="p-3 bg-white border-t">
-          <div className="space-y-2">
-            {category.services.map((service) => (
-              <FormField
-                key={service}
-                control={form.control}
-                name="services"
-                render={({ field }) => (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={service}
-                      checked={(field.value || []).includes(service)}
-                      onCheckedChange={(checked: any) => {
-                        const currentValue = field.value || []
-                        const updatedValue = checked
-                          ? [...currentValue, service]
-                          : currentValue.filter(value => value !== service)
-                        field.onChange(updatedValue)
-                      }}
-                      disabled={needHelp}
-                    />
-                    <label htmlFor={service} className="text-sm cursor-pointer">
-                      {service}
-                    </label>
-                  </div>
-                )}
-              />
-            ))}
+          <div className="flex items-center">
+            <span className="font-medium text-blue-800">{category.label}</span>
+            {getSelectedServiceCount(category.id) > 0 && (
+              <span className="ml-2 bg-blue-800 text-white text-xs px-2 py-1 rounded-full">
+                {getSelectedServiceCount(category.id)}
+              </span>
+            )}
           </div>
+          <span
+            className="transition-transform duration-200"
+            style={{
+              transform: expandedCategory === category.id ? "rotate(90deg)" : "rotate(0deg)",
+            }}
+          >
+            ❯
+          </span>
         </div>
-      )}
-    </div>
-  ), [expandedCategory, getSelectedServiceCount, needHelp, toggleCategory, form])
+
+        {expandedCategory === category.id && (
+          <div className="p-3 bg-white border-t">
+            <div className="space-y-2">
+              {category.services.map((service) => (
+                <FormField
+                  key={service}
+                  control={form.control}
+                  name="services"
+                  render={({ field }) => (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={service}
+                        checked={(field.value || []).includes(service)}
+                        onCheckedChange={(checked: any) => {
+                          const currentValue = field.value || []
+                          const updatedValue = checked
+                            ? [...currentValue, service]
+                            : currentValue.filter((value) => value !== service)
+                          field.onChange(updatedValue)
+                        }}
+                      />
+                      <label htmlFor={service} className="text-sm cursor-pointer">
+                        {service}
+                      </label>
+                    </div>
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    ),
+    [expandedCategory, getSelectedServiceCount, toggleCategory, form],
+  )
 
   return (
     <Form {...form}>
@@ -669,28 +916,60 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
         {/* Tab Navigation */}
         <div className="flex border-b">
           <div
-            className={`w-1/2 py-2 text-center cursor-pointer border-r ${
+            className={`w-1/2 py-2 text-center cursor-pointer border-r transition-all duration-200 ${
               activeTab === "details"
                 ? detailsTabComplete
-                  ? "bg-blue-100 font-medium text-blue-800"
+                  ? "bg-green-50 font-medium text-green-800"
                   : "bg-blue-50 font-medium text-blue-800"
-                : "bg-white"
+                : "bg-white hover:bg-gray-50"
             }`}
             onClick={() => setActiveTab("details")}
           >
-            Vehicle Details {detailsTabComplete && "✓"}
+            <span className="flex items-center justify-center gap-2">
+              Vehicle Details 
+              {detailsTabComplete && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </span>
           </div>
           <div
-            className={`w-1/2 py-2 text-center cursor-pointer ${
+            className={`w-1/2 py-2 text-center cursor-pointer transition-all duration-200 ${
               activeTab === "services"
                 ? servicesTabComplete
-                  ? "bg-blue-100 font-medium text-blue-800"
+                  ? "bg-green-50 font-medium text-green-800"
                   : "bg-blue-50 font-medium text-blue-800"
-                : "bg-white"
+                : "bg-white hover:bg-gray-50"
             }`}
             onClick={() => setActiveTab("services")}
           >
-            Services {servicesTabComplete && "✓"}
+            <span className="flex items-center justify-center gap-2">
+              Services
+              {servicesTabComplete && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </span>
           </div>
         </div>
 
@@ -699,7 +978,10 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
           <>
             {/* Vehicle Details Section */}
             <div className="border-b pb-2 mb-4">
-              <h2 className="text-lg font-medium text-blue-800">Vehicle Details</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-medium text-blue-800">Vehicle Details</h2>
+                <CompletionIndicator isComplete={detailsTabComplete} />
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -714,48 +996,53 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         <input
                           type="text"
                           placeholder="Car Brand"
-                          className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background"
+                          className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background transition-colors duration-200 focus:border-blue-500"
                           value={brandSearchText}
                           onChange={handleBrandSearchChange}
                           onFocus={() => setShowBrandDropdown(true)}
                         />
                         <div
-                          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors duration-200"
                           onClick={toggleBrandDropdown}
                         >
                           {showBrandDropdown ? "▲" : "▼"}
                         </div>
                         {showBrandDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredBrands.length > 0
-                              ? filteredBrands.map((brand) => (
-                                  <div
-                                    key={brand}
-                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center"
-                                    onClick={() => handleBrandSelect(brand)}
-                                  >
-                                    <span>{brand}</span>
-                                    {selectedBrand === brand && <span className="text-blue-800">✓</span>}
-                                  </div>
-                                ))
-                              : (
-                                <div className="p-3 space-y-2">
-                                  <div className="text-gray-500">Car brand not found</div>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
-                                    onClick={() => handleAddNew("brand")}
-                                  >
-                                    Add New Brand
-                                  </Button>
+                            {filteredBrands.length > 0 ? (
+                              filteredBrands.map((brand) => (
+                                <div
+                                  key={brand}
+                                  className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center transition-colors duration-150"
+                                  onClick={() => handleBrandSelect(brand)}
+                                >
+                                  <span>{brand}</span>
+                                  {selectedBrand === brand && <span className="text-blue-800">✓</span>}
                                 </div>
-                              )
-                            }
+                              ))
+                            ) : (
+                              <div className="p-3 space-y-2">
+                                <div className="text-gray-500">Car brand not found</div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50 transition-colors duration-200"
+                                  onClick={() => handleAddNew("brand")}
+                                >
+                                  Add New Brand
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors || (form.formState.touchedFields.carBrand && form.formState.errors.carBrand)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -770,7 +1057,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         <input
                           type="text"
                           placeholder="Car Model"
-                          className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background"
+                          className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background transition-colors duration-200 focus:border-blue-500 disabled:bg-gray-100"
                           value={modelSearchText}
                           onChange={handleModelSearchChange}
                           onFocus={() => {
@@ -781,42 +1068,47 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           disabled={!selectedBrand}
                         />
                         <div
-                          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors duration-200"
                           onClick={toggleModelDropdown}
                         >
                           {showModelDropdown ? "▲" : "▼"}
                         </div>
                         {showModelDropdown && selectedBrand && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredModels.length > 0
-                              ? filteredModels.map((model: string) => (
-                                  <div
-                                    key={model}
-                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center"
-                                    onClick={() => handleModelSelect(model)}
-                                  >
-                                    <span>{model}</span>
-                                    {selectedModel === model && <span className="text-blue-800">✓</span>}
-                                  </div>
-                                ))
-                              : (
-                                <div className="p-3 space-y-2">
-                                  <div className="text-gray-500">Car model not found</div>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
-                                    onClick={() => handleAddNew("model")}
-                                  >
-                                    Add New Model
-                                  </Button>
+                            {filteredModels.length > 0 ? (
+                              filteredModels.map((model: string) => (
+                                <div
+                                  key={model}
+                                  className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center transition-colors duration-150"
+                                  onClick={() => handleModelSelect(model)}
+                                >
+                                  <span>{model}</span>
+                                  {selectedModel === model && <span className="text-blue-800">✓</span>}
                                 </div>
-                              )
-                            }
+                              ))
+                            ) : (
+                              <div className="p-3 space-y-2">
+                                <div className="text-gray-500">Car model not found</div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50 transition-colors duration-200"
+                                  onClick={() => handleAddNew("model")}
+                                >
+                                  Add New Model
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors || (form.formState.touchedFields.carModel && form.formState.errors.carModel)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -833,7 +1125,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         <input
                           type="text"
                           placeholder="Year Model"
-                          className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background"
+                          className="w-full h-10 px-3 pr-10 rounded-md border border-input bg-background transition-colors duration-200 focus:border-blue-500 disabled:bg-gray-100"
                           value={yearSearchText}
                           onChange={handleYearSearchChange}
                           onFocus={() => {
@@ -844,42 +1136,49 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           disabled={!selectedModel}
                         />
                         <div
-                          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500"
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors duration-200"
                           onClick={toggleYearDropdown}
                         >
                           {showYearDropdown ? "▲" : "▼"}
                         </div>
                         {showYearDropdown && selectedModel && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredYears.length > 0
-                              ? filteredYears.map((year: number) => (
-                                  <div
-                                    key={year}
-                                    className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center"
-                                    onClick={() => handleYearSelect(year)}
-                                  >
-                                    <span>{year}</span>
-                                    {form.getValues("yearModel") === year.toString() && <span className="text-blue-800">✓</span>}
-                                  </div>
-                                ))
-                              : (
-                                <div className="p-3 space-y-2">
-                                  <div className="text-gray-500">Year model not found</div>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50"
-                                    onClick={() => handleAddNew("year")}
-                                  >
-                                    Add New Year
-                                  </Button>
+                            {filteredYears.length > 0 ? (
+                              filteredYears.map((year: number) => (
+                                <div
+                                  key={year}
+                                  className="px-3 py-2 cursor-pointer hover:bg-blue-50 flex justify-between items-center transition-colors duration-150"
+                                  onClick={() => handleYearSelect(year)}
+                                >
+                                  <span>{year}</span>
+                                  {form.getValues("yearModel") === year.toString() && (
+                                    <span className="text-blue-800">✓</span>
+                                  )}
                                 </div>
-                              )
-                            }
+                              ))
+                            ) : (
+                              <div className="p-3 space-y-2">
+                                <div className="text-gray-500">Year model not found</div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="text-blue-800 border border-blue-800 bg-white hover:bg-blue-50 transition-colors duration-200"
+                                  onClick={() => handleAddNew("year")}
+                                >
+                                  Add New Year
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors || (form.formState.touchedFields.yearModel && form.formState.errors.yearModel)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -893,11 +1192,26 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                         <input
                           type="text"
                           placeholder="Plate Number (e.g., ABC1234)"
-                          className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                          className={`w-full h-10 px-3 rounded-md border bg-background transition-colors duration-200 focus:border-blue-500 ${
+                            showErrors ||
+                            (form.formState.touchedFields.plateNumber && form.formState.errors.plateNumber)
+                              ? "border-red-500 focus:border-red-500"
+                              : "border-input"
+                          }`}
                           {...field}
+                          onChange={(e) => {
+                            const value = handlePlateNumberChange(e)
+                            field.onChange(value)
+                          }}
                         />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors || (form.formState.touchedFields.plateNumber && form.formState.errors.plateNumber)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -911,7 +1225,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                     <FormItem className="h-10">
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-10 text-base">
+                          <SelectTrigger className="h-10 text-base transition-colors duration-200 focus:border-blue-500">
                             <SelectValue placeholder="Transmission" />
                           </SelectTrigger>
                         </FormControl>
@@ -923,7 +1237,14 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors ||
+                          (form.formState.touchedFields.transmission && form.formState.errors.transmission)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -935,7 +1256,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                     <FormItem className="h-10">
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-10 text-base">
+                          <SelectTrigger className="h-10 text-base transition-colors duration-200 focus:border-blue-500">
                             <SelectValue placeholder="Fuel Type" />
                           </SelectTrigger>
                         </FormControl>
@@ -947,7 +1268,13 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors || (form.formState.touchedFields.fuelType && form.formState.errors.fuelType)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -959,7 +1286,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                     <FormItem className="h-10">
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-10 text-base">
+                          <SelectTrigger className="h-10 text-base transition-colors duration-200 focus:border-blue-500">
                             <SelectValue placeholder="Odometer" />
                           </SelectTrigger>
                         </FormControl>
@@ -971,7 +1298,13 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
+                      <FormMessage
+                        className={
+                          showErrors || (form.formState.touchedFields.odometer && form.formState.errors.odometer)
+                            ? "text-red-500 text-xs mt-1"
+                            : "hidden"
+                        }
+                      />
                     </FormItem>
                   )}
                 />
@@ -993,14 +1326,21 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                     <div className="relative">
                       <Textarea
                         placeholder="For specific issue/s, kindly describe in detail..."
-                        className="min-h-[100px] resize-none"
+                        className="min-h-[100px] resize-none transition-colors duration-200 focus:border-blue-500"
                         maxLength={1000}
                         {...field}
                       />
                       <div className="absolute bottom-2 right-2 text-xs text-gray-400">{characterCount}/1000</div>
                     </div>
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage
+                    className={
+                      showErrors ||
+                      (form.formState.touchedFields.specificIssues && form.formState.errors.specificIssues)
+                        ? "text-red-500 text-xs mt-1"
+                        : "hidden"
+                    }
+                  />
                 </FormItem>
               )}
             />
@@ -1014,18 +1354,12 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
             <div className="border-b pb-2 mb-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-medium text-blue-800">Services</h2>
-                <span
-                  className={`bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full ${
-                    totalSelectedServices === 0 ? "hidden" : ""
-                  }`}
-                >
-                  {totalSelectedServices} selected
-                </span>
+                <CompletionIndicator isComplete={servicesTabComplete} />
               </div>
             </div>
 
             {/* Services Section - Two Columns */}
-            <div className={`grid md:grid-cols-2 gap-4 ${needHelp ? "opacity-50 pointer-events-none" : ""}`}>
+            <div className="grid md:grid-cols-2 gap-4">
               {/* Left Column */}
               <div>{leftColumnCategories.map(renderServiceCategory)}</div>
 
@@ -1034,7 +1368,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
             </div>
 
             {/* Selected Services Summary */}
-            {selectedCategories.length > 0 && !needHelp && (
+            {selectedCategories.length > 0 && (
               <div className="p-3 bg-blue-50 rounded-md">
                 <p className="font-medium text-sm mb-2">Selected Services:</p>
                 <div className="flex flex-wrap gap-2">
@@ -1049,131 +1383,45 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                       </span>
                     </div>
                   ))}
-                  </div>
                 </div>
-              )}
-
-              {/* "I'm Not Sure" Option */}
-              <FormField
-                control={form.control}
-                name="needHelp"
-                render={({ field }) => (
-                  <FormItem className="bg-blue-50 p-4 rounded-md mt-6">
-                    <div className="flex items-start space-x-3">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <label className="font-medium">I'm not sure about my car details</label>
-                        <p className="text-sm text-gray-500">
-                          Check this if you need help identifying your car or describing your issue
-                        </p>
-                      </div>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {/* Help Description and File Upload */}
-              {needHelp && (
-                <div className="p-4 border rounded-md bg-white mt-4">
-                  <h3 className="font-medium mb-2">Tell us about your car</h3>
-                  <FormField
-                    control={form.control}
-                    name="helpDescription"
-                    render={({ field }) => (
-                      <FormItem className="mb-4">
-                        <FormControl>
-                          <Textarea
-                            placeholder="Please describe your car and issue as best as you can..."
-                            className="min-h-[100px] resize-none"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Replace or modify the existing file upload section */}
-<div className="space-y-2">
-  <p className="text-sm text-gray-600">Upload photos of your car or issue (optional)</p>
-  <div className="flex items-center gap-2">
-    <input
-      type="file"
-      id="car-photo"
-      accept="image/jpeg,image/png,image/gif,image/webp"
-      className="hidden"
-      onChange={handleFileChange}
-      multiple
-      disabled={isUploading}
-    />
-    <label
-      htmlFor="car-photo"
-      className={`px-3 py-2 border border-blue-800 text-blue-800 rounded-md cursor-pointer text-sm hover:bg-blue-50 ${
-        isUploading ? 'opacity-50 cursor-not-allowed' : ''
-      }`}
-    >
-      {isUploading ? 'Uploading...' : 'Choose Files'}
-    </label>
-    <span className="text-sm text-gray-500">
-      {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : "No files chosen"}
-    </span>
-  </div>
-
-  {/* Display file errors if any */}
-  {fileErrors.length > 0 && (
-    <div className="mt-2">
-      {fileErrors.map((error, index) => (
-        <p key={index} className="text-sm text-red-500">{error}</p>
-      ))}
-    </div>
-  )}
-
-  {/* Display selected files */}
-  {selectedFiles.length > 0 && (
-    <div className="mt-3">
-      <p className="text-sm font-medium mb-2">Selected Files:</p>
-      <div className="space-y-2 max-h-40 overflow-y-auto">
-        {selectedFiles.map((file, index) => (
-          <div key={index} className="flex items-center justify-between bg-gray-50 rounded p-2">
-            <div className="flex items-center space-x-2 overflow-hidden">
-              <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-800">
-                📷
               </div>
-              <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-              <span className="text-xs text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => removeFile(index)}
-              className="text-red-500 hover:text-red-700 text-sm"
-              disabled={isUploading}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )}
-</div>
-                </div>
-              )}
-            </>
-          )}
+            )}
 
-          {/* Form Controls */}
-          <div className="flex justify-between pt-4">
-            <Button type="button" variant="outline" onClick={onBack} className="border-blue-800 text-blue-800">
-              Back
-            </Button>
-            <Button type="submit" className="bg-blue-800 text-white">
-              Proceed
-            </Button>
-          </div>
-        </form>
-      </Form>
+            {/* Services Error Message */}
+            {showErrors && form.formState.errors.services && (
+              <div className="text-red-500 text-sm mt-2">{form.formState.errors.services.message}</div>
+            )}
+          </>
+        )}
+
+        {/* Form Controls */}
+        <div className="flex justify-between pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleBack}
+            className="border-blue-800 text-blue-800 hover:bg-blue-50 transition-colors duration-200"
+          >
+            Back
+          </Button>
+          <Button type="submit" className="bg-blue-800 text-white hover:bg-blue-900 transition-colors duration-200">
+            Proceed
+          </Button>
+        </div>
+
+        {/* Add Car Dialog */}
+        {showAddCarDialog && (
+          <AddCarDialog
+            open={showAddCarDialog}
+            onOpenChange={setShowAddCarDialog}
+            type={addCarType}
+            brandName={addCarType === "model" || addCarType === "year" ? selectedBrand : undefined}
+            modelName={addCarType === "year" ? selectedModel : undefined}
+            onSuccess={handleAddCarSuccess}
+          />
+        )}
+      </form>
+    </Form>
   )
 }
 
@@ -1182,19 +1430,41 @@ const formSchema = z.object({
   carBrand: z.string().min(1, "Car brand is required"),
   carModel: z.string().min(1, "Car model is required"),
   yearModel: z.string().min(1, "Year model is required"),
-  plateNumber: z.string()
+  plateNumber: z
+    .string()
     .min(1, "Plate number is required")
-    .max(8, "Plate number must not exceed 8 characters") // Set a maximum length of 8 characters
-    .regex(/^([A-Za-z]{3}\d{3,4}|[A-Za-z]{2}\d{4,5}|[A-Za-z]{1}\d{4,5}|[A-Za-z]{3}\d{3}[A-Za-z]{1})$/,
-      "Enter a valid Philippine plate number (e.g., ABC1234, AB1234, A1234, ABC123A)"),
+    .max(8, "Plate number must not exceed 8 characters")
+    .refine(
+      (value) => {
+        const cleanValue = value.replace(/\s/g, "").toUpperCase()
+        const patterns = [/^[A-Z]{3}\d{3,4}$/, /^[A-Z]{2}\d{4,5}$/, /^[A-Z]{1}\d{4,5}$/, /^[A-Z]{3}\d{3}[A-Z]{1}$/]
+        return patterns.some((pattern) => pattern.test(cleanValue))
+      },
+      {
+        message: "Valid formats: ABC123, AB1234, A1234, or ABC123A"
+      },
+    )
+    .refine(
+      (value) => {
+        const cleanValue = value.replace(/\s/g, "").toUpperCase()
+        if (!/^[A-Z0-9]+$/.test(cleanValue)) {
+          return false
+        }
+        if (cleanValue.length < 4) {
+          return false
+        }
+        return true
+      },
+      {
+        message: "Use only letters and numbers (min. 4 characters)"
+      },
+    ),
   transmission: z.string().min(1, "Transmission is required"),
   fuelType: z.string().min(1, "Fuel type is required"),
   odometer: z.string().min(1, "Odometer reading is required"),
-  services: z.array(z.string()).refine(services => services.length > 0, {
+  services: z.array(z.string()).refine((services) => services.length > 0, {
     message: "At least one service must be selected",
-    path: ["services"]
-  }).optional().or(z.array(z.string())),
+    path: ["services"],
+  }),
   specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
-  needHelp: z.boolean().optional(),
-  helpDescription: z.string().optional().refine(() => true),
-});
+})

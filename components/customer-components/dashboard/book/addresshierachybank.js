@@ -1,4 +1,3 @@
-
 // @/components/customer-components/dashboard/book/addresshierachybank.js
 export const philippineRegions = [
   "Region I (Ilocos Region)",
@@ -125,7 +124,7 @@ export const locationHierarchy = {
     "Bulacan": {
       cities: ["Malolos", "Meycauayan", "San Jose del Monte"],
       municipalities: [
-        "Angat", "Balagtas", "Baliwag City", "Bocaue", "Bulakan", "Calumpit",
+        "Angat", "Balagtas", "Baliwag", "Bocaue", "Bulakan", "Calumpit",
         "Doña Remedios Trinidad", "Guiguinto", "Hagonoy", "Marilao",
         "Norzagaray", "Obando", "Pandi", "Paombong", "Plaridel", "Pulilan",
         "San Ildefonso", "San Miguel", "San Rafael", "Santa Maria"
@@ -141,7 +140,7 @@ export const locationHierarchy = {
       ]
     },
     "Pampanga": {
-      cities: ["Angeles City", "San Fernando", "Mabalacat"],
+      cities: ["Angeles", "San Fernando", "Mabalacat"],
       municipalities: [
         "Apalit", "Arayat", "Bacolor", "Candaba", "Floridablanca", "Guagua",
         "Lubao", "Masantol", "Mexico", "Minalin", "Porac", "San Luis",
@@ -149,7 +148,7 @@ export const locationHierarchy = {
       ]
     },
     "Tarlac": {
-      cities: ["Tarlac City"],
+      cities: ["Tarlac"],
       municipalities: [
         "Anao", "Bamban", "Camiling", "Capas", "Concepcion", "Gerona",
         "La Paz", "Mayantoc", "Moncada", "Paniqui", "Pura", "Ramos",
@@ -170,7 +169,7 @@ export const locationHierarchy = {
   provinces: ["Batangas", "Cavite", "Laguna", "Quezon", "Rizal"],
   locations: {
     "Batangas": {
-      cities: ["Batangas City", "Lipa", "Tanauan"],
+      cities: ["Batangas", "Lipa", "Tanauan"],
       municipalities: [
         "Agoncillo", "Alitagtag", "Balayan", "Balete", "Bauan", "Calaca", "Calatagan",
         "Cuenca", "Ibaan", "Laurel", "Lemery", "Lian", "Lobo", "Mabini", "Malvar",
@@ -232,29 +231,80 @@ export const locationHierarchy = {
       ]
     },
     "Oriental Mindoro": {
-      cities: ["Calapan"],
-      municipalities: [
-        "Baco", "Bansud", "Bongabong", "Bulalacao", "Gloria", "Mansalay",
-        "Naujan", "Pinamalayan", "Pola", "Puerto Galera", "Roxas",
-        "San Teodoro", "Socorro", "Victoria"
-      ]
+      default: "",
+      cities: {
+        "Calapan": "5200"
+      },
+      municipalities: {
+        "Baco": "5201",
+        "Bansud": "5210",
+        "Bongabong": "5211",
+        "Bulalacao": "5214",
+        "Gloria": "5209",
+        "Mansalay": "5213",
+        "Naujan": "5204",
+        "Pinamalayan": "5208",
+        "Pola": "5206",
+        "Puerto Galera": "5203",
+        "Roxas": "5212",
+        "San Teodoro": "5202",
+        "Socorro": "5207",
+        "Victoria": "5205"
+      }
     },
     "Palawan": {
-      cities: ["Puerto Princesa"],
-      municipalities: [
-        "Aborlan", "Agutaya", "Araceli", "Balabac", "Bataraza", "Brooke's Point",
-        "Busuanga", "Cagayancillo", "Coron", "Culion", "Cuyo", "Dumaran",
-        "El Nido", "Kalayaan", "Linapacan", "Magsaysay", "Narra", "Quezon",
-        "Rizal", "Roxas", "San Vicente", "Sofronio Española", "Taytay"
-      ]
+      default: "",
+      cities: {
+        "Puerto Princesa": "5300"
+      },
+      municipalities: {
+        "Aborlan": "5302",
+        "Agutaya": "5321",
+        "Araceli": "5311",
+        "Balabac": "5307",
+        "Bataraza": "5306",
+        "Brooke's Point": "5305",
+        "Busuanga": "5317",
+        "Cagayancillo": "5322",
+        "Coron": "5316",
+        "Culion": "5315",
+        "Cuyo": "5318",
+        "Dumaran": "5310",
+        "El Nido": "5313",
+        "Kalayaan": "5323",
+        "Linapacan": "5319",
+        "Magsaysay": "5319",
+        "Narra": "5303",
+        "Quezon": "5304",
+        "Rizal": "5301",
+        "Roxas": "5308",
+        "San Vicente": "5309",
+        "Sofronio Española": "5312",
+        "Taytay": "5312"
+      }
     },
     "Romblon": {
-      cities: [],
-      municipalities: [
-        "Alcantara", "Banton", "Cajidiocan", "Calatrava", "Concepcion", "Corcuera",
-        "Ferrol", "Looc", "Magdiwang", "Odiongan", "Romblon", "San Agustin",
-        "San Andres", "San Fernando", "San Jose", "Santa Fe", "Santa Maria"
-      ]
+      default: "",
+      cities: {},
+      municipalities: {
+        "Alcantara": "5509",
+        "Banton": "5515",
+        "Cajidiocan": "5512",
+        "Calatrava": "5510",
+        "Concepcion": "5516",
+        "Corcuera": "5514",
+        "Ferrol": "5506",
+        "Looc": "5507",
+        "Magdiwang": "5511",
+        "Odiongan": "5505",
+        "Romblon": "5500",
+        "San Agustin": "5501",
+        "San Andres": "5504",
+        "San Fernando": "5513",
+        "San Jose": "5503",
+        "Santa Fe": "5508",
+        "Santa Maria": "5502"
+      }
     }
   }
 }, 
@@ -291,14 +341,14 @@ export const locationHierarchy = {
       ]
     },
     "Masbate": {
-      cities: ["Masbate City"],
+      cities: ["Masbate"],
       municipalities: [
         "Aroroy", "Baleno", "Batuan", "Cataingan", "Cawayan", "Dimasalang", "Mandaon", "Milagros", "Mobo", 
         "Monreal", "Palanas", "Pio V. Corpuz", "Placer", "San Fernando", "San Jacinto", "San Pascual", "Uson"
       ]
     },
     "Sorsogon": {
-      cities: ["Sorsogon City"],
+      cities: ["Sorsogon"],
       municipalities: [
         "Barcelona", "Bulan", "Casiguran", "Castilla", "Donsol", "Irosin", "Juban", "Magallanes", "Pto. Diaz", 
         "Prieto Diaz", "Santa Magdalena"
@@ -336,7 +386,7 @@ export const locationHierarchy = {
       ]
     },
     "Iloilo": {
-      cities: ["Iloilo City", "Passi City"],
+      cities: ["Iloilo", "Passi"],
       municipalities: [
         "Ajuy", "Alimodian", "Anilao", "Badiangan", "Balasan", "Banate", "Barotac Nuevo", "Barotac Viejo", 
         "Bingawan", "Cabatuan", "Calinog", "Carles", "Concepcion", "Dingle", "Dueñas", "Dumangas", "Estancia", 
@@ -368,7 +418,7 @@ export const locationHierarchy = {
       ]
     },
     "Cebu": {
-      cities: ["Cebu City", "Lapu-Lapu City", "Mandaue City"],
+      cities: ["Cebu", "Lapu-Lapu", "Mandaue"],
       municipalities: [
         "Alcantara", "Aloguinsan", "Argao", "Asturias", "Badian", "Balamban", "Bogo", "Carcar", "Carmen", "Catmon", 
         "Compostela", "Consolacion", "Cordova", "Danao", "Dumanjug", "Ginatilan", "Liloan", "Minglanilla", "Naga", 
@@ -519,10 +569,11 @@ export const locationHierarchy = {
       ]
     },
     "Davao del Norte": {
-      cities: ["Tagum", "Davao City", "Panabo", "Samal", "Santo Tomas"],
+      cities: ["Tagum", "Davao", "Panabo", "Samal", "Santo Tomas"],
       municipalities: [
-        "Bansalan", "Bansang", "Cabangan", "Cabanac", "Dalit", "Davao Oriental", "Hagonoy", "Igpop", "Kalambugan", 
-        "Lumbia", "Malabang", "Mati City", "New Albay", "Nina"
+        "Bansalan", "Bansang", "Cabangan", "Cabanac", "Dalit", 
+        "Davao Oriental", "Hagonoy", "Igpop", "Kalambugan", "Lumbia", 
+        "Malabang", "Mati", "New Albay", "Nina"
       ]
     },
     "Davao del Sur": {
@@ -589,9 +640,10 @@ export const locationHierarchy = {
       ]
     },
     "Surigao del Norte": {
-      cities: ["Surigao City", "Sison", "Tagana-an"],
+      cities: ["Surigao", "Sison", "Tagana-an"],
       municipalities: [
-        "Bacuag", "Dapa", "Del Carmen", "Gigaquit", "Mainit", "Placer", "San Benito", "San Francisco", "San Isidro", "Santa Monica"
+        "Bacuag", "Dapa", "Del Carmen", "Gigaquit", "Mainit", 
+        "Placer", "San Benito", "San Francisco", "San Isidro", "Santa Monica"
       ]
     },
     "Surigao del Sur": {
@@ -614,7 +666,7 @@ export const locationHierarchy = {
     "Metro Manila": {
       cities: [
         "Manila", 
-        "Quezon City", 
+        "Quezon", 
         "Caloocan", 
         "Pasay", 
         "Makati", 
@@ -801,10 +853,14 @@ export const zipCodeMapping = {
       "Batanes": {
         default: "",
         cities: {
-          "Basco": ""
+          "Basco": "3900"
         },
         municipalities: {
-          "Itbayat": "3901", "Ivana": "3902", "Mahatao": "3903", "Sabtang": "3904", "Uyugan": "3905"
+          "Itbayat": "3905",
+          "Ivana": "3902",
+          "Mahatao": "3903",
+          "Sabtang": "3904",
+          "Uyugan": "3906"
         }
       },
       "Cagayan": {
@@ -883,7 +939,7 @@ export const zipCodeMapping = {
     "Bataan": {
       default: "",
       cities: {
-        "Balanga City": "2100"
+        "Balanga": "2100"
       },
       municipalities: {
         "Abucay": "2114",
@@ -911,7 +967,7 @@ export const zipCodeMapping = {
         "Angat": "3012",
         "Balagtas": "3016",
         "Bocaue": "3018",
-        "Bulacan": "3017",
+        "Bulakan": "3017",
         "Bustos": "3007",
         "Calumpit": "3003",
         "Doña Remedios Trinidad": "3009",
@@ -974,7 +1030,7 @@ export const zipCodeMapping = {
       cities: {
         "Angeles City": "2009",
         "San Fernando City": "2000",
-        "Mabalacat City": "2010"
+        "Mabalacat": "2010"
       },
       municipalities: {
         "Apalit": "2016",
@@ -1249,6 +1305,7 @@ export const zipCodeMapping = {
       }
     },
     "Oriental Mindoro": {
+      default: "",
       cities: {
         "Calapan": "5200"
       },
@@ -1270,6 +1327,7 @@ export const zipCodeMapping = {
       }
     },
     "Palawan": {
+      default: "",
       cities: {
         "Puerto Princesa": "5300"
       },
@@ -1300,6 +1358,7 @@ export const zipCodeMapping = {
       }
     },
     "Romblon": {
+      default: "",
       cities: {},
       municipalities: {
         "Alcantara": "5509",
@@ -1847,7 +1906,7 @@ export const zipCodeMapping = {
       default: "",
       cities: {
         "Manila": "1000",
-        "Quezon City": "1100",
+        "Quezon": "1100",
         "Caloocan": "1400",
         "Pasay": "1300",
         "Makati": "1200",
