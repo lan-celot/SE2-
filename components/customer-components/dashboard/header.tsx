@@ -209,7 +209,7 @@ export function DashboardHeader({ title }: HeaderProps) {
           </div>
 
           <Link
-            href="/customer/profile"
+            href="/customer/dashboard/profile"
             className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-[#3579b8]/20"
           >
             {user.photoURL ? (
