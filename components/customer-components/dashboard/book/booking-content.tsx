@@ -13,56 +13,81 @@ type BookingStep = 1 | 2 | 3 | 4 | 5;
 // Update the status type to include "PENDING"
 type ReservationStatus = "PENDING" | "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED";
 
-interface FormData {
+interface BookingFormData {
+  // Personal Information
   firstName: string;
   lastName: string;
   gender: string;
   phoneNumber: string;
   dateOfBirth: string;
+  
+  // Address Information
   streetAddress: string;
-  city: string;
+  city: string | null;
+  municipality: string | null;
   province: string;
+  region: string;
   zipCode: string;
-  carModel: string;
+  
+  // Car Details
   carBrand: string;
-  carFullName: string;
+  carModel: string;
   yearModel: string;
+  plateNumber: string;
   transmission: string;
   fuelType: string;
   odometer: string;
-  generalServices: string[];
+  
+  // Services
+  services: string[];
   specificIssues: string;
+  needHelp?: boolean;
+  helpDescription?: string;
+  
+  // Reservation
   reservationDate: string;
-  completionDate: string;
   status: ReservationStatus;
+  completionDate: string;
+  
+  // Required fields (matching ReviewDetails FormData)
+  uploadedFiles: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    fileType: string;
+  }>;
 }
 
 export function BookingContent() {
   const [currentStep, setCurrentStep] = useState<BookingStep>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<BookingFormData>({
     firstName: "",
     lastName: "",
     gender: "",
     phoneNumber: "",
     dateOfBirth: "",
     streetAddress: "",
-    city: "",
+    city: null,
+    municipality: null,
     province: "",
+    region: "",
     zipCode: "",
     carBrand: "",
     carModel: "",
-    carFullName: "",
     yearModel: "",
+    plateNumber: "",
     transmission: "",
     fuelType: "",
     odometer: "",
-    generalServices: [],
+    services: [],
     specificIssues: "",
+    needHelp: false,
+    helpDescription: "",
     reservationDate: "",
-    // Set initial status to PENDING
     status: "PENDING",
     completionDate: "",
+    uploadedFiles: [], // Initialize with empty array
   });
 
   // Separate function to check if services can be modified
@@ -71,7 +96,7 @@ export function BookingContent() {
     return formData.status === "PENDING" || formData.status === "CONFIRMED";
   };
 
-  const handleNext = (data: Partial<FormData>) => {
+  const handleNext = (data: Partial<BookingFormData>) => {
     const updatedFormData = { ...formData, ...data };
     setFormData(updatedFormData);
     setCurrentStep((prev) => (prev + 1) as BookingStep);
@@ -90,22 +115,26 @@ export function BookingContent() {
       phoneNumber: "",
       dateOfBirth: "",
       streetAddress: "",
-      city: "",
+      city: null,
+      municipality: null,
       province: "",
+      region: "",
       zipCode: "",
       carBrand: "",
       carModel: "",
-      carFullName: "",
       yearModel: "",
+      plateNumber: "",
       transmission: "",
       fuelType: "",
       odometer: "",
-      generalServices: [],
+      services: [],
       specificIssues: "",
+      needHelp: false,
+      helpDescription: "",
       reservationDate: "",
-      // Reset to PENDING status
       status: "PENDING",
       completionDate: "",
+      uploadedFiles: [],
     });
   };
 
@@ -159,7 +188,6 @@ export function BookingContent() {
             onSubmit={handleReservationSuccess}
             onBack={handleBack}
             isSubmitting={isSubmitting}
-            canModifyServices={canModifyServices}
           />
         )}
         {currentStep === 5 && <ConfirmationPage formData={formData} onBookAgain={handleRestart} />}

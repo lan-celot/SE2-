@@ -29,8 +29,8 @@ type Region = string
 
 // Define types for location hierarchy
 type LocationData = {
-  cities: string[];
-  municipalities: string[];
+  cities: string[] | { [key: string]: string };
+  municipalities: string[] | { [key: string]: string };
 }
 
 type ProvinceLocations = {
@@ -48,13 +48,13 @@ type CityMunicipalityZipCodes = {
 }
 
 type ProvinceZipCodes = {
-  default?: string; // Made optional to fix type error
+  default?: string;
   cities?: CityMunicipalityZipCodes;
   municipalities?: CityMunicipalityZipCodes;
 }
 
 type RegionZipCodes = {
-  default?: string; // Made optional to fix type error
+  default?: string;
   provinces: {
     [province: string]: ProvinceZipCodes;
   };
@@ -100,8 +100,12 @@ const formSchema = z
     if (selectedProvince && data.region &&
         typedLocationHierarchy[data.region]?.locations[selectedProvince]) {
       const provinceData = typedLocationHierarchy[data.region].locations[selectedProvince];
-      const hasCities = provinceData.cities.length > 0;
-      const hasMunicipalities = provinceData.municipalities.length > 0;
+      const hasCities = Array.isArray(provinceData.cities) 
+        ? provinceData.cities.length > 0 
+        : provinceData.cities ? Object.keys(provinceData.cities).length > 0 : false;
+      const hasMunicipalities = Array.isArray(provinceData.municipalities)
+        ? provinceData.municipalities.length > 0
+        : provinceData.municipalities ? Object.keys(provinceData.municipalities).length > 0 : false;
       if (hasCities && hasMunicipalities) {
         return !!data.city || !!data.municipality;
       }
@@ -226,8 +230,16 @@ export function PersonalDetailsForm({ initialData, onSubmit }: PersonalDetailsFo
       const regionData = typedLocationHierarchy[region];
       if (province in regionData.locations) {
         const locations = regionData.locations[province];
-        setAvailableCities([...locations.cities].sort());
-        setAvailableMunicipalities([...locations.municipalities].sort());
+        // Handle both array and object formats
+        const cities = Array.isArray(locations.cities) 
+          ? locations.cities 
+          : locations.cities ? Object.keys(locations.cities) : [];
+        const municipalities = Array.isArray(locations.municipalities)
+          ? locations.municipalities
+          : locations.municipalities ? Object.keys(locations.municipalities) : [];
+        
+        setAvailableCities([...cities].sort());
+        setAvailableMunicipalities([...municipalities].sort());
       } else {
         setAvailableCities([]);
         setAvailableMunicipalities([]);
