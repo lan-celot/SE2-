@@ -172,11 +172,7 @@ function useToast() {
     dismiss: (toastId?: string) => dispatch({ type: actionTypes.DISMISS_TOAST, toastId }),
     // Helper functions to match existing API
     success: (description: string) => toast({ description, variant: "success" }),
-    error: (description: string) => toast({ 
-      description, 
-      variant: "destructive",
-      className: "bg-[#FFE5E5] border-[#EA5455] text-[#EA5455] font-medium"
-    }),
+    error: (description: string) => toast({ description, variant: "destructive" }),
     warning: (description: string) => toast({ description, variant: "warning" }),
     info: (description: string) => toast({ description, variant: "default" }),
     // For backward compatibility with existing code

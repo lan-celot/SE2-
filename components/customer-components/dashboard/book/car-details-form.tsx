@@ -285,7 +285,6 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [activeTab, setActiveTab] = useState<"details" | "services">("details")
   const [showErrors, setShowErrors] = useState(false)
-  const [showValidation, setShowValidation] = useState(false)
 
   // Tab completion tracking
   const [detailsTabComplete, setDetailsTabComplete] = useState(false)
@@ -790,28 +789,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
   // Custom form submission handler
   const handleSubmit = useCallback(
     async (data: FormData) => {
-      setShowValidation(true)
-      setShowErrors(true)
-
-      // Check if we're in the details tab and fields are incomplete
-      if (activeTab === "details" && !detailsTabComplete) {
-        toast({
-          title: "Incomplete Details",
-          description: "Please fill in all vehicle details correctly before proceeding.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Check if we're in the services tab and no services are selected
-      if (activeTab === "services" && !servicesTabComplete) {
-        toast({
-          title: "Services Required",
-          description: "Please select at least one service before proceeding.",
-          variant: "destructive",
-        })
-        return
-      }
+      setShowErrors(true) // Show errors when user tries to submit
 
       let fileUploadResults: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[] = []
 
@@ -819,33 +797,24 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
         fileUploadResults = await uploadFiles()
       }
 
-      // If in details tab and all is valid, switch to services tab
-      if (activeTab === "details" && detailsTabComplete) {
-        setActiveTab("services")
+      if (!data.services || data.services.length < 1) {
+        form.setError("services", {
+          type: "manual",
+          message: "At least one service must be selected",
+        })
         return
       }
 
-      // Only proceed with final submission if all validations pass
-      if (detailsTabComplete && servicesTabComplete) {
-        // Clear form progress on successful submission
-        clearFormProgress()
+      // Clear form progress on successful submission
+      clearFormProgress()
 
-        onSubmit({
-          ...data,
-          uploadedFiles: fileUploadResults,
-        })
-      }
+      onSubmit({
+        ...data,
+        uploadedFiles: fileUploadResults,
+      })
     },
-    [form, onSubmit, selectedFiles, uploadFiles, activeTab, detailsTabComplete, servicesTabComplete, toast],
+    [form, onSubmit, selectedFiles, uploadFiles],
   )
-
-  // Update the Proceed button text based on the current tab
-  const getProceedButtonText = useCallback(() => {
-    if (activeTab === "details") {
-      return detailsTabComplete ? "Next: Select Services" : "Please Complete Details"
-    }
-    return "Proceed"
-  }, [activeTab, detailsTabComplete])
 
   const handleBack = useCallback(() => {
     // Save current progress before going back
@@ -951,43 +920,26 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
               activeTab === "details"
                 ? detailsTabComplete
                   ? "bg-green-50 font-medium text-green-800"
-                  : showValidation
-                    ? "bg-red-50 font-medium text-red-800"
-                    : "bg-blue-50 font-medium text-blue-800"
+                  : "bg-blue-50 font-medium text-blue-800"
                 : "bg-white hover:bg-gray-50"
             }`}
             onClick={() => setActiveTab("details")}
           >
             <span className="flex items-center justify-center gap-2">
               Vehicle Details 
-              {showValidation && (
-                detailsTabComplete ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-red-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )
+              {detailsTabComplete && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
               )}
             </span>
           </div>
@@ -996,43 +948,26 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
               activeTab === "services"
                 ? servicesTabComplete
                   ? "bg-green-50 font-medium text-green-800"
-                  : showValidation
-                    ? "bg-red-50 font-medium text-red-800"
-                    : "bg-blue-50 font-medium text-blue-800"
+                  : "bg-blue-50 font-medium text-blue-800"
                 : "bg-white hover:bg-gray-50"
             }`}
             onClick={() => setActiveTab("services")}
           >
             <span className="flex items-center justify-center gap-2">
               Services
-              {showValidation && (
-                servicesTabComplete ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-red-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )
+              {servicesTabComplete && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
               )}
             </span>
           </div>
@@ -1045,7 +980,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
             <div className="border-b pb-2 mb-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-medium text-blue-800">Vehicle Details</h2>
-                {showValidation && <CompletionIndicator isComplete={detailsTabComplete} />}
+                <CompletionIndicator isComplete={detailsTabComplete} />
               </div>
             </div>
 
@@ -1419,7 +1354,7 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
             <div className="border-b pb-2 mb-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-medium text-blue-800">Services</h2>
-                {showValidation && <CompletionIndicator isComplete={servicesTabComplete} />}
+                <CompletionIndicator isComplete={servicesTabComplete} />
               </div>
             </div>
 
@@ -1469,18 +1404,8 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
           >
             Back
           </Button>
-          <Button 
-            type="submit" 
-            className={`${
-              (activeTab === "details" && !detailsTabComplete) || 
-              (activeTab === "services" && !servicesTabComplete)
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-800 hover:bg-blue-900"
-            } text-white transition-colors duration-200`}
-            disabled={(activeTab === "details" && !detailsTabComplete) || 
-                     (activeTab === "services" && !servicesTabComplete)}
-          >
-            {getProceedButtonText()}
+          <Button type="submit" className="bg-blue-800 text-white hover:bg-blue-900 transition-colors duration-200">
+            Proceed
           </Button>
         </div>
 
