@@ -88,6 +88,7 @@ interface Reservation {
   reservationDate: string;
   customerName: string;
   userId: string;
+  carBrand: string;
   carModel: string;
   plateNo?: string;
   status: Status;
@@ -106,6 +107,7 @@ interface SelectedService {
 }
 
 interface CarDetails {
+  carBrand: string;
   carModel: string;
   yearModel: string;
   transmission: string;
@@ -115,6 +117,7 @@ interface CarDetails {
   generalServices: string[];
   reservationDate: string;
   customerName: string;
+  imageUrl?: string;
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -325,6 +328,7 @@ export default function ReservationsPage() {
             reservationDate: bookingData.reservationDate || "",
             customerName: bookingData.customerName || "",
             userId: bookingData.userId || "",
+            carBrand: bookingData.carBrand || "",
             carModel: bookingData.carModel || "",
             plateNo: bookingData.plateNo || "", // Added plateNo field
             status: status,
@@ -1532,6 +1536,7 @@ const handleAddServices = async (selectedServices: any[]) => {
   // Function to show car details dialog
   const showCarDetails = async (reservation: Reservation) => {
     setSelectedCarDetails({
+      carBrand: reservation.carBrand || "",
       carModel: reservation.carModel || "",
       yearModel: reservation.yearModel || "",
       transmission: reservation.transmission || "",
@@ -1541,7 +1546,7 @@ const handleAddServices = async (selectedServices: any[]) => {
       generalServices: reservation.generalServices || [],
       reservationDate: reservation.reservationDate || "",
       customerName: `${reservation.firstName} ${reservation.lastName}`.trim() || reservation.customerName || "",
-        });
+    });
       
          // ————— NEW: list whatever's in the `car-images/` folder —————
          try {
@@ -1865,7 +1870,7 @@ const handleAddServices = async (selectedServices: any[]) => {
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
                           <span className="block truncate uppercase">
-                            {reservation.carModel}
+                            {reservation.carModel.includes(" ") ? reservation.carModel : `${reservation.carBrand} ${reservation.carModel}`}
                           </span>
                         </TableCell>
                         <TableCell className="text-[#1A365D] text-center truncate px-2 py-4">
@@ -2527,7 +2532,9 @@ const handleAddServices = async (selectedServices: any[]) => {
                 <div className="text-sm font-medium text-gray-500">Name:</div>
                 <div className="text-sm text-[#1A365D]">{selectedCarDetails?.customerName || "—"}</div>
                 <div className="text-sm font-medium text-gray-500">Car:</div>
-                <div className="text-sm text-[#1A365D]">{selectedCarDetails?.carModel || "—"}</div>
+                <div className="text-sm text-[#1A365D]">
+                  {selectedCarDetails ? `${selectedCarDetails.carBrand} ${selectedCarDetails.carModel}` : "—"}
+                </div>
                 <div className="text-sm font-medium text-gray-500">Year Model:</div>
                 <div className="text-sm text-[#1A365D]">{selectedCarDetails?.yearModel || "—"}</div>
                 <div className="text-sm font-medium text-gray-500">Transmission:</div>
@@ -2571,6 +2578,7 @@ const handleAddServices = async (selectedServices: any[]) => {
 }
 
 interface CarDetails {
+  carBrand: string;
   carModel: string;
   yearModel: string;
   transmission: string;
@@ -2580,5 +2588,5 @@ interface CarDetails {
   generalServices: string[];
   reservationDate: string;
   customerName: string;
-  imageUrl?: string; // Add this line
+  imageUrl?: string;
 }

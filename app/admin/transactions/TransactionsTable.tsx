@@ -42,6 +42,7 @@ interface Transaction {
   reservationId: string
   customerName: string
   customerId: string
+  carBrand: string
   carModel: string
   reservationDate: string
   completionDate: string
@@ -290,6 +291,7 @@ const createTransaction = (doc: QueryDocumentSnapshot<DocumentData>, data: Docum
       reservationId: data.reservationId || doc.id,
       customerName: customerName,
       customerId: customerId,
+      carBrand: data.carBrand || "",
       carModel: data.carModel || "---",
       reservationDate: reservationDate,
       completionDate: completionDate,
@@ -1177,6 +1179,7 @@ const saveTransactionChanges = async (transactionId: string) => {
         reservationId: transaction.reservationId,
         customerName: transaction.customerName,
         customerId: transaction.customerId,
+        carBrand: transaction.carBrand,
         carModel: transaction.carModel,
         reservationDate: transaction.reservationDate,
         completionDate: formatFirestoreDate(new Date()),
@@ -1320,6 +1323,7 @@ const saveTransactionChanges = async (transactionId: string) => {
             <div class="details">
               <p><strong>Customer:</strong> ${transaction.customerName || "-----"}</p>
               <p><strong>Customer ID:</strong> ${transaction.customerId || "-----"}</p>
+              <p><strong>Car Brand:</strong> ${transaction.carBrand || "-----"}</p>
               <p><strong>Car Model:</strong> ${transaction.carModel || "-----"}</p>
               <p><strong>Completion Date:</strong> ${transaction.completionDate || "-----"}</p>
             </div>
@@ -1402,6 +1406,7 @@ const saveTransactionChanges = async (transactionId: string) => {
           transaction.id.toLowerCase().includes(query) ||
           transaction.customerName.toLowerCase().includes(query) ||
           transaction.customerId.toLowerCase().includes(query) ||
+          transaction.carBrand.toLowerCase().includes(query) ||
           transaction.carModel.toLowerCase().includes(query) ||
           transaction.reservationDate.toLowerCase().includes(query) ||
           transaction.completionDate.toLowerCase().includes(query)
@@ -1476,6 +1481,7 @@ return (
               { key: "reservationDate", label: "RESERVATION DATE", width: "15%" },
               { key: "customerName", label: "CUSTOMER NAME", width: "15%" },
               { key: "customerId", label: "CUSTOMER ID", width: "15%" },
+              { key: "carBrand", label: "CAR BRAND", width: "15%" },
               { key: "carModel", label: "CAR MODEL", width: "15%" },
               { key: "completionDate", label: "COMPLETION DATE", width: "15%" },
               { key: "action", label: "ACTION", width: "10%" },
@@ -1534,8 +1540,11 @@ return (
                 <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.customerId}>
                   <div className="truncate max-w-[150px] mx-auto">{transaction.customerId || "-----"}</div>
                 </td>
-                <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.carModel}>
-                  <div className="truncate max-w-[150px] mx-auto">{transaction.carModel || "-----"}</div>
+                <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.carBrand}>
+                  <div className="truncate max-w-[150px] mx-auto">{transaction.carBrand || "-----"}</div>
+                </td>
+                <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={`${transaction.carBrand} ${transaction.carModel}`}>
+                  <div className="truncate max-w-[150px] mx-auto">{`${transaction.carBrand} ${transaction.carModel}`}</div>
                 </td>
                 <td className="px-3 py-4 text-sm text-[#1A365D] text-center" title={transaction.completionDate}>
                   <div className="truncate max-w-[120px] mx-auto">{renderDate(transaction.completionDate)}</div>

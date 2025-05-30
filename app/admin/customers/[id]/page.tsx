@@ -49,6 +49,7 @@ interface Service {
 interface Booking {
   id: string
   date: string
+  carBrand: string
   carModel: string
   status: "CONFIRMED" | "REPAIRING" | "COMPLETED" | "CANCELLED" | string
   completionDate?: string
@@ -308,6 +309,7 @@ export default function CustomerDetailsPage() {
           customerBookings.push({
             id: doc.id, // Use the actual document ID as requested
             date: bookingDate || new Date().toISOString(),
+            carBrand: bookingData.carBrand || "N/A",
             carModel: bookingData.carModel || "N/A",
             status: status,
             completionDate: completionDate,
@@ -565,6 +567,7 @@ export default function CustomerDetailsPage() {
                       {[
                         { key: "id", label: "RESERVATION ID", width: "15%" },
                         { key: "date", label: "RESERVATION DATE", width: "20%" },
+                        { key: "carBrand", label: "CAR BRAND", width: "20%" },
                         { key: "carModel", label: "CAR MODEL", width: "20%" },
                         { key: "status", label: "STATUS", width: "15%" },
                         { key: "completionDate", label: "COMPLETION DATE", width: "20%" },
@@ -628,9 +631,15 @@ export default function CustomerDetailsPage() {
                           </td>
                           <td
                             className="px-3 py-2 text-sm text-[#1A365D] text-center truncate uppercase"
-                            title={booking.carModel}
+                            title={booking.carBrand}
                           >
-                            {booking.carModel}
+                            {booking.carBrand}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
+                            title={`${booking.carBrand} ${booking.carModel}`}
+                          >
+                            {`${booking.carBrand} ${booking.carModel}`}
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span

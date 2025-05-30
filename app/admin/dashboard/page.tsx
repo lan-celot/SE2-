@@ -34,6 +34,7 @@ interface Log {
 interface Reservation {
   id: string
   customerName: string
+  carBrand: string
   carModel: string
 }
 
@@ -41,6 +42,7 @@ interface Booking {
   id: string
   firstName: string
   lastName: string
+  carBrand: string
   carModel: string
   status: string
   // Explicitly define potential types for reservationDate
@@ -120,6 +122,7 @@ export default function DashboardPage() {
             // Explicitly cast to expected types, allowing for undefined or null
             firstName: (data.firstName as string) || "", // Provide default empty string if undefined/null
             lastName: (data.lastName as string) || "",
+            carBrand: (data.carBrand as string) || "",
             carModel: (data.carModel as string) || "",
             status: (data.status as string) || "",
             reservationDate: data.reservationDate as Timestamp | Date | string | null | undefined, // Keep original for reference if needed
@@ -163,6 +166,7 @@ export default function DashboardPage() {
           arrivingTodayBookings.map((booking) => ({
             id: booking.id,
             customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
+            carBrand: booking.carBrand,
             carModel: booking.carModel,
           })),
         )
@@ -294,6 +298,7 @@ export default function DashboardPage() {
           // Explicitly cast to expected types, allowing for undefined or null
           firstName: (data.firstName as string) || "", // Provide default empty string if undefined/null
           lastName: (data.lastName as string) || "",
+          carBrand: (data.carBrand as string) || "",
           carModel: (data.carModel as string) || "",
           status: (data.status as string) || "",
           reservationDate: data.reservationDate as Timestamp | Date | string | null | undefined, // Keep original for reference if needed
@@ -337,6 +342,7 @@ export default function DashboardPage() {
         arrivingTodayBookings.map((booking) => ({
           id: booking.id,
           customerName: `${booking.firstName} ${booking.lastName}`.toUpperCase(),
+          carBrand: booking.carBrand,
           carModel: booking.carModel,
         })),
       )
@@ -585,7 +591,9 @@ export default function DashboardPage() {
                     <TableRow key={reservation.id}>
                       <TableCell className="text-[#1A365D] uppercase">#{reservation.id}</TableCell>
                       <TableCell className="text-[#1A365D] uppercase">{reservation.customerName}</TableCell>
-                      <TableCell className="text-[#1A365D] uppercase">{reservation.carModel}</TableCell>
+                      <TableCell className="text-[#1A365D] uppercase">
+                        {`${reservation.carBrand} ${reservation.carModel}`}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (

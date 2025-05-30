@@ -34,6 +34,7 @@ interface Transaction {
   reservationId: string
   customerName: string
   customerId: string
+  carBrand: string
   carModel: string
   reservationDate: string
   completionDate: string

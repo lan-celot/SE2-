@@ -1,7 +1,7 @@
-
 "use client"
 import { useForm } from "react-hook-form"
 import type React from "react"
+import { memo, useEffect, useState, useMemo, useCallback, useRef } from "react"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/customer-components/ui/select"
 import { Checkbox } from "@/components/customer-components/ui/checkbox"
-import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 
 // Import car database
 import {
@@ -232,11 +231,43 @@ const serviceCategories = [
 const leftColumnCategories = serviceCategories.slice(0, Math.ceil(serviceCategories.length / 2))
 const rightColumnCategories = serviceCategories.slice(Math.ceil(serviceCategories.length / 2))
 
-interface CarDetailsFormProps {
-  initialData?: Partial<FormData>
-  onSubmit: (data: FormData) => void
-  onBack: () => void
-}
+// Define the form schema
+const formSchema = z.object({
+  carBrand: z.string().min(1, "Car brand is required"),
+  carModel: z.string().min(1, "Car model is required"),
+  yearModel: z.string().min(1, "Year model is required"),
+  plateNumber: z
+    .string()
+    .min(1, "Plate number is required")
+    .max(8, "Plate number must not exceed 8 characters")
+    .refine(
+      (value) => {
+        const cleanValue = value.replace(/\s/g, "").toUpperCase()
+        const patterns = [/^[A-Z]{3}\d{3,4}$/, /^[A-Z]{2}\d{4,5}$/, /^[A-Z]{1}\d{4,5}$/, /^[A-Z]{3}\d{3}[A-Z]{1}$/]
+        return patterns.some((pattern) => pattern.test(cleanValue))
+      },
+      {
+        message: "Valid formats: ABC123, AB1234, A1234, or ABC123A"
+      }
+    )
+    .refine(
+      (value) => {
+        const cleanValue = value.replace(/\s/g, "").toUpperCase()
+        return /^[A-Z0-9]{4,}$/.test(cleanValue)
+      },
+      {
+        message: "Use only letters and numbers (min. 4 characters)"
+      }
+    ),
+  transmission: z.string().min(1, "Transmission is required"),
+  fuelType: z.string().min(1, "Fuel type is required"),
+  odometer: z.string().min(1, "Odometer reading is required"),
+  services: z.array(z.string()).refine((services) => services.length > 0, {
+    message: "At least one service must be selected",
+    path: ["services"],
+  }),
+  specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
+})
 
 type FormData = z.infer<typeof formSchema> & {
   uploadedFiles?: Array<{
@@ -247,8 +278,14 @@ type FormData = z.infer<typeof formSchema> & {
   }>
 }
 
-// Animated completion indicator component
-const CompletionIndicator = ({ isComplete }: { isComplete: boolean }) => (
+interface CarDetailsFormProps {
+  initialData?: Partial<FormData>
+  onSubmit: (data: FormData) => void
+  onBack: () => void
+}
+
+// Memoize the CompletionIndicator component
+const CompletionIndicator = memo(({ isComplete }: { isComplete: boolean }) => (
   <span className={`flex items-center transition-all duration-300 ${isComplete ? "text-green-600" : "text-red-600"}`}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -278,7 +315,9 @@ const CompletionIndicator = ({ isComplete }: { isComplete: boolean }) => (
       <span>Incomplete</span>
     )}
   </span>
-)
+))
+
+CompletionIndicator.displayName = 'CompletionIndicator'
 
 export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetailsFormProps) {
   const [carBrands, setCarBrands] = useState<string[]>([])
@@ -368,12 +407,11 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     setCarBrands(getCarBrandsWithSession())
   }, [])
 
-  // Check if details tab is complete (all fields filled AND valid) - optimized
-  useEffect(() => {
-    const errors = form.formState.errors
-    const values = form.getValues()
+  // Memoize form validation dependencies
+  const requiredFields = useMemo(() => ['carBrand', 'carModel', 'yearModel', 'plateNumber', 'transmission', 'fuelType', 'odometer'], [])
 
-    // Check if all required fields have valid values
+  // Memoize validation functions
+  const validateDetailsTab = useCallback((values: FormData, errors: any) => {
     const hasAllRequiredFields = Boolean(
       values.carBrand?.trim() &&
       values.carModel?.trim() &&
@@ -384,22 +422,34 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
       values.odometer?.trim()
     )
 
-    // Check if there are no validation errors
-    const hasNoValidationErrors = !Object.keys(errors).some(key => 
-      ['carBrand', 'carModel', 'yearModel', 'plateNumber', 'transmission', 'fuelType', 'odometer'].includes(key)
-    )
+    const hasNoValidationErrors = !Object.keys(errors).some(key => requiredFields.includes(key))
+    return hasAllRequiredFields && hasNoValidationErrors
+  }, [requiredFields])
 
-    // Only set complete if all fields are filled AND valid
-    setDetailsTabComplete(hasAllRequiredFields && hasNoValidationErrors)
-  }, [form.formState.errors, form.watch()])
+  const validateServicesTab = useCallback((services: string[], errors: any) => {
+    const hasAtLeastOneService = services && services.length > 0
+    const hasNoServiceErrors = !errors.services
+    return hasAtLeastOneService && hasNoServiceErrors
+  }, [])
 
-  // Check if services tab is complete (at least one service selected AND valid) - optimized
+  // Optimize form validation effect
   useEffect(() => {
-    const hasAtLeastOneService = selectedServices && selectedServices.length > 0
-    const hasNoServiceErrors = !form.formState.errors.services
+    const subscription = form.watch((_, { name }) => {
+      // Only update completion status if relevant fields change
+      if (!name || requiredFields.includes(name)) {
+        const errors = form.formState.errors
+        const values = form.getValues()
+        setDetailsTabComplete(validateDetailsTab(values, errors))
+      }
 
-    setServicesTabComplete(hasAtLeastOneService && hasNoServiceErrors)
-  }, [selectedServices, form.formState.errors.services])
+      // Only update services completion if services field changes
+      if (!name || name === 'services') {
+        setServicesTabComplete(validateServicesTab(selectedServices, form.formState.errors))
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [form, selectedServices, validateDetailsTab, validateServicesTab, requiredFields])
 
   // Get available models based on selected brand (including session data) - memoized
   const availableModels = useMemo(
@@ -413,23 +463,26 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     return getYearsByModelWithSession(selectedBrand, selectedModel)
   }, [selectedBrand, selectedModel])
 
-  // Filter lists with max 5 items visible at once (scrollable) - optimized
+  // Memoize the filtered lists
   const filteredBrands = useMemo(() => {
     if (!showBrandDropdown) return []
-    if (brandSearchText.trim() === "") return carBrands
-    return carBrands.filter((brand) => brand.toLowerCase().includes(brandSearchText.toLowerCase()))
+    if (!brandSearchText.trim()) return carBrands
+    const searchLower = brandSearchText.toLowerCase()
+    return carBrands.filter(brand => brand.toLowerCase().includes(searchLower))
   }, [carBrands, brandSearchText, showBrandDropdown])
 
   const filteredModels = useMemo(() => {
     if (!showModelDropdown) return []
-    if (modelSearchText.trim() === "") return availableModels
-    return availableModels.filter((model: string) => model.toLowerCase().includes(modelSearchText.toLowerCase()))
+    if (!modelSearchText.trim()) return availableModels
+    const searchLower = modelSearchText.toLowerCase()
+    return availableModels.filter((model: string) => model.toLowerCase().includes(searchLower))
   }, [availableModels, modelSearchText, showModelDropdown])
 
   const filteredYears = useMemo(() => {
     if (!showYearDropdown) return []
-    if (yearSearchText.trim() === "") return availableYears
-    return availableYears.filter((year: number) => year.toString().includes(yearSearchText))
+    if (!yearSearchText.trim()) return availableYears
+    const searchText = yearSearchText
+    return availableYears.filter((year: number) => year.toString().includes(searchText))
   }, [availableYears, yearSearchText, showYearDropdown])
 
   // Reset dependent fields when parent fields change
@@ -788,19 +841,23 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     return () => subscription.unsubscribe()
   }, [form, brandSearchText, modelSearchText, yearSearchText, activeTab, expandedCategory])
 
-  // Custom form submission handler
+  // Memoize form submission handler
   const handleSubmit = useCallback(
     async (data: FormData) => {
       setShowValidation(true)
       setShowErrors(true)
 
       // Check if we're in the details tab and fields are incomplete
-      if (activeTab === "details" && !detailsTabComplete) {
-        toast({
-          title: "Incomplete Details",
-          description: "Please fill in all vehicle details correctly before proceeding.",
-          variant: "destructive",
-        })
+      if (activeTab === "details") {
+        if (!detailsTabComplete) {
+          toast({
+            title: "Incomplete Details",
+            description: "Please fill in all vehicle details correctly before proceeding.",
+            variant: "destructive",
+          })
+          return
+        }
+        setActiveTab("services")
         return
       }
 
@@ -814,20 +871,19 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
         return
       }
 
-      let fileUploadResults: { fileName: string; fileUrl: string; fileSize: number; fileType: string }[] = []
-
-      if (selectedFiles.length > 0) {
-        fileUploadResults = await uploadFiles()
-      }
-
-      // If in details tab and all is valid, switch to services tab
-      if (activeTab === "details" && detailsTabComplete) {
-        setActiveTab("services")
-        return
-      }
-
       // Only proceed with final submission if all validations pass
       if (detailsTabComplete && servicesTabComplete) {
+        let fileUploadResults: Array<{
+          fileName: string
+          fileUrl: string
+          fileSize: number
+          fileType: string
+        }> = []
+
+        if (selectedFiles.length > 0) {
+          fileUploadResults = await uploadFiles()
+        }
+
         // Clear form progress on successful submission
         clearFormProgress()
 
@@ -837,16 +893,113 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
         })
       }
     },
-    [form, onSubmit, selectedFiles, uploadFiles, activeTab, detailsTabComplete, servicesTabComplete, toast],
+    [
+      activeTab,
+      detailsTabComplete,
+      servicesTabComplete,
+      selectedFiles,
+      uploadFiles,
+      toast,
+      onSubmit,
+    ]
   )
 
-  // Update the Proceed button text based on the current tab
+  // Memoize tab change handler
+  const handleTabChange = useCallback((tab: "details" | "services") => {
+    if (tab === "services" && !detailsTabComplete) {
+      setShowValidation(true)
+      toast({
+        title: "Complete Vehicle Details",
+        description: "Please fill in all vehicle details before proceeding to services.",
+        variant: "destructive",
+      })
+      return
+    }
+    setActiveTab(tab)
+  }, [detailsTabComplete, toast])
+
+  // Memoize service category toggle
+  const handleCategoryToggle = useCallback((categoryId: string) => {
+    setExpandedCategory((prev) => (prev === categoryId ? null : categoryId))
+  }, [])
+
+  // Memoize service selection handler
+  const handleServiceSelection = useCallback((service: string, checked: boolean) => {
+    const currentServices = form.getValues("services") || []
+    const updatedServices = checked
+      ? [...currentServices, service]
+      : currentServices.filter((s) => s !== service)
+    form.setValue("services", updatedServices, { shouldValidate: true })
+  }, [form])
+
+  // Memoize the service category rendering
+  const renderServiceCategory = useCallback(
+    (category: (typeof serviceCategories)[0]) => (
+      <div key={category.id} className="border rounded-md overflow-hidden mb-3">
+        <div
+          className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
+          onClick={() => handleCategoryToggle(category.id)}
+        >
+          <div className="flex items-center">
+            <span className="font-medium text-blue-800">{category.label}</span>
+            {getSelectedServiceCount(category.id) > 0 && (
+              <span className="ml-2 bg-blue-800 text-white text-xs px-2 py-1 rounded-full">
+                {getSelectedServiceCount(category.id)}
+              </span>
+            )}
+          </div>
+          <span
+            className="transition-transform duration-200"
+            style={{
+              transform: expandedCategory === category.id ? "rotate(90deg)" : "rotate(0deg)",
+            }}
+          >
+            ❯
+          </span>
+        </div>
+
+        {expandedCategory === category.id && (
+          <div className="p-3 bg-white border-t">
+            <div className="space-y-2">
+              {category.services.map((service) => (
+                <FormField
+                  key={service}
+                  control={form.control}
+                  name="services"
+                  render={({ field }) => (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={service}
+                        checked={(field.value || []).includes(service)}
+                        onCheckedChange={(checked) => handleServiceSelection(service, !!checked)}
+                      />
+                      <label htmlFor={service} className="text-sm cursor-pointer">
+                        {service}
+                      </label>
+                    </div>
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    ),
+    [expandedCategory, getSelectedServiceCount, handleCategoryToggle, handleServiceSelection, form]
+  )
+
+  // Update the Proceed button text based on completion status
   const getProceedButtonText = useCallback(() => {
     if (activeTab === "details") {
-      return detailsTabComplete ? "Next: Select Services" : "Please Complete Details"
+      if (!detailsTabComplete) return "Please Complete Details"
+      return servicesTabComplete ? "Proceed" : "Continue to Services"
+    }
+    if (activeTab === "services") {
+      if (!servicesTabComplete) return "Please Select Services"
+      return detailsTabComplete ? "Proceed" : "Continue to Details"
     }
     return "Proceed"
-  }, [activeTab, detailsTabComplete])
+  }, [activeTab, detailsTabComplete, servicesTabComplete])
 
   const handleBack = useCallback(() => {
     // Save current progress before going back
@@ -880,68 +1033,6 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     return value
   }, [])
 
-  // Render a service category - memoized component
-  const renderServiceCategory = useCallback(
-    (category: (typeof serviceCategories)[0]) => (
-      <div key={category.id} className="border rounded-md overflow-hidden mb-3">
-        <div
-          className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
-          onClick={() => toggleCategory(category.id)}
-        >
-          <div className="flex items-center">
-            <span className="font-medium text-blue-800">{category.label}</span>
-            {getSelectedServiceCount(category.id) > 0 && (
-              <span className="ml-2 bg-blue-800 text-white text-xs px-2 py-1 rounded-full">
-                {getSelectedServiceCount(category.id)}
-              </span>
-            )}
-          </div>
-          <span
-            className="transition-transform duration-200"
-            style={{
-              transform: expandedCategory === category.id ? "rotate(90deg)" : "rotate(0deg)",
-            }}
-          >
-            ❯
-          </span>
-        </div>
-
-        {expandedCategory === category.id && (
-          <div className="p-3 bg-white border-t">
-            <div className="space-y-2">
-              {category.services.map((service) => (
-                <FormField
-                  key={service}
-                  control={form.control}
-                  name="services"
-                  render={({ field }) => (
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id={service}
-                        checked={(field.value || []).includes(service)}
-                        onCheckedChange={(checked: any) => {
-                          const currentValue = field.value || []
-                          const updatedValue = checked
-                            ? [...currentValue, service]
-                            : currentValue.filter((value) => value !== service)
-                          field.onChange(updatedValue)
-                        }}
-                      />
-                      <label htmlFor={service} className="text-sm cursor-pointer">
-                        {service}
-                      </label>
-                    </div>
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    ),
-    [expandedCategory, getSelectedServiceCount, toggleCategory, form],
-  )
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -955,40 +1046,28 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   : showValidation
                     ? "bg-red-50 font-medium text-red-800"
                     : "bg-blue-50 font-medium text-blue-800"
-                : "bg-white hover:bg-gray-50"
+                : detailsTabComplete
+                  ? "bg-green-50 font-medium text-green-800"
+                  : "bg-white hover:bg-gray-50"
             }`}
-            onClick={() => setActiveTab("details")}
+            onClick={() => handleTabChange("details")}
           >
             <span className="flex items-center justify-center gap-2">
-              Vehicle Details 
-              {showValidation && (
-                detailsTabComplete ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-red-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )
+              Vehicle Details
+              {detailsTabComplete && (
+                <svg
+                  className="w-5 h-5 text-green-600 animate-[fadeIn_0.5s_ease-in-out]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
               )}
             </span>
           </div>
@@ -1000,40 +1079,28 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
                   : showValidation
                     ? "bg-red-50 font-medium text-red-800"
                     : "bg-blue-50 font-medium text-blue-800"
-                : "bg-white hover:bg-gray-50"
+                : servicesTabComplete
+                  ? "bg-green-50 font-medium text-green-800"
+                  : "bg-white hover:bg-gray-50"
             }`}
-            onClick={() => setActiveTab("services")}
+            onClick={() => handleTabChange("services")}
           >
             <span className="flex items-center justify-center gap-2">
               Services
-              {showValidation && (
-                servicesTabComplete ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-green-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-red-600 animate-[bounce_0.5s_ease-in-out]"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )
+              {servicesTabComplete && (
+                <svg
+                  className="w-5 h-5 text-green-600 animate-[fadeIn_0.5s_ease-in-out]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
               )}
             </span>
           </div>
@@ -1500,49 +1567,5 @@ export function CarDetailsForm({ initialData = {}, onSubmit, onBack }: CarDetail
     </Form>
   )
 }
-
-// Define the form schema outside the component
-const formSchema = z.object({
-  carBrand: z.string().min(1, "Car brand is required"),
-  carModel: z.string().min(1, "Car model is required"),
-  yearModel: z.string().min(1, "Year model is required"),
-  plateNumber: z
-    .string()
-    .min(1, "Plate number is required")
-    .max(8, "Plate number must not exceed 8 characters")
-    .refine(
-      (value) => {
-        const cleanValue = value.replace(/\s/g, "").toUpperCase()
-        const patterns = [/^[A-Z]{3}\d{3,4}$/, /^[A-Z]{2}\d{4,5}$/, /^[A-Z]{1}\d{4,5}$/, /^[A-Z]{3}\d{3}[A-Z]{1}$/]
-        return patterns.some((pattern) => pattern.test(cleanValue))
-      },
-      {
-        message: "Valid formats: ABC123, AB1234, A1234, or ABC123A"
-      },
-    )
-    .refine(
-      (value) => {
-        const cleanValue = value.replace(/\s/g, "").toUpperCase()
-        if (!/^[A-Z0-9]+$/.test(cleanValue)) {
-          return false
-        }
-        if (cleanValue.length < 4) {
-          return false
-        }
-        return true
-      },
-      {
-        message: "Use only letters and numbers (min. 4 characters)"
-      },
-    ),
-  transmission: z.string().min(1, "Transmission is required"),
-  fuelType: z.string().min(1, "Fuel type is required"),
-  odometer: z.string().min(1, "Odometer reading is required"),
-  services: z.array(z.string()).refine((services) => services.length > 0, {
-    message: "At least one service must be selected",
-    path: ["services"],
-  }),
-  specificIssues: z.string().max(1000, "Description must not exceed 1000 characters"),
-})
 
 

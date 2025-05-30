@@ -21,6 +21,7 @@ interface Reservation {
   id: string
   date: string
   customerName: string
+  carBrand: string
   carModel: string
   status: "Completed" | "Repairing" | "Cancelled" | "Confirmed"
   services?: Service[]
@@ -147,6 +148,7 @@ export default function EmployeeDetailsPage() {
                 id: bookingData.id || doc.id,
                 customerName:
                   bookingData.customerName || `${bookingData.firstName || ""} ${bookingData.lastName || ""}`.trim(),
+                carBrand: bookingData.carBrand || "N/A",
                 carModel: bookingData.carModel || "N/A",
                 date: bookingData.reservationDate || new Date().toISOString(),
                 status: bookingData.status || "CONFIRMED",
@@ -542,9 +544,9 @@ export default function EmployeeDetailsPage() {
                           </td>
                           <td
                             className="px-3 py-2 text-sm text-[#1A365D] text-center truncate"
-                            title={reservation.carModel}
+                            title={`${reservation.carBrand} ${reservation.carModel}`}
                           >
-                            {reservation.carModel}
+                            {`${reservation.carBrand} ${reservation.carModel}`}
                           </td>
                           <td className="px-6 py-4 text-center">
   <span
