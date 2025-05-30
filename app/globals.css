@@ -95,12 +95,11 @@
   }
 
   * {
-    border-color: hsl(var(--border));
+    @apply border-[hsl(var(--border))];
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    @apply bg-background text-foreground;
     font-family: "Poppins", Arial, Helvetica, sans-serif;
   }
 
